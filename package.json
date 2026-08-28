@@ -1,0 +1,30 @@
+{
+  "name": "qiudazi-online-h5",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "restore": "node scripts/restore-source.mjs",
+    "dev": "node scripts/restore-source.mjs && vite --host 0.0.0.0",
+    "build": "node scripts/restore-source.mjs && tsc --noEmit && vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.112.4",
+    "lucide-react": "0.468.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-router-dom": "7.18.3",
+    "zod": "4.1.12"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@vitejs/plugin-react": "6.1.1",
+    "typescript": "5.9.3",
+    "vite": "8.2.2"
+  }
+}
