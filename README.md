@@ -11,8 +11,9 @@
 3. `docs/INTERACTION_BASELINE.md` — 页面职责、交互与避免重复设计规则
 4. `docs/VISUAL_DESIGN_BASELINE.md` — 长期视觉设计基线
 5. `docs/P0_ACCEPTANCE.md` — 当前 H5 MVP 验收基线
-6. `CHANGELOG.md` — 大版本、架构与部署节点历史
-7. 当前已验证源码、共享组件与 `src/styles.css`
+6. `docs/AUDIT_AUTOMATION_GOVERNANCE.md` — 审计、待整改 backlog、并发写入、整改与独立验证的长期治理规则
+7. `CHANGELOG.md` — 大版本、架构与部署节点历史
+8. 当前已验证源码、共享组件与 `src/styles.css`
 
 若早期 PRD、页面规格、视觉 Demo、旧 bundle 文档与上述当前基线冲突，以当前基线和用户最近明确决定为准。
 
@@ -45,6 +46,7 @@
 - Storage public/private、对象读取/删除权限与产品隐私规则必须进入 migration/clean replay/Release Gate 对照，不能只依赖页面是否显示入口。
 - 用户可见错误必须产品化。
 - 大版本部署前做一次综合审计；每小时 routine 只判断是否出现新的尚未审计大改。
+- 自动化治理规则不得只存在于任务 Prompt；长期规则以 `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 为准。
 
 ## Vercel quota conservation policy
 
@@ -60,61 +62,65 @@ Vercel Preview 属于稀缺测试资源，不作为日常每次代码/文档修�
 
 ## Scheduled audit and remediation roles
 
-当前自动化体系固定为 5 个定时任务。它们共享 canonical 文档和 GitHub Issue #21《球搭子审计问题追踪台账》作为协作与去重基础，但职责必须分离，避免同一问题被重复发现、重复修复或自行验收。
+当前自动化体系固定为 5 个定时任务。详细治理规则以 `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 为准。这里保留角色摘要。
+
+### 正式待整改 backlog 与并发模型
+
+- Supabase `audit_ops.issue_registry` 是正式待整改问题清单和唯一事实源；AUD 的存在、编号、优先级和状态以该 backlog 为准。
+- 新问题必须通过 `audit_ops.create_issue(...)` 在一个数据库事务中完成语义去重、原子编号和正式记录创建；任何任务不得自行计算或预留 AUD 编号。
+- GitHub Issue #21 正文只是 backlog 的人类可读镜像，不是新问题创建入口，也不得反向覆盖 Supabase 状态。
+- Issue #21 评论只用于已经存在 AUD 的整改/验证工作详情，例如认领、修复范围、commit/migration、补充证据、FAILED/BLOCKED 和独立验证结论；评论不得代替正式新问题创建。
+- 「球搭子问题整改」是唯一自动 writer；其他巡检、测试、Gate、安全任务不得修改 Issue 正文、产品代码、canonical 文档或 CHANGELOG。
+- GitHub 文件更新必须采用 optimistic concurrency：写前重新获取完整文件和最新 blob SHA；若 stale/conflict，必须重新读取并重新合并，禁止用旧内容强制覆盖。
 
 ### 球搭子代码变更巡检（白盒）
 
 - 角色：白盒代码 Bug 巡检者。
-- 目标：在候选分支、PR、migration、RPC/schema 等发生实质变化后，从实现层发现 CI/build 不一定能捕获的逻辑回归。
-- 重点：业务状态判断、赛事生命周期、空值/边界、异步与并发、前后端字段/类型/RPC 不一致、缓存失效、i18n 参与业务逻辑、权限调用、隐私泄露、旧字段/死代码、深链、migration/function 依赖，以及 UI 实现层可静态识别的风险。
-- 边界：只发现、取证并登记/更新 Issue #21；不直接修改产品代码、数据库或 migration。
-- 可独立验证其他修复者留下且适合静态证据验证的 `FIXED_PENDING_VERIFY` 项。
+- 目标：从候选分支、PR、migration、RPC/schema 和调用链发现 CI/build 不一定能捕获的逻辑回归。
+- 新问题：语义去重后直接通过 `audit_ops.create_issue(...)` 创建正式 backlog 记录。
+- 边界：只发现、取证和独立验证；不得修产品代码/数据库，不得修改 Issue 正文。对已有 AUD 的验证或补证据可追加 Issue 评论。
 
 ### 球搭子全功能测试（黑盒 + Visual QA / UX QA）
 
 - 角色：真实用户视角的黑盒功能、视觉和体验验收者。
-- 目标：沿完整用户旅程验证所有现有功能真实可用，同时检查实际渲染后的移动端页面，而不是以源码或绿色 CI 替代用户测试。
-- 功能范围：身份/首次进入、个人档案、赛事大厅/筛选、创建编辑删除、单双打报名、真实/临时球搭子、邀请、候补退出、报名截止/名单锁定、编排、开赛、记分/撤销/更正、排名晋级、完赛、我的赛事/战绩、照片上传/水印预览/高清授权/删除、分享/深链、隐私、语言及最新版 PRD 新增功能。
-- Visual QA：检查错位、重叠、溢出/截断、异常空白、导航遮挡、Safe Area、滚动、Sheet/弹窗、图片比例、层级覆盖，并对照 `docs/VISUAL_DESIGN_BASELINE.md` 检查设计一致性。
-- 移动端与 i18n：在可用条件下优先覆盖 375px、390px、430px 或最接近 viewport，并检查中文/English、长文本、长赛事名/用户名、空/加载/错误/禁用/截止/锁定/进行中/已结束等状态。
-- UX QA：检查主要操作是否容易发现、主次关系、危险操作、信息层级、误触、死路、返回路径和任务可理解性。
-- 分级：违反既定视觉/交互基线或影响阅读、操作、任务完成的是正式 AUD Bug；仅属于“可能更漂亮/更偏好的设计方案”的内容只能登记 `NEEDS_DECISION / UX建议`，不得自动改变产品审美方向。
-- 边界：只测试、取证并登记/更新 Issue #21，不自行修复；可独立验证其他修复者的 `FIXED_PENDING_VERIFY`，成功后标记 `VERIFIED`，失败则记录 `FAILED` 并退回处理流程。
+- 目标：沿完整用户旅程验证所有现有功能真实可用，同时检查实际移动端渲染，不以源码或绿色 CI 替代用户测试。
+- Visual/English QA：优先覆盖 375px、390px、430px 或最接近 viewport，并检查中文/English、长文本、长赛事名/用户名及完整页面状态。
+- 新问题：语义去重后直接通过 `audit_ops.create_issue(...)` 创建正式 backlog 记录。
+- 边界：不自行修复、不修改 Issue 正文；已有 AUD 的复现和验证详情记录为 Issue 评论。
 
 ### 球搭子周安全审计
 
 - 角色：独立安全审计者。
-- 目标：周期性检查代码、身份/会话、邀请、RLS、SECURITY DEFINER/RPC execute 权限、越权、私有赛事/Connection/临时球搭子数据边界、数据库约束与并发、Storage、照片短时授权与删除、HTTPS/TLS、静态数据保护、依赖/供应链、敏感日志与错误信息及新增攻击面。
-- 边界：负责发现、定级、证据和 Issue #21 登记，不直接修产品代码、数据库、migration 或权限模型；安全整改统一交给「球搭子问题整改」。
-- 可独立验证其他任务修复后的安全类 `FIXED_PENDING_VERIFY` 项。
+- 目标：检查身份/会话、邀请、RLS、SECURITY DEFINER/RPC、越权、私有数据边界、数据库并发、Storage、短时授权、依赖供应链和新增攻击面。
+- 新问题：语义去重后直接通过 `audit_ops.create_issue(...)` 创建正式 backlog 记录。
+- 边界：不直接整改、不修改 Issue 正文；已有 AUD 的安全证据和独立验证记录为 Issue 评论。
 
 ### 球搭子问题整改
 
-- 角色：自动化体系中唯一的定时自动修复者。
-- 目标：处理 Issue #21 中规则明确、范围可控、能够依据 canonical 文档安全修复的问题。
-- 互斥：修改前必须重新读取 Issue #21；仅认领 `OPEN` 且无人处理的问题。认领后先写入 `IN_PROGRESS`、owner、时间、branch/PR 和范围，再开始写代码。
-- 优先级：P0 → P1 → P2，发布阻塞优先；一次只处理一个或一组强相关问题。
-- 文档闭环：代码/数据库/UI/流程等发生实质变化时，同步真正受影响的 PRD、PRODUCT/INTERACTION/VISUAL baseline、P0 acceptance、CHANGELOG。
-- 状态：修复与基础验证成功只能进入 `FIXED_PENDING_VERIFY`，不得自行标记 `VERIFIED`；失败必须明确记录 `FAILED`，需要产品决定则记录 `BLOCKED/NEEDS_DECISION`。
+- 角色：自动化体系中唯一的定时自动修复者和自动 writer。
+- 目标：只从 Supabase backlog 中按 P0 → P1 → P2 认领规则明确、范围可控的问题；发布阻塞优先。
+- 认领：先在 backlog 更新 `IN_PROGRESS`、owner、branch/PR/head 和范围，再记录对应工作日志。
+- 写入：产品代码、migration、Issue 正文镜像和 canonical/CHANGELOG 的自动修改均由该 writer 负责，并严格执行最新 blob SHA + 重新读取/合并规则。
+- 状态：修复成功只能进入 `FIXED_PENDING_VERIFY`；不得自行 `VERIFIED`。独立验证后再依据证据更新 backlog，并刷新 Issue #21 镜像。
 - 禁止：不得自动合并 `main`，不得主动触发 Vercel，不得自行发明产品规则或执行未经确认的破坏性数据库操作。
 
 ### 球搭子部署前审计
 
 - 角色：独立 Release Gate。
-- 目标：判断当前真正准备部署到中国区 CloudBase 的候选版本是否工程完整、可复现且满足发布条件。
-- 重点：候选 PR/head、migration 唯一性/顺序/clean replay、repository 与 live Supabase schema/RPC/RLS/Storage 权限一致性、服务端关键状态机和权限、CI/build、功能/视觉/代码巡检回归证据、文档一致性，以及所有发布相关 P0/P1 是否已经独立 `VERIFIED`。
-- 边界：只审计和判定 Gate，不替自己发现的问题修代码/数据库/migration。
-- 只有候选 SHA、数据库事实、CI/回归证据、Issue #21 和 canonical 文档全部一致且阻塞项清零，才能认为满足部署条件。
+- 目标：判断真正准备部署到中国区 CloudBase 的候选版本是否工程完整、可复现且满足发布条件。
+- 重点：候选 SHA、migration clean replay、repository↔live Supabase schema/RPC/RLS/Storage、CI、黑盒/Visual/English 证据和所有发布相关 P0/P1 的独立验证状态。
+- 新问题：语义去重后直接通过 `audit_ops.create_issue(...)` 创建正式 backlog 记录。
+- 边界：只审计和判定 Gate，不修代码/数据库，不修改 Issue 正文。
 
 ### 自动化协作闭环
 
-推荐理解为：`代码变更巡检（白盒）` 发现实现缺陷 + `全功能测试（黑盒 + Visual/UX）` 发现真实用户/页面缺陷 + `周安全审计` 发现安全缺陷 → 统一进入 Issue #21 去重和锁定 → `问题整改` 认领并修复 → 独立检查者回归验证 → `部署前审计` 执行最终 Release Gate。
+推荐理解为：`代码变更巡检（白盒）` + `全功能测试（黑盒 + Visual/UX）` + `周安全审计` + `部署前审计（Gate）` 发现问题 → `audit_ops.create_issue(...)` 原子创建正式 backlog → `问题整改` 唯一 writer 认领并修复 → 独立检查者对已有 AUD 回归验证并记录工作日志 → writer 更新 backlog 状态并刷新 Issue #21 镜像 → Release Gate 判定是否可部署。
 
-所有任务运行开始和结束都应以最新 canonical 文档与 Issue #21 为准。任何并发写台账前必须重新读取 Issue #21，避免基于旧 body 的整文件覆盖造成其他任务状态丢失。任何任务均不得因 CI/build 绿色而自动推定功能、视觉、安全或发布条件已经通过。
+所有任务运行开始都必须读取最新 canonical 文档、`docs/AUDIT_AUTOMATION_GOVERNANCE.md` 和 Supabase backlog。CI/build 绿色不得自动推定功能、视觉、安全或发布条件已经通过。
 
 ## Release / change traceability
 
-任何影响产品核心流程、信息架构、数据模型、权限、身份、分享深链或部署策略的较大变更，都必须更新 `CHANGELOG.md`。中国区手动部署前必须确认 PRD/基线/P0/CHANGELOG 与实现一致，并回填实际部署 head 和真机结果。
+任何影响产品核心流程、信息架构、数据模型、权限、身份、分享深链、审计治理或部署策略的较大变更，都必须更新 `CHANGELOG.md`。中国区手动部署前必须确认 PRD/基线/P0/治理基线/CHANGELOG 与实现一致，并回填实际部署 head 和真机结果。
 
 ## Build
 
