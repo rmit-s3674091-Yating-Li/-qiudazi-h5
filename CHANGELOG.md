@@ -2,8 +2,6 @@
 
 本文件记录会影响产品行为、数据模型、页面职责、技术架构或部署测试结论的“大版本变化”。
 
-> 2026-08-29 V6 release traceability 补充：当前 feature branch `feature/20260829-event-lifecycle-privacy-i18n` / PR #20 已将本轮确认的长期规则同步到 PRD V6、PRODUCT_BASELINE、INTERACTION_BASELINE 与 P0_ACCEPTANCE。同步内容包括：参赛建议级别区间作为唯一用户侧概念；比赛日期/开赛时间/最晚报名时间及服务端截止边界；截止提示与私有预览时间脱敏；设置与隐私；核心流程中英文验收及禁止展示文案参与业务逻辑；赛事详情以服务端 `viewer_role` 为权威角色依据；“我参与的”按有效 Entry 中实际 Player 参与事实判断，包含双打双方真实搭档。该文档同步只建立产品/验收依据，不代表对应代码缺陷已修复或通过独立验证。AUD-006/AUD-008 仍须分别完成代码整改与验证，AUD-001 仍须 clean replay 证明。
-
 ## 记录规则
 
 以下变化应记录：
@@ -22,6 +20,330 @@
 
 ---
 
-## 历史记录
+## 2026-08-29 — Private event discovery / participant invitation revision
 
-> 本次仅补充 V6 release traceability 头部说明；既有 2026-08-29 及更早历史记录保持在此前提交中。完整历史可通过 Git 版本记录追溯。
+**状态**：已更新 `main` 与当前 Supabase 测试数据库；属于下一次中国区 CloudBase 部署前收口批次。
+
+### 产品决策修订
+
+- 私有赛事不再从赛事大厅完全消失，而是以“可发现、不可直接解锁”的脱敏赛事卡出现。
+- 稳定原则改为：**大厅可发现 ≠ 获得完整详情权限 ≠ 获得报名资格。**
+- 私有赛事大厅卡仅保留赛事名称、城市、水平、单/双打、赛制和状态；不展示组织者、参赛人、具体日期时间、具体场地、报名/候补人数和费用。
+- 公开/私有赛事卡必须在整张卡片视觉语言上有区别。私有卡使用锁图标、低饱和暖灰/中性色和隐私说明，但不做成 disabled / error 状态。
+- 未获权限用户点击私有赛事进入专门的受限预览页；预览页仍只读取脱敏字段。组织者、明确被邀请人和已报名参与者才可进入原完整赛事详情。
+- 私有赛事预览可以分享，但分享预览 URL 本身不授予完整详情或报名权限。
+
+### 邀请权限修订
+
+- 修正上一轮“普通赛事邀请仅组织者可发”的过严规则。
+- **公开赛事**：组织者可以邀请；已经实际报名的普通参与者也可以邀请自己的 Connection 参赛。未报名普通浏览者只能分享赛事链接，不能发正式参赛邀请。
+- “我的赛事 → 我参与的”中，报名中的公开赛事增加“喊球搭子一起来”入口；邀请不会让邀请人获得赛事管理权限。
+- **私有赛事**：普通赛事邀请仍由组织者控制；普通参与者不能把私有赛事参赛资格无限扩散。
+- **私有双打**：已有合法访问/参赛资格的用户仍可以邀请自己的球搭子组队，搭档获得完成组队所需的访问资格，但不获得赛事管理权限。
+- 单打普通邀请仅表示一起参加同一赛事，不保证双方一定对阵；双打组队邀请仍是独立语义和独立记录。
+
+### 后端与隐私实现
+
+- `list_events(false, ...)` 现在同时返回公开赛事和私有赛事脱敏预览；私有记录在数据库返回层即将 `owner_user_id / owner_nickname / owner_avatar_url / event_date / event_time / venue / confirmed_count / waitlist_count / fee` 等敏感详情裁剪为 `null`。
+- 新增 `get_private_event_preview`，仅返回私有赛事发现所需最小字段，并返回当前用户是否已经具备完整详情访问资格的布尔提示；不返回具体时间、场地、组织者或名单。
+- 完整 `get_event_snapshot` 权限保持严格：未获权限用户即使知道完整赛事 ID / URL 仍不能读取私有赛事完整详情。
+- `invite_connection_to_event` 权限更新：公开赛事允许 owner 或已真实报名 participant 调用；私有赛事普通邀请只允许 owner。
+- 用户可见权限错误新增产品化文案，不直接暴露 `NOT_EVENT_OWNER / JOIN_EVENT_BEFORE_INVITING / NOT_CONNECTION` 等内部错误码。
+
+### 验证
+
+- 在当前测试数据库直接调用大厅列表：私有赛事返回城市/赛事基础分类，但组织者 ID/昵称、具体日期时间、venue、confirmed_count 和 fee 均为 `null`；公开 `test` 赛事继续返回完整公开信息。
+- 未登录/无赛事权限上下文调用私有赛事预览，只返回赛事名、北京、单/双打、赛制、状态等最小字段，`can_view_full=false`。
+- 完整详情仍由原 `get_event_snapshot` 权限边界保护，没有因为大厅可发现而放宽。
+
+### 文档与 migration
+
+- `PRODUCT_BASELINE.md`：加入私有赛事可发现/详情受限原则，并正式记录公开赛事参与者邀请语义。
+- `VISUAL_DESIGN_BASELINE.md`：加入公开/私有赛事整卡视觉区分规则。
+- `P0_ACCEPTANCE.md`：加入私有赛事数据裁剪、预览 URL、参与者邀请和公开/私有视觉验收项。
+- 新增 migration：`20260829170000_private_event_preview_and_participant_invites.sql`。
+
+### 关键 commit / 节点
+
+- `9e56a83` — 私有赛事大厅卡路由到受限预览
+- `2736445` — 新增私有赛事受限预览页
+- `67cfd51` — 注册私有预览路由
+- `d9ae927` — 私有赛事卡 / 预览页视觉差异
+- `5fe08be` — 最终私有预览与公开参与者邀请 migration
+- `f5457b8` — 新增公开赛事参与者邀请球搭子页面
+- `bcb837f` — “我参与的”公开赛事增加“喊球搭子一起来”入口
+- `a0769c0` — 清理旧 link-only 详情逻辑并统一水平人话标签
+- `d125c79` — P0 验收基线同步
+
+---
+
+## 2026-08-29 — Pre-deploy mobile / privacy / invitation hardening
+
+**状态**：已更新 `main` 与当前 Supabase 测试数据库，等待下一次中国区 CloudBase 手动部署与真机回归。
+
+### 移动端交互
+
+- 修复赛事邀请卡在窄屏下主/次按钮过度贴合的问题：接受为 Primary、暂不参加为 Secondary、“查看赛事”降为低强调详情入口；390px 及更窄视口自动纵向排列。
+- `INTERACTION_BASELINE.md` 正式加入移动端动作区防碰撞规则：按钮/圆角/触控区不得重叠；三个及以上动作不得形成同权重大按钮矩阵；部署前必须检查窄屏文字挤压与动作层级。
+- 对阵和排名无数据时不再只有一行提示，增加真实结构骨架，但不伪造球员、比分和名次。
+- 合影 P0 明确采用系统照片选择/上传，不因进入页面主动申请摄像头权限；赛事结束后组织者可上传/替换主合影。
+
+### 赛事身份与水平分级
+
+- 测试身份缓存升级并禁止在服务端 canonical Profile 尚未恢复前放行身份敏感页面，降低旧 Profile 缓存导致“创建者被当普通用户”的风险。
+- 赛事快照增加服务端 `viewer_role`（owner / invited / participant / viewer）作为权威身份依据。
+- 大众业余水平六档统一为：2.0及以下 / 2.5 / 3.0 / 3.5 / 4.0 / 4.5及以上；数据库内部值使用 `≤2.0` / `≥4.5`，UI 统一转换成人话标签。
+- 我的页面在 self Player 异常未恢复时显示“待恢复”，不再误导为“需要重新创建打球档案”。
+
+### 临时球搭子隐私与转化
+
+- 修复此前实现与产品基线不一致的问题：临时球搭子详情不再向创建者展示精确已赛、胜场、胜率、近期赛事、对手等完整战绩。
+- 后端 `get_managed_player_profile` 同步做数据最小化，只下发基础管理资料 + `has_history`；底层 Player / Entry / Match 历史完整保留。
+- 前台仅显示“已经积累比赛记录 / 加入后关联并解锁完整档案”的提示；创建者仍可编辑基础资料、代报名并邀请 TA 加入。
+- 已验证：管理者可读取基础资料与 `has_history`；其他用户读取同一临时 Player 返回 `null`。
+
+### 赛事邀请信息与权限
+
+- 赛事邀请卡补齐日期、城市 + 场地、级别、单/双打或双打组队类型；待回应邀请优先显示。
+- 普通赛事邀请与双打搭档邀请在数据库中不再共用同一条 `(event_id, invitee)` 唯一记录，避免一种邀请覆盖另一种邀请。
+- 普通赛事邀请现在由 `(event_id, invitee_user_id)` 的 event-kind 唯一索引约束；双打搭档邀请按 `(event_id, inviter_user_id, invitee_user_id)` 独立约束。
+- 当时版本将 `invite_connection_to_event` 收紧为仅赛事组织者可调用；该决定随后根据真实约球场景修订，当前规则见上方 “Private event discovery / participant invitation revision”。
+- `invite_doubles_partner` 对私有赛事增加服务端访问校验：只有组织者、明确被邀请者或已参赛用户可以继续邀请搭档；仅知道赛事 ID 不可绕过私有赛事边界。
+- 已通过事务验证：同一赛事/同一两名用户可以同时存在一条普通赛事邀请和一条双打搭档邀请，二者不互相覆盖。
+
+### 文档与验收
+
+- `PRODUCT_BASELINE.md` 更新当前六档水平体系、赛事邀请决策信息和动作层级。
+- `P0_ACCEPTANCE.md` 增加临时球搭子 RPC 数据最小化、赛事邀请信息完整度、移动端动作碰撞、照片上传和身份缓存权限检查。
+- 新增 migration：`20260829158000_minimize_temp_profile_and_enrich_event_invites.sql`。
+- 新增 migration：`20260829159000_separate_event_and_partner_invites_and_harden_permissions.sql`。
+
+### 关键 commit / 节点
+
+- `f2dc0a4` — 固化移动端动作区防碰撞设计原则
+- `a8bf061` — 临时球搭子数据最小化 + 赛事邀请信息增强 migration
+- `c494c5a` — 临时球搭子前台隐藏精确战绩
+- `8d63712` — 赛事卡统一业余水平人话标签
+- `71dff7f` — 赛事邀请卡补城市/场地/级别与友好水平标签
+- `8a65636` — 分离赛事邀请/双打邀请唯一性并强化后端邀请权限
+
+---
+
+## 2026-08-29 — Test session alias recovery hotfix
+
+**分支**：`fix/test-session-alias-recovery`  
+**背景**：合并重复测试 Profile 后，历史浏览器仍可能持有旧 guest auth session。由于旧实现只允许一个 `profiles.auth_user_id` 指向 canonical Profile，这些仍有效的旧 session 无法再解析到 G/老郑的 canonical Profile，表现为“我的打球档案空白”“球搭子列表空白”“查看我创建的赛事时被要求先完成打球档案”。
+
+### 根因
+
+- Profile 数据本身没有消失：数据库仍存在 G 的 self Player、G→老郑 Connection 和 G 创建的 `test` 赛事。
+- 问题在 auth session → Profile 解析层。此前把 canonical Profile 只绑定到一个较新的 auth UUID，会使其他历史设备/session 失去身份映射。
+- `IdentityGate` 又把“用户身份未恢复”错误描述成“准备你的打球档案”，让用户误以为赛事访问依赖填写水平/城市等打球偏好。
+
+### 修复
+
+- 新增 `private.profile_auth_aliases`，允许多个测试期 auth session 稳定解析到同一个 canonical Profile，但不复制 Profile/Player/Connection 数据。
+- `current_profile_id()` 与 `ensure_profile()` 优先支持 alias 恢复。
+- `complete_profile()` 在测试昵称对应既有 canonical Profile 时新增 auth alias，而不再不断改写 canonical Profile 的唯一 auth 绑定；避免以后再次把旧设备踢出身份。
+- 对当前测试库中已知的历史 G / 老郑 session 做一次性 alias 回填。
+- IdentityGate 文案改为“正在恢复你的球搭子身份”，明确身份恢复与“我的打球档案”是两件事。
+- “我的打球档案”在 self Player 意外读取不到时不再显示空白页，而是给出明确恢复/重试状态。
+
+### 验证
+
+- 使用一个此前已被解绑的历史 G auth session 调 `current_profile_id()`，现在正确返回 canonical G Profile。
+- 同一历史 G session 可以读取 G 的 self Player。
+- 同一历史 G session 的“我创建的赛事”重新返回 `test`（北京）。
+- 同一历史 G session 的 `list_connections()` 重新返回老郑。
+- 因此查看“我创建的赛事”只依赖恢复用户身份，不依赖填写水平、常打城市、单双打偏好或约球时间等打球档案字段。
+
+### 仓库 migration
+
+- `20260829155000_support_test_auth_aliases.sql`
+
+---
+
+## 2026-08-29 — Event city required / public-private visibility
+
+**状态**：已直接更新 `main` 与当前 Supabase 测试数据库，等待中国区前端重新部署验证。
+
+### 产品变化
+
+- `city` 正式改为赛事必填字段；赛事卡直接显示城市，不再只把城市当可选辅助信息。
+- 当前测试数据库中原有缺失城市的历史赛事统一补为“北京”；其中 `test` 赛事现在明确为“北京”。
+- 创建赛事的可见范围统一为两种：`公开` / `私有`，旧“仅链接可见”模式退出当前产品规则。
+- 公开赛事：所有用户可在赛事大厅发现和查看。
+- 私有赛事：当时版本不进入公开赛事大厅；该决定后来修订为“大厅可发现但只展示脱敏预览”，当前规则见本文最上方最新记录。
+- 被邀请并有权查看私有赛事的用户仍可自行完成报名；完整详情权限由后端 `get_event_snapshot` 强制执行，不依赖前端隐藏。
+
+### 数据与兼容
+
+- 旧 `link_only` 赛事迁移为 `private`。
+- `events.city` 改为 NOT NULL。
+- `events.visibility` 约束改为 `public/private`。
+- 同步修正赛事等级数据库约束；后续六档体系最终收口为 2.0及以下 ～ 4.5及以上。
+- 仓库 migration：`20260829154000_require_event_city_and_private_visibility.sql`。
+
+### 验证
+
+- 当前 `test` 赛事数据库值：城市 `北京`、可见性 `public`。
+- 使用当前 G 身份读取 `test` 赛事，快照返回城市 `北京`。
+- 私有赛事完整详情在未获授权情况下仍由 `get_event_snapshot` 拒绝读取；大厅发现使用独立脱敏返回，不放宽该权限。
+
+### 关键 commit
+
+- `24b69b9` — 创建赛事表单增加必填城市与公开/私有说明
+- `0688744` / `fccc5e3` — 前端赛事规则校验与私有赛事报名兼容
+- `4b8d28f` — 数据库 migration 最终版
+- `0816dde` — 产品基线同步公开/私有与城市必填规则
+
+---
+
+## 2026-08-29 — Test identity / history consistency hotfix
+
+**分支**：`fix/test-identity-history-consistency`  
+**背景**：PR #14 合并 `main` 后，中国区实测发现“大厅显示 test 赛事由 G 创建，但 G → 我的赛事 → 我创建的中缺失”，同时 G 与老郑已经建立球搭子关系，但“球搭子邀请记录”中缺少该历史记录。
+
+### 根因
+
+- 测试期曾多次使用匿名 auth 会话创建同名 Profile，历史上形成多个同昵称测试 Profile。
+- `private.profile_nicknames` 已经指定 canonical Profile，但旧赛事、Connection、manual Player 等数据仍可能挂在其他同名 Profile 上，因此同一昵称在前台看起来像同一个人，数据库实际却是多个身份。
+- `connection_invites` 是后续才引入的持久邀请表；既有 Connection 可能早于该表存在，因此关系成立但没有对应邀请历史行。
+
+### 修复
+
+- 以 `private.profile_nicknames` 为 canonical 身份来源，合并测试期同昵称重复 Profile。
+- 将旧 Profile 下的 Event、Entry、Connection、Event Invite、Player Claim Invite、Connection Invite 与 manual Player 所有权迁移到 canonical Profile。
+- 将重复 self Player 的历史 `entry_players` 记录迁移到 canonical self Player，再删除重复 self Player。
+- canonical Profile 继续由 auth alias 机制支持历史测试 session 恢复。
+- 对早于 `connection_invites` 上线、但已经 accepted 的 Connection 补一条 accepted 邀请历史记录，从而让邀请记录页完整反映历史关系。
+
+### 验证
+
+- 当前数据库同名测试身份已收口为 canonical Profile。
+- 当前测试身份可查询到其创建赛事与已建立 Connection。
+- 既有 accepted Connection 已能在球搭子邀请记录中反映历史关系。
+- 本修复已直接应用到当前 Supabase 测试数据库；仓库 migration 为 `20260829153000_consolidate_test_identity_and_backfill_connection_history.sql`。
+
+---
+
+## 2026-08-29 — Partner lifecycle / H5 architecture consolidation
+
+**分支**：`feat/partner-lifecycle-and-claim`  
+**PR**：#14 `Unify partner lifecycle and claim invitations`  
+**状态**：已合并 `main`；merge commit `56c246a3a8dcb4d776646f73e7d849bb5617d8de`。合并后继续在中国区 CloudBase 做移动端回归测试。
+
+### 产品与信息架构
+
+- 明确 User/Profile、Player、Connection 三层模型分离：真实用户身份、比赛参赛身份、球搭子关系不再混为同一对象。
+- 确立“先比赛、先记录，人可以晚一点进入系统”的长期原则；临时 Player 可以先承载比赛历史，真实用户以后再关联。
+- “球搭子们”拆分为“我的球搭子 / 临时球搭子”，禁止使用“正式球搭子”作为用户可见术语。
+- 赛事大厅只负责发现、查看和进入赛事；创建和管理赛事统一放在“我的赛事 → 我创建的”。
+- “我的赛事 → 我参与的”只展示真正完成报名、存在有效 Entry 的赛事；接受赛事邀请本身不等于报名完成。
+- “我的战绩”与“我的赛事”职责分离；战绩只记录真正完成的比赛结果。
+- 卡片交互统一为“卡片代表实体，点击进入实体详情；编辑、邀请、删除、报名、管理等是明确动作”。
+
+### 球搭子邀请与历史关联
+
+- 普通球搭子邀请由永久 profile 链接升级为一条一条可追踪的 token 邀请记录。
+- 普通邀请维持低摩擦体验：打开邀请后可自动建立球搭子关系，不增加冗余确认步骤。
+- 临时球搭子可发起“邀请 TA 加入并关联历史记录”；对方确认后保留此前比赛历史并建立 Connection。
+- “球搭子邀请记录”统一展示两类邀请：普通球搭子邀请 + 临时球搭子历史关联邀请，但保持两类业务语义独立。
+- 用户可见文案不暴露 claim / merge / Player 合并等内部实现概念。
+
+### 临时球搭子档案策略
+
+- 后端持续保存临时 Player 的真实比赛历史、胜负、赛事与相关档案数据。
+- 前台不向创建者展开完整历史战绩，避免提前消耗真实用户自己的档案价值。
+- 临时球搭子前台以基础管理信息 + “已有比赛记录 / 加入后解锁完整档案”的方式呈现，用作自然用户转化机制。
+- 创建者仍可编辑基础资料、代报名和继续积累比赛记录。
+
+### 赛事发现与卡片
+
+- 赛事卡增加组织者头像 / 昵称标识。
+- `events` 增加独立 `city` 字段，不再从 `venue` 文本猜城市。
+- 赛事卡重点展示组织者、城市、级别、时间、场地、类型、赛制、报名人数和费用等快速决策信息。
+- 赛事等级体系与个人打球档案对齐；后续进一步收口为当前六档大众业余体系。
+- 修复赛事表单抢七触发值由 select 写成字符串、但规则按 number 校验的问题。
+
+### 缓存与请求策略
+
+- `useQuery` 改为内存缓存 + in-flight 去重 + stale-while-revalidate。
+- 同一业务数据统一 cache key，例如 Player 数据统一复用 `players`，赛事邀请摘要和详情共用 `my-event-invites`。
+- 新增按 key / prefix 的精准缓存失效；写操作后只清理受影响缓存。
+- 大厅、我的赛事、球搭子、档案、战绩、邀请记录等稳定页面取消固定 10/15 秒高频轮询。
+- 进行中赛事详情、比赛和计分等真正多人动态场景暂时保留较短刷新，未来可评估 Realtime。
+- Auth 启动可恢复匹配当前 auth user 的 Profile 本地缓存，再后台刷新，降低中国区前端跨境请求导致的首屏等待。
+
+### 错误、空状态与代码卫生
+
+- 用户可见错误文本产品化，减少 Supabase / JWT / SQL / timeout 等底层信息直接暴露。
+- 修正“我参与的”空状态，明确只有完成报名后赛事才出现；邀请在独立入口处理。
+- 大厅无赛事时不再提供跨职责的“创建赛事”主按钮，而是保持发现型空状态。
+- 删除已被新页面替代的 `Basics.tsx` 及其中旧 Players/Profile/PlayerForm/Me 等重复实现，降低后续误改死代码风险。
+- migration 文件时间戳整理为唯一顺序，减少新环境重放迁移时的版本冲突风险。
+
+### 文档与开发基线
+
+- 新增 `docs/PRODUCT_BASELINE.md`：当前产品 / 数据 / 流程真源。
+- 新增 `docs/INTERACTION_BASELINE.md`：页面职责、实体卡片、动作层级、空状态、轮询等交互规则。
+- 新增 `docs/P0_ACCEPTANCE.md`：当前 H5 MVP P0 验收基线。
+- 更新 `docs/VISUAL_DESIGN_BASELINE.md`，保持原视觉方向，同时补充已经验证的交互一致性约束。
+- 更新 README，明确 canonical source 阅读顺序与部署前审计规则。
+
+### 验证与部署
+
+- Supabase 中普通球搭子邀请创建 → 查询 → 接受 → Connection 已做事务验证。
+- 临时 Player 详情 RPC 已验证：本人管理对象可读取，其他用户返回 `null`，匿名角色无执行权限。
+- 赛事 `city` 字段已通过真实 `save_event` RPC 做事务验证。
+- 当前 Vercel check 仍受 Hobby build-rate-limit 影响，不能作为代码编译失败依据。
+- PR #14 已合并 `main`，之后继续以中国区 CloudBase 实际移动端测试结果作为回归依据。
+
+### 关键 commit / 节点
+
+- `c23e264` — Event card organizer identity
+- `4e0f47f` — Restore cached test profile before network refresh
+- `0503661` — Connected partner card/detail flow
+- `c019a07` — Align hall level filters with player levels
+- `6be5136` — Canonical product / interaction / acceptance documentation consolidation
+- `56c246a` — PR #14 merged into `main`
+
+---
+
+## 2026-08-29 — V6 lifecycle / privacy / i18n release traceability
+
+**分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
+**状态**：长期产品与验收基线已同步；对应代码缺陷仍按 Issue #21 独立整改/验证，当前候选版本尚不可部署。
+
+### 本轮长期规则同步
+
+- 用户侧只使用“参赛建议级别”区间，不再恢复旧单一“赛事级别”作为筛选/资格概念。
+- 比赛日期、开赛时间进入创建赛事 P0；最晚报名默认开赛前2小时，只能更早，修改时间导致越界时必须自动收紧并提示。
+- 报名截止是服务端权限边界；截止瞬间后所有普通名单变更路径、旧页面/深链和直接 RPC 均不得绕过。
+- 私有大厅脱敏卡不展示 registration deadline、比赛时间或可反推活动时间的信息。
+- “我的 → 设置与隐私”承载真实字段可见性、赛事邀请与双打邀请开关；隐私设置不改写赛事共同事实。
+- 简体中文 / English 正式验收要求核心流程全量覆盖；业务逻辑不得通过比较展示文案判断状态或权限。
+- 赛事详情的 owner / invited / participant / viewer 以服务端赛事快照 `viewer_role` 等权威事实判断，本地 Profile/cache 不能单独决定组织者管理入口。
+- “我的赛事 → 我参与的”按有效 Entry 内实际 Player 参与事实判断；双打两名已关联真实用户的搭档都应进入，邀请接受但未形成 Entry 不提前进入。
+
+### 文档同步
+
+- `docs/PRD_V6_EVENT_LIFECYCLE_PRIVACY_I18N.md`：补齐权威身份、“我参与的”双打参与事实、核心英文验收与展示文案禁入业务逻辑。
+- `docs/PRODUCT_BASELINE.md`：已同步 V6 长期产品规则。
+- `docs/INTERACTION_BASELINE.md`：同步 V6 截止时间、建议级别、身份、参与事实、隐私和 i18n 交互规则。
+- `docs/P0_ACCEPTANCE.md`：重构为完整 V6 P0 验收基线，加入边界/权限/双打/i18n/clean replay 等发布前检查。
+- `CHANGELOG.md`：保留全部历史记录并追加本节，建立 release traceability。
+
+### 关键文档 commit
+
+- `db4bd944` — PRODUCT_BASELINE V6 同步
+- `a06da645` — PRD V6 身份与参与语义补齐
+- `42eaf2bf` — INTERACTION_BASELINE V6 同步
+- `66f4209a` — P0_ACCEPTANCE V6 同步
+
+### 发布状态说明
+
+- 本节只表示产品/交互/验收文档已建立一致依据，不等于相关代码已经通过验证。
+- `AUD-20260829-006`（EventPage 权威 viewer_role）仍需修复 build failure 并独立验证。
+- `AUD-20260829-008`（双打实际搭档进入“我参与的”）仍需代码/migration 整改与独立验证。
+- `AUD-20260829-001` 仍需 clean replay / live schema 一致性证明。
