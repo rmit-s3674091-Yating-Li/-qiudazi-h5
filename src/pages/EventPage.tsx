@@ -5,39 +5,38 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import { Share2, RefreshCw, Plus } from "lucide-react";
+import { Share2, RefreshCw } from "lucide-react";
 import { useQuery } from "../hooks/useQuery";
 import { useAuth } from "../hooks/Auth";
 import {
   repository,
   rpc,
   explainError,
-  command,
 } from "../repositories/supabase";
-import type { Snapshot, Entry, Player } from "../domain/types";
 import {
   Header,
   ErrorNotice,
   Loading,
-  labels,
   feeText,
   entryName,
-  Avatar,
   Sheet,
   Confirm,
   unit,
   levelLabel,
+  labelFor,
 } from "../components/UI";
 import {
   DrawPanel,
   RankingPanel,
   PhotoPanel,
 } from "../components/TournamentPanels";
+import { useLanguage } from "../i18n";
 export function EventPage({ manage = false }: { manage?: boolean }) {
   const { id } = useParams(),
     auth = useAuth(),
     navigate = useNavigate(),
     [params, setParams] = useSearchParams();
+  const { language, t } = useLanguage();
   const q = useQuery("event-" + id, () => repository.event(id!), 10000);
   const myEntryQ = useQuery("my-event-entry-" + id, () => rpc<string | null>("get_my_event_entry_id", { p_event_id: id }), 10000);
   const [rosterStatus, setRosterStatus] = useState("confirmed");
@@ -101,15 +100,15 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
         }
       }
       await navigator.clipboard.writeText(url);
-      setNotice("赛事链接已复制，可以发送给朋友");
+      setNotice(t("shareCopied"));
     } catch {
-      setNotice("请复制此赛事链接：" + url);
+      setNotice(t("copyEventLink") + url);
     }
   }
   if (!q.data)
     return (
       <>
-        <Header title="赛事" />
+        <Header title={t("event")} />
         <main className="page">
           <ErrorNotice message={q.error} retry={q.refresh} />
           {q.loading && <Loading />}
@@ -124,12 +123,14 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
     own = s.entries.find(
       (x) => (x.id === myEntryQ.data || x.signup_user_id === auth.profile?.id) && x.status !== "withdrawn",
     );
+  void own;
+  void join;
   return (
     <>
       <Header
-        title={manage ? "赛事管理" : "赛事详情"}
+        title={manage ? t("eventManage") : t("eventDetail")}
         action={
-          <button className="icon-button" aria-label="分享赛事" onClick={share}>
+          <button className="icon-button" aria-label={t("shareEvent")} onClick={share}>
             <Share2 size={20} />
           </button>
         }
@@ -137,11 +138,11 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
       <main className="page has-action">
         <div className="event-hero">
           <div className="court-lines" />
-          <span className={"badge " + e.status}>{labels[e.status]}</span>
+          <span className={"badge " + e.status}>{labelFor(e.status, language)}</span>
           <h1>{e.name}</h1>
           <p>
-            {e.level && levelLabel(e.level) + "级 · "}
-            {labels[e.match_type]} · {labels[e.format]}
+            {e.level && levelLabel(e.level, language) + (language === "en" ? " · " : "级 · ")}
+            {labelFor(e.match_type, language)} · {labelFor(e.format, language)}
           </p>
         </div>
         <ErrorNotice message={error || q.error} retry={q.refresh} />
@@ -151,39 +152,39 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
           </div>
         )}
         <div className="stats">
-          <div><b>{active.length}</b><small>正式 / {e.entry_limit || "不限"} {unit(e)}</small></div>
-          <div><b>{waiting.length}</b><small>候补 / 2 {unit(e)}</small></div>
-          <div><b>{e.draw_generated ? "已生成" : "未生成"}</b><small>赛程 / 签表</small></div>
+          <div><b>{active.length}</b><small>{t("confirmed")} / {e.entry_limit || t("unlimited")} {unit(e, language)}</small></div>
+          <div><b>{waiting.length}</b><small>{t("waitlist")} / 2 {unit(e, language)}</small></div>
+          <div><b>{e.draw_generated ? t("generated") : t("notGenerated")}</b><small>{t("scheduleDraw")}</small></div>
         </div>
         <div className="tab-strip">
-          {[["info", "赛事"],["roster", "参赛"],["draw", "对阵"],["ranking", "排名"],["photo", "合影"]].map(([key, label]) => (
+          {[["info", t("eventTab")],["roster", t("rosterTab")],["draw", t("drawTab")],["ranking", t("rankingTab")],["photo", t("photoTab")]].map(([key, label]) => (
             <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
           ))}
-          <button aria-label="刷新" onClick={q.refresh}><RefreshCw size={16} /></button>
+          <button aria-label={t("refresh")} onClick={q.refresh}><RefreshCw size={16} /></button>
         </div>
         {tab === "info" && <>
           <div className="event-facts">
-            <div><small>比赛日期</small><strong>{e.event_date || "日期待定"} {e.event_time?.slice(0, 5)}</strong></div>
-            <div><small>球场</small><strong>{e.venue || "场地待定"}</strong></div>
-            <div><small>计分规则</small><strong>{e.best_of === 1 ? "一盘决胜" : e.best_of === 3 ? "三盘两胜" : "五盘三胜"} · {labels[e.scoring_type]}</strong></div>
-            <div><small>费用</small><strong>{feeText(e, active.length)}</strong></div>
+            <div><small>{t("matchDate")}</small><strong>{e.event_date || t("dateTbd")} {e.event_time?.slice(0, 5)}</strong></div>
+            <div><small>{t("venue")}</small><strong>{e.venue || t("venueTbd")}</strong></div>
+            <div><small>{t("scoringRules")}</small><strong>{e.best_of === 1 ? t("oneSet") : e.best_of === 3 ? t("bestOfThree") : t("bestOfFive")} · {labelFor(e.scoring_type, language)}</strong></div>
+            <div><small>{t("fee")}</small><strong>{feeText(e, active.length, language)}</strong></div>
           </div>
-          {e.tiebreak_trigger && <p className="muted small">{e.tiebreak_trigger}:{e.tiebreak_trigger} 后抢七 · 传统占先制</p>}
-          {e.format === "group_knockout" && <div className="notice">{e.group_count} 个小组 · 每组前 {e.qualifiers_per_group} 晋级淘汰赛</div>}
-          {owner && e.status === "signup" && <Link className="card row between" to={"/events/" + id + "/edit"}><div><strong>赛事设置</strong><p className="muted small">修改时间、场地、赛制和报名设置</p></div><span aria-hidden>›</span></Link>}
+          {e.tiebreak_trigger && <p className="muted small">{e.tiebreak_trigger}:{e.tiebreak_trigger} {t("afterTiebreak")} · {t("traditionalAdvantage")}</p>}
+          {e.format === "group_knockout" && <div className="notice">{e.group_count} {t("group")} · {t("topPerGroup")} {e.qualifiers_per_group} {t("advanceKnockout")}</div>}
+          {owner && e.status === "signup" && <Link className="card row between" to={"/events/" + id + "/edit"}><div><strong>{t("eventSettings")}</strong><p className="muted small">{t("eventSettingsHint")}</p></div><span aria-hidden>›</span></Link>}
         </>}
         {tab === "roster" && <>
           <div className="chips">
-            <button className={rosterStatus === "confirmed" ? "active" : ""} onClick={() => setRosterStatus("confirmed")}>正式名单 {active.length}</button>
-            <button className={rosterStatus === "waitlist" ? "active" : ""} onClick={() => setRosterStatus("waitlist")}>候补名单 {waiting.length}</button>
+            <button className={rosterStatus === "confirmed" ? "active" : ""} onClick={() => setRosterStatus("confirmed")}>{t("confirmedRoster")} {active.length}</button>
+            <button className={rosterStatus === "waitlist" ? "active" : ""} onClick={() => setRosterStatus("waitlist")}>{t("waitlistRoster")} {waiting.length}</button>
           </div>
-          <div className="section-heading"><h2>{rosterStatus === "confirmed" ? "正式名单" : "候补名单"} · {rosterStatus === "confirmed" ? active.length : waiting.length} {unit(e)}</h2></div>
+          <div className="section-heading"><h2>{rosterStatus === "confirmed" ? t("confirmedRoster") : t("waitlistRoster")} · {rosterStatus === "confirmed" ? active.length : waiting.length} {unit(e, language)}</h2></div>
           {(rosterStatus === "confirmed" ? active : waiting).map((entry) => <div className="card" key={entry.id}><strong>{entryName(entry)}</strong></div>)}
         </>}
         {tab === "draw" && <DrawPanel s={s} />}
         {tab === "ranking" && <RankingPanel s={s} />}
         {tab === "photo" && <PhotoPanel s={s} owner={owner} onDone={q.refresh} />}
-        {signup && <Sheet open title="报名" onClose={() => setSignup(null)}><p>请继续完成报名。</p></Sheet>}
+        {signup && <Sheet open title={t("registration")} onClose={() => setSignup(null)}><p>{t("continueRegistration")}</p></Sheet>}
         {confirm && <Confirm title={confirm.title} description={confirm.description} busy={busy} onCancel={() => setConfirm(null)} onConfirm={() => run(confirm.run)} />}
       </main>
     </>
