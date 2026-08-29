@@ -91,21 +91,26 @@ export function Hall({ mine = false }: { mine?: boolean }) {
           </div>
         )}
         {mine && (
-          <>
-            <EventInviteInboxLink />
-            <Link className="card row between" to="/events/new">
-              <div>
-                <strong>创建新赛事</strong>
-                <p className="muted small">随时再发起一场单打或双打比赛</p>
-              </div>
-              <Plus size={20} />
-            </Link>
-          </>
+          <div className="chips">
+            <button
+              className={scope === "created" ? "active" : ""}
+              onClick={() => { setScope("created"); setStatus(""); }}
+            >
+              我创建的
+            </button>
+            <button
+              className={scope === "joined" ? "active" : ""}
+              onClick={() => { setScope("joined"); setStatus(""); }}
+            >
+              我参与的
+            </button>
+          </div>
         )}
+        {mine && scope === "joined" && <EventInviteInboxLink />}
         <div className="section-heading">
-          <h2>{mine ? "我的赛场" : "最近的比赛"}</h2>
+          <h2>{mine ? (scope === "created" ? "我创建的赛事" : "我参与的赛事") : "最近的比赛"}</h2>
           <div className="row">
-            {mine && scope === "created" && (
+            {mine && scope === "created" && (!!q.data?.length || !!status) && (
               <Link className="text-button" to="/events/new">
                 <Plus size={16} />
                 创建赛事
@@ -120,22 +125,6 @@ export function Hall({ mine = false }: { mine?: boolean }) {
             </button>
           </div>
         </div>
-        {mine && (
-          <div className="chips">
-            <button
-              className={scope === "created" ? "active" : ""}
-              onClick={() => setScope("created")}
-            >
-              我创建的
-            </button>
-            <button
-              className={scope === "joined" ? "active" : ""}
-              onClick={() => setScope("joined")}
-            >
-              我参与的
-            </button>
-          </div>
-        )}
         <div className="chips">
           {(mine
             ? [
@@ -173,15 +162,32 @@ export function Hall({ mine = false }: { mine?: boolean }) {
           ))
         ) : (
           !q.error && (
-            <Empty title={mine ? "还没有创建赛事" : "最近还没有符合条件的比赛"}>
+            <Empty
+              title={
+                mine
+                  ? scope === "created"
+                    ? status ? "当前筛选下没有赛事" : "还没有创建赛事"
+                    : status ? "当前筛选下没有赛事" : "还没有参与赛事"
+                  : "最近还没有符合条件的比赛"
+              }
+            >
               <p>
                 {mine
-                  ? "召集搭子，开始一场自己的比赛。"
+                  ? scope === "created"
+                    ? status ? "换个赛事状态看看，或创建一场新的比赛。" : "召集搭子，开始一场自己的比赛。"
+                    : status ? "换个赛事状态看看。" : "报名或接受赛事邀请后，会出现在这里。"
                   : "调整筛选，或发起一场新的比赛。"}
               </p>
-              <Link className="button" to="/events/new">
-                创建赛事
-              </Link>
+              {mine && scope === "created" && !status && (
+                <Link className="button" to="/events/new">
+                  创建赛事
+                </Link>
+              )}
+              {!mine && (
+                <Link className="button" to="/events/new">
+                  创建赛事
+                </Link>
+              )}
             </Empty>
           )
         )}
