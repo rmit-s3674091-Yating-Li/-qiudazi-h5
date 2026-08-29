@@ -64,15 +64,7 @@ export function Hall({ mine = false }: { mine?: boolean }) {
         title={mine ? "我的赛事" : "球搭子"}
         back={false}
         action={
-          mine ? (
-            <Link
-              className="icon-button"
-              aria-label="创建赛事"
-              to="/events/new"
-            >
-              <Plus size={22} />
-            </Link>
-          ) : (
+          !mine ? (
             <button
               className="icon-button"
               aria-label="筛选赛事"
@@ -80,7 +72,7 @@ export function Hall({ mine = false }: { mine?: boolean }) {
             >
               <SlidersHorizontal size={20} />
             </button>
-          )
+          ) : undefined
         }
       />
       <main className="page">
