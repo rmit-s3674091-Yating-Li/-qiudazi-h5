@@ -20,6 +20,7 @@ import {
 import { MyProfileHome } from "./pages/MyProfileHome";
 import { MyResultsPage } from "./pages/MyResultsPage";
 import { MyTennisProfilePage } from "./pages/MyTennisProfilePage";
+import { PartnerInvitesPage } from "./pages/PartnerInvitesPage";
 import {
   ConnectionInvitePage,
   ConnectionsPage,
@@ -73,6 +74,7 @@ function App() {
         <Route path="/event-invites" element={<IdentityGate><EventInvitesPage /></IdentityGate>} />
         <Route path="/my-results" element={<IdentityGate><MyResultsPage /></IdentityGate>} />
         <Route path="/players" element={<IdentityGate><ConnectionsPage /></IdentityGate>} />
+        <Route path="/partner-invites" element={<IdentityGate><PartnerInvitesPage /></IdentityGate>} />
         <Route path="/connect/:inviterId" element={<IdentityGate><ConnectionInvitePage /></IdentityGate>} />
         <Route path="/claim-player/:token" element={<IdentityGate><PlayerClaimInvitePage /></IdentityGate>} />
         <Route path="/players/new" element={<IdentityGate><PlayerForm /></IdentityGate>} />
