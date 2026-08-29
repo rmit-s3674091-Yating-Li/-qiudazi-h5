@@ -20,6 +20,40 @@
 
 ---
 
+## 2026-08-29 — EventPage lifecycle restoration / release traceability sync
+
+**分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
+**状态**：`AUD-20260829-013/014` 已完成代码修复并通过 H5 Build Check，当前仅为 `FIXED_PENDING_VERIFY` 候选；`AUD-20260829-006/010/011` 已由独立代码巡检验证为 VERIFIED。本节是当前最新事实快照，覆盖下方较早 addendum 中的旧状态描述，但不改写历史记录。
+
+### EventPage P0 生命周期恢复
+
+- 修复 `AUD-20260829-013`：此前 EventPage 在 i18n/权限改造中被截成展示骨架，报名 Sheet、名单操作和组织者生命周期动作缺失。
+- 恢复单打/双打真实报名、临时球搭子代报名、双打搭档邀请/选择、参赛名单与候补展示、报名/候补退出、组织者锁定名单、生成/重新生成对阵、开始赛事、解锁名单、结束赛事等既有 P0 能力。
+- 保持 V6 当前规则不变：组织者身份仍使用服务端 `viewer_role === 'owner'`；普通名单动作使用 `isRegistrationOpenClient` 避免 deadline 已过但物理 status 尚未同步时继续开放；最终写权限继续由现有 RPC/Edge Function/数据库状态机约束。
+- 本批未新增数据库字段、RPC、migration 或权限模型，也没有改变 Entry/Player/Connection 数据语义。
+
+### 参赛建议级别详情修复
+
+- 修复 `AUD-20260829-014`：完整赛事详情不再读取 legacy `event.level`。
+- EventPage hero 使用共享 `suggestedLevelDisplay(suggested_level_min, suggested_level_max, language)`，与赛事卡、私有预览及 V6 基线保持一致；不恢复旧“赛事级别”用户概念。
+
+### 文档与验证
+
+- README、PRD V6、PRODUCT/INTERACTION/VISUAL baseline 与 P0_ACCEPTANCE 已逐份复核；这些文档已经准确规定报名/名单/编排/开赛/结束生命周期、权威 `viewer_role`、截止边界和 suggested level range，因此本批不重复修改长期规则文档。
+- `CHANGELOG.md` 本节同步 `AUD-007` 所要求的当前 release traceability，并记录 013/014 修复事实。
+- EventPage 修复 commit：`56dc2faef837278bcbce786e0a99fad58a62fc2e`。
+- H5 Build Check run `33254307596`：success。
+- 本任务不得自验为 VERIFIED；013/014 仍需独立代码巡检/全功能测试验证实际报名、代报名、退出、locked→draw→start、unlock/re-draw 保护、ongoing→finish 及 suggested level 四类展示。
+
+### 当前仍存在的发布阻塞
+
+- `AUD-20260829-001`：clean replay / migration history 与 repository-live 一致性仍待独立证明。
+- `AUD-20260829-003`：由其他流程负责的 English 全流程独立验证/闭环尚未完成，本批不改变其所有权。
+- `AUD-20260829-004/005`：仍待独立交互/黑盒回归。
+- `AUD-20260829-013/014`：代码和构建已完成，等待独立验证。
+
+---
+
 ## 2026-08-29 — AUD-003 core English flow remediation
 
 **分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
@@ -317,7 +351,7 @@
 - 普通球搭子邀请由永久 profile 链接升级为一条一条可追踪邀请记录/token；对方完成必要身份流程后自动建立 Connection，不增加冗余确认步骤。
 - 临时球搭子可发起“邀请 TA 加入并关联历史记录”；对方确认后保留此前比赛历史并建立 Connection。
 - “球搭子邀请记录”统一展示两类邀请：普通球搭子邀请 + 临时球搭子历史关联邀请，但保持两类业务语义独立。
-- 用户可见文案不暴露 claim / merge / Player 合并等内部实现概念。
+- 用户可见文案不暴露 claim / merge Player / 数据迁移等内部实现概念。
 
 ### 临时球搭子档案策略
 
@@ -411,7 +445,7 @@
 
 ### 发布状态说明
 
-- 本节是最初建立 V6 文档依据时的历史快照；最新实现/验证状态以上方 `V6 release traceability addendum` 为准。
+- 本节是最初建立 V6 文档依据时的历史快照；最新实现/验证状态以上方更新的 release traceability 节为准。
 - 当时 `AUD-20260829-006` 已知存在 EventPage 权威身份/build 阻塞。
 - 当时 `AUD-20260829-008` 尚未完成；现已由后续 migration 修复并独立验证，见上方 addendum。
 - `AUD-20260829-001` clean replay / migration history 一致性仍待证明。
