@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import type { Profile } from "../domain/types";
 import { repository, supabase, explainError } from "../repositories/supabase";
+
 interface AuthState {
   session: Session | null;
   profile: Profile | null;
@@ -13,8 +14,33 @@ interface AuthState {
   start: () => Promise<Profile>;
   refresh: () => Promise<void>;
 }
+
+const PROFILE_CACHE_KEY = "qiudazi_profile_cache_v1";
 const AuthContext = createContext<AuthState>(null!);
 export const useAuth = () => useContext(AuthContext);
+
+function readCachedProfile(authUserId: string) {
+  try {
+    const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { authUserId?: unknown; profile?: unknown };
+    if (parsed.authUserId !== authUserId || !parsed.profile || typeof parsed.profile !== "object") return null;
+    return parsed.profile as Profile;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedProfile(authUserId: string, profile: Profile) {
+  try {
+    localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({ authUserId, profile }));
+  } catch {}
+}
+
+function clearCachedProfile() {
+  try { localStorage.removeItem(PROFILE_CACHE_KEY); } catch {}
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null),
     [profile, setProfile] = useState<Profile | null>(null),
@@ -22,36 +48,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const flight = useRef<Promise<Profile> | null>(null);
+
   async function refresh() {
     if (!supabase) return;
     const { data, error } = await supabase.auth.getSession();
     if (error) throw error;
     setSession(data.session);
-    if (data.session) setProfile(await repository.profile());
-    else setProfile(null);
+    if (data.session) {
+      const p = await repository.profile();
+      setProfile(p);
+      writeCachedProfile(data.session.user.id, p);
+    } else {
+      setProfile(null);
+      clearCachedProfile();
+    }
   }
+
   useEffect(() => {
     if (!supabase) {
       setReady(true);
       return;
     }
     let active = true;
-    refresh()
-      .catch((e) => {
+    (async () => {
+      try {
+        const { data, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!active) return;
+        setSession(data.session);
+
+        if (!data.session) {
+          setProfile(null);
+          clearCachedProfile();
+          return;
+        }
+
+        const cached = readCachedProfile(data.session.user.id);
+        if (cached && active) {
+          setProfile(cached);
+          setReady(true);
+        }
+
+        const fresh = await repository.profile();
+        if (!active) return;
+        setProfile(fresh);
+        writeCachedProfile(data.session.user.id, fresh);
+        setError("");
+      } catch (e) {
         if (active) setError(explainError(e));
-      })
-      .finally(() => {
+      } finally {
         if (active) setReady(true);
-      });
+      }
+    })();
+
     const { data } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
-      if (!next) setProfile(null);
+      if (!next) {
+        setProfile(null);
+        clearCachedProfile();
+      }
     });
     return () => {
       active = false;
       data.subscription.unsubscribe();
     };
   }, []);
+
   function start() {
     if (flight.current) return flight.current;
     setBusy(true);
@@ -93,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       const p = await repository.profile();
       setProfile(p);
+      writeCachedProfile(s.user.id, p);
       return p;
     })()
       .catch((e) => {
@@ -105,14 +168,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     return flight.current;
   }
+
   return (
-    <AuthContext.Provider
-      value={{ session, profile, ready, busy, error, start, refresh }}
-    >
+    <AuthContext.Provider value={{ session, profile, ready, busy, error, start, refresh }}>
       {children}
     </AuthContext.Provider>
   );
 }
+
 export function safeNext(path: string | null) {
   return path &&
     path.startsWith("/") &&
@@ -122,6 +185,7 @@ export function safeNext(path: string | null) {
     ? path
     : "/events";
 }
+
 export function IdentityGate({ children }: { children: ReactNode }) {
   const auth = useAuth(),
     location = useLocation(),
@@ -134,8 +198,7 @@ export function IdentityGate({ children }: { children: ReactNode }) {
       .then((p) => {
         if (p.profile_status !== "completed")
           navigate(
-            "/profile?next=" +
-              encodeURIComponent(location.pathname + location.search),
+            "/profile?next=" + encodeURIComponent(location.pathname + location.search),
             { replace: true },
           );
       })
@@ -154,8 +217,7 @@ export function IdentityGate({ children }: { children: ReactNode }) {
               .then((p) => {
                 if (p.profile_status !== "completed")
                   navigate(
-                    "/profile?next=" +
-                      encodeURIComponent(location.pathname + location.search),
+                    "/profile?next=" + encodeURIComponent(location.pathname + location.search),
                   );
               })
               .catch(() => {})
