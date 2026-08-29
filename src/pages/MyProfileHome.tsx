@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, ShieldCheck } from "lucide-react";
-import { Avatar, Header, Loading, ErrorNotice } from "../components/UI";
+import { Avatar, Header, ErrorNotice } from "../components/UI";
 import { useAuth } from "../hooks/Auth";
 import { repository } from "../repositories/supabase";
 import { useQuery } from "../hooks/useQuery";
@@ -24,19 +24,10 @@ export function MyProfileHome() {
         </div>
 
         <ErrorNotice message={q.error} retry={q.refresh} />
-        {q.loading && !q.data ? (
-          <Loading />
-        ) : self ? (
-          <Link className="card row between" to="/my-tennis-profile">
-            <span>我的打球档案</span>
-            <ArrowRight size={18} />
-          </Link>
-        ) : (
-          <div className="card row between">
-            <span>我的打球档案</span>
-            <span className="badge">待创建</span>
-          </div>
-        )}
+        <Link className="card row between" to="/my-tennis-profile">
+          <span>我的打球档案</span>
+          {q.loading && !q.data ? <span className="muted small">同步中</span> : self ? <ArrowRight size={18} /> : <span className="badge">待创建</span>}
+        </Link>
 
         <Link className="card row between" to="/my-results">
           <span>我的战绩</span>
