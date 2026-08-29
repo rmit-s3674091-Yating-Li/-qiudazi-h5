@@ -20,6 +20,40 @@
 
 ---
 
+## 2026-08-29 — Supabase fresh replay / Storage reproducibility closure
+
+**分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
+**状态**：`AUD-20260829-001` 的 repository clean replay 与 Storage 可复现性整改已完成，候选实现等待独立 Release Gate 最终验证；`AUD-20260829-007` 的 release traceability 已同步，等待独立复核。
+
+### 数据库可复现性
+
+- 新增 `20260829050000_initial_schema_baseline.sql` 与 `20260829051000_initial_function_baseline.sql`，补齐仓库早期增量 migration 所依赖的初始核心表、RLS 与 RPC 前置定义，使 repository migrations 可以从 fresh database 顺序重放。
+- `.github/workflows/build.yml` 增加隔离本地 Supabase clean replay job，GitHub Actions runner 通过 `supabase db reset --local` 验证整条 repository migration 链，不连接 live 项目、不创建收费 Supabase branch。
+- H5 Build Check #77 / run `33257182352` 已证明数据库 migration 链从空库完整 replay 成功。
+
+### Storage 可复现性
+
+- 独立代码巡检进一步发现：仅 SQL replay 仍不足以证明 fresh Supabase 环境完整可重建，因为 live 测试库存在 `avatars` / `event-photos` bucket 与 6 条 `storage.objects` policy，而此前仓库没有对应受控定义。
+- 新增 `20260829181600_storage_reproducibility.sql`：幂等定义 `avatars`（3MB）与 `event-photos`（10MB）bucket，允许 JPG / PNG / WebP；重建 `qiudazi_avatar_insert/read_own/delete_own` 与 `qiudazi_photo_insert/read_own/delete_own` 六条 Storage policy；规范 `can_upload_photo(text)` 与函数执行 ACL。
+- clean replay CI 增加 Storage reconstruction assertion；H5 Build Check #79 / run `33257744262` 的 build、fresh-db replay、bucket/policy/function 断言全部 success。
+
+### live 测试库对齐
+
+- 仅以受控方式应用 `storage_reproducibility` 到当前 Supabase 测试库，没有补推 0500/0510 baseline，也没有重置 live 数据。
+- 应用后只读核对确认：两个 bucket 的 public / size / MIME 配置与 repository 一致；六条 Storage policy 与 candidate migration 一致；`can_upload_photo` 仅授予 authenticated / service_role（postgres owner 保留），anon/PUBLIC 不再拥有执行权限。
+- 同时修正了 live 旧 `qiudazi_avatar_delete_own` 中错误比较 `players.avatar_url = players.name` 的语义，现统一为 `p.avatar_url = storage.objects.name`，防止仍被 Player 引用的头像对象被误删。
+
+### 关键 commit / migration
+
+- `6821b44f302f57e80373131ba6fb3dbcdb4ed5de` — replayable initial schema baseline
+- `d200cc2ec93d7e376ff2dcf15796c596ef301fa0` — initial RPC dependency baseline
+- `fb467eee0e043426347d58aba6c2ff7c0c9a539a` — Storage reproducibility migration
+- `f5b126371ca50c4ae92f9e387d057dba057b16f1` — CI Storage reconstruction assertions
+
+> 本节仅同步实际数据库/Storage/CI 事实，不改变任何产品规则。修复者不自行将 AUD-001 标记为 VERIFIED，最终状态由独立 Release Gate 决定。
+
+---
+
 ## 2026-08-29 — AUD-015 doubles partner withdrawal UI alignment
 
 **分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
@@ -134,7 +168,7 @@
 - `AUD-20260829-004/005/006/010/011`：等待独立回归/验证；其中 AUD-006 已恢复绿色 build，但尚未独立 VERIFIED。
 
 ### 关键实现
-- `19c6f084` — EventPage panel props / Sheet build blocker 修复，CI 绿色
+- `19c6f084` — EventPage panel props / Sheet build blocker修复，CI 绿色
 - `9e874389` — MatchPage 权威身份修复
 - `217ef648` — 报名截止后的邀请入口状态修复
 - `4d4bd831` — 建议级别展示 helper 收口
