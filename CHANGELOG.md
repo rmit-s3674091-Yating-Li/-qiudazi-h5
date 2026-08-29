@@ -20,10 +20,47 @@
 
 ---
 
+## 2026-08-29 — AUD-003 core English flow remediation
+
+**分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
+**状态**：核心 English 界面整改已完成代码收口并通过 H5 Build Check；当前为 `FIXED_PENDING_VERIFY` 候选状态，仍必须由独立全功能测试 / Release Gate 以 English 实际走通核心旅程后才能 `VERIFIED`。
+
+### 本轮整改范围
+
+- 统一轻量 i18n 已覆盖赛事大厅、我的赛事、赛事详情/管理、创建/编辑、公开/私有邀请、报名相关状态、比赛详情、实时记分、直接录分、对阵、排名、合影、球搭子、临时球搭子、邀请记录、我的、打球档案、战绩、设置与隐私、身份恢复以及应用级空/错误状态。
+- English 模式下赛事状态、赛制、建议级别、报名截止、费用、排名/签表、逐分计分、赛后水印和常见业务错误均使用英文展示；默认中文模式不再依赖无意义的英文装饰文案表达核心任务。
+- `explainError()` 增加 RPC、EventRules、ScoringEngine、TournamentService 与级联更正相关结构化错误码的英文映射；领域层仍保持语言无关，翻译在用户可见边界完成。
+- MatchPage 不再通过比较“级联 / 请确认”等展示文案决定比分更正流程；已完成比分的更正继续使用本地结构化赛事快照预演 + 明确确认，再以 `confirmed=true` 提交服务端。
+- 未晋级/未确定对阵在 English 模式显示 `TBD`，不再从共享 `entryName()` 的中文 fallback 泄漏“待晋级”。
+- 图片上传错误及赛后合影水印跟随当前语言；English 水印使用 Champion / Runner-up / Third place / Match date 等表达。
+- 数据库稳定值未因翻译改变：例如 `play_times` 仍保持原稳定值，只在界面映射为英文，避免 i18n 改动污染业务数据模型。
+
+### 验证
+
+- 最新 i18n 收口代码 head 前的 H5 Build Check run `33253992685`：`npm ci` 与 `npm run build` 均成功。
+- 本节只记录代码实现与构建事实，不等同于 English 黑盒验收完成；独立验证前不得自标 `VERIFIED`。
+
+### 关键 commit
+
+- `0f738703` — 对阵 / 排名 / 合影面板双语化
+- `9a013d6d` — 球搭子主页、关系邀请与历史关联邀请双语化
+- `5b82c144` — 私有赛事预览双语化
+- `e28f876a` / `aaf90f7a` — 我的战绩 / 我的打球档案双语化
+- `c2f741a7` / `0dbe8376` / `a1bb7931` — 球搭子详情、临时球搭子、邀请记录双语化
+- `c80b85e3` / `e90d1e81` — 身份建档与 Player 编辑双语化
+- `8e0ed09f` / `40d90443` / `6606737e` — 错误、身份恢复、应用 fallback 双语化
+- `253c7729` / `2c49d87f` — MatchPage English 计分状态与展示文案逻辑收口
+- `ffff39ca` — EventRules / ScoringEngine / TournamentService / cascade 错误英文映射
+- `e48481e2` — 未确定对阵 English `TBD` 收口
+
+> 本轮未改变赛事状态机、身份权限、报名截止或排名算法等产品规则，只补齐既有 V6 双语验收要求及展示层错误映射。
+
+---
+
 ## 2026-08-29 — V6 release traceability addendum
 
 **分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
-**状态**：参与事实与比赛页权威身份修复已完成独立白盒验证；EventPage 已修复原 TypeScript build blocker 并恢复绿色构建，等待独立验证。当前候选仍受 AUD-001/003 及其他待回归发布项阻塞，不可部署。
+**状态**：参与事实与比赛页权威身份修复已完成独立白盒验证；EventPage 已修复原 TypeScript build blocker并恢复绿色构建，等待独立验证。当前候选仍受 AUD-001/003 及其他待回归发布项阻塞，不可部署。
 
 ### 已落地并独立验证
 - `AUD-20260829-008` VERIFIED：`20260829181400_v6_joined_event_participant_sync.sql` 将“我参与的”统一为 active Entry → entry_players → linked Player 的实际参与事实，覆盖双打两名真实搭档；live `list_events` 定义已核对。
@@ -37,7 +74,7 @@
 
 ### 当前发布阻塞
 - `AUD-20260829-001`：仍需 clean replay / migration history / repository 与 live schema-function 一致性证明；live migration version 与仓库 `181400/181500` 文件名目前不一一对应。
-- `AUD-20260829-003`：核心 English 流程仍需完成全量 i18n 闭环。
+- `AUD-20260829-003`：核心 English 流程代码整改已完成，等待独立 English 黑盒验证后才能 VERIFIED。
 - `AUD-20260829-004/005/006/010/011`：等待独立回归/验证；其中 AUD-006 已恢复绿色 build，但尚未独立 VERIFIED。
 
 ### 关键实现
