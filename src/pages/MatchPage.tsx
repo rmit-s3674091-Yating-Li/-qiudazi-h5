@@ -86,13 +86,7 @@ export function MatchPage({
       if (type === "score")
         navigate("/events/" + id + "/matches/" + matchId, { replace: true });
     } catch (e) {
-      const text = explainError(e);
-      if (text.includes("级联") || text.includes("请确认")) {
-        setConfirmText(en ? "This correction may rebuild downstream matches. Please confirm before continuing." : text);
-        setConfirm(() => () => {
-          void send(type, extra, true);
-        });
-      } else setError(text);
+      setError(explainError(e));
     } finally {
       setBusy(false);
     }
