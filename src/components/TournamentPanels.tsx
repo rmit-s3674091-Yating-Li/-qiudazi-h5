@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Camera, Trophy } from "lucide-react";
+import { Camera, Trophy, GitBranch, ListOrdered, ImagePlus } from "lucide-react";
 import type { Match, Snapshot } from "../domain/types";
 import { ranking, groupRankings, podium } from "../domain/RankingEngine";
-import { entryName, ErrorNotice, labels, Confirm } from "./UI";
+import { entryName, ErrorNotice, Confirm } from "./UI";
 import {
   assetUrl,
   supabase,
@@ -63,6 +63,21 @@ export function MatchCard({ m, s }: { m: Match; s: Snapshot }) {
     </Link>
   );
 }
+function DrawPlaceholder({ s }: { s: Snapshot }) {
+  const knockout = s.event.format === "knockout";
+  return <div className="tournament-placeholder">
+    <div className="placeholder-heading row">
+      <span className="placeholder-icon"><GitBranch size={19}/></span>
+      <div><strong>{knockout ? "淘汰签表" : s.event.format === "group_knockout" ? "小组赛与淘汰签表" : "轮次对阵"}</strong><p className="muted small">名单锁定并生成对阵后，比赛会直接填入这里。</p></div>
+    </div>
+    <div className="draw-skeleton" aria-hidden="true">
+      <section><small>{knockout ? "首轮" : "第 1 轮"}</small><div className="skeleton-match"><i/><i/></div><div className="skeleton-match"><i/><i/></div></section>
+      <span className="draw-connector">›</span>
+      <section><small>{knockout ? "下一轮" : "第 2 轮"}</small><div className="skeleton-match compact"><i/><i/></div></section>
+    </div>
+    <p className="placeholder-foot">现在还没有真实对阵，不展示虚构选手或比分。</p>
+  </div>;
+}
 export function DrawPanel({ s }: { s: Snapshot }) {
   const [group, setGroup] = useState(1);
   const ko = s.matches.filter((m) => m.stage === "knockout"),
@@ -72,10 +87,8 @@ export function DrawPanel({ s }: { s: Snapshot }) {
     );
   return (
     <>
-      {!s.matches.length && (
-        <div className="notice">名单锁定后，由创建者生成对阵。</div>
-      )}
-      {s.event.format === "group_knockout" && (
+      {!s.matches.length && <DrawPlaceholder s={s}/>} 
+      {s.event.format === "group_knockout" && s.matches.length > 0 && (
         <div className="chips">
           {Array.from({ length: s.event.group_count! }, (_, i) => (
             <button
@@ -151,6 +164,16 @@ export function DrawPanel({ s }: { s: Snapshot }) {
     </>
   );
 }
+function RankingPlaceholder() {
+  return <div className="tournament-placeholder ranking-placeholder">
+    <div className="placeholder-heading row"><span className="placeholder-icon"><ListOrdered size={19}/></span><div><strong>赛事排名</strong><p className="muted small">比赛开始后，排名会根据真实赛果自动更新。</p></div></div>
+    <div className="ranking-table-skeleton" aria-hidden="true">
+      <div className="ranking-table-head"><span>名次</span><span>参赛者</span><span>已赛</span><span>胜负</span><span>局差</span></div>
+      {[1,2,3].map(n=><div className="ranking-table-row" key={n}><b>0{n}</b><i/><span>—</span><span>—</span><span>—</span></div>)}
+    </div>
+    <p className="placeholder-foot">排名区域已经就位；没有真实赛果前不生成虚假名次。</p>
+  </div>;
+}
 export function RankingPanel({ s }: { s: Snapshot }) {
   const [group, setGroup] = useState(1);
   const rows =
@@ -162,6 +185,7 @@ export function RankingPanel({ s }: { s: Snapshot }) {
       s.matches.length > 0 && s.matches.every((m) => m.status === "finished");
   return (
     <>
+      {!s.matches.length && <RankingPlaceholder/>}
       {complete && results.length > 0 && (
         <div className="winner-banner">
           <Trophy size={30} />
@@ -169,7 +193,7 @@ export function RankingPanel({ s }: { s: Snapshot }) {
           <p>本场冠军</p>
         </div>
       )}
-      {s.event.format === "knockout" ? (
+      {s.matches.length > 0 && (s.event.format === "knockout" ? (
         results.length ? (
           results.map((r) => (
             <div className="card" key={r.label}>
@@ -178,7 +202,7 @@ export function RankingPanel({ s }: { s: Snapshot }) {
             </div>
           ))
         ) : (
-          <p className="notice">决赛结束后产生冠军、亚军和并列季军。</p>
+          <div className="tournament-placeholder compact-placeholder"><div className="placeholder-heading row"><span className="placeholder-icon"><Trophy size={18}/></span><div><strong>领奖台等待赛果</strong><p className="muted small">决赛结束后，这里会展示冠军、亚军和并列季军。</p></div></div></div>
         )
       ) : (
         <>
@@ -233,7 +257,7 @@ export function RankingPanel({ s }: { s: Snapshot }) {
             报名时间。三人及以上同胜场不使用两两相互战绩；连续抢分的小分不计入局差。
           </p>
         </>
-      )}
+      ))}
     </>
   );
 }
@@ -301,25 +325,26 @@ export function PhotoPanel({
           </p>
         </>
       ) : (
-        <div className="empty">
-          <Camera size={32} />
+        <div className="photo-upload-stage">
+          <span className="photo-upload-icon"><Camera size={28}/></span>
           <h3>把这场球，留在照片里</h3>
-          <p>
+          <p className="muted">
             {s.event.status === "finished"
-              ? "等待创建者上传合影。"
-              : "赛事结束后，创建者可以上传一张主合影。"}
+              ? owner ? "从手机照片中选择一张本场合影。上传后会自动生成赛事水印。" : "等待组织者上传本场合影。"
+              : "比赛结束后，这里会成为本场赛事的合影位置。"}
           </p>
+          <div className="photo-frame-preview" aria-hidden="true"><ImagePlus size={24}/><span>赛事主合影</span></div>
         </div>
       )}
       <ErrorNotice message={error} />
       {owner && s.event.status === "finished" && (
         <>
-          <label className="button full">
+          <label className="button full photo-upload-button">
             {busy
               ? "正在生成水印并上传…"
               : s.photo
-                ? "替换主合影"
-                : "上传合影（自动添加水印）"}
+                ? "更换合影"
+                : "选择照片并上传"}
             <input
               className="sr-only"
               type="file"
@@ -336,7 +361,7 @@ export function PhotoPanel({
             />
           </label>
           <p className="muted small">
-            请选择已取得拍摄对象许可的照片。水印包含赛事名称、最终名次和比赛日期；未设置比赛日期时使用结束日期。
+            不会在进入页面时申请摄像头权限。请选择已取得拍摄对象许可的照片；水印包含赛事名称、最终名次和比赛日期。
           </p>
         </>
       )}
