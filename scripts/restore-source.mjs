@@ -27,4 +27,22 @@ const guestBlock = `      if (!s) {\n        const storageKey = "qiudazi_guest_c
 const authPatched = authSource.replace(anonymousBlock, guestBlock);
 if (authPatched === authSource) throw new Error("Failed to patch guest authentication flow");
 await writeFile(authPath, authPatched, "utf8");
+
+// CloudBase static hosting does not provide an SPA history fallback by default.
+// HashRouter keeps client-side routes after # so refresh/deep links always request
+// the real index document instead of paths like /profile from object storage.
+const routerCandidates = ["src/main.tsx", "src/App.tsx"];
+let routerPatched = false;
+for (const routerPath of routerCandidates) {
+  try {
+    const routerSource = await readFile(routerPath, "utf8");
+    if (routerSource.includes("BrowserRouter")) {
+      const next = routerSource.replaceAll("BrowserRouter", "HashRouter");
+      await writeFile(routerPath, next, "utf8");
+      routerPatched = true;
+    }
+  } catch {}
+}
+if (!routerPatched) throw new Error("Failed to patch BrowserRouter to HashRouter");
+
 console.log(`Restored ${Object.keys(files).length} deployment source files.`);
