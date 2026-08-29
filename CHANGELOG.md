@@ -20,6 +20,40 @@
 
 ---
 
+## 2026-08-29 — Test session alias recovery hotfix
+
+**分支**：`fix/test-session-alias-recovery`  
+**背景**：合并重复测试 Profile 后，历史浏览器仍可能持有旧 guest auth session。由于旧实现只允许一个 `profiles.auth_user_id` 指向 canonical Profile，这些仍有效的旧 session 无法再解析到 G/老郑的 canonical Profile，表现为“我的打球档案空白”“球搭子列表空白”“查看我创建的赛事时被要求先完成打球档案”。
+
+### 根因
+
+- Profile 数据本身没有消失：数据库仍存在 G 的 self Player、G→老郑 Connection 和 G 创建的 `test` 赛事。
+- 问题在 auth session → Profile 解析层。此前把 canonical Profile 只绑定到一个较新的 auth UUID，会使其他历史设备/session 失去身份映射。
+- `IdentityGate` 又把“用户身份未恢复”错误描述成“准备你的打球档案”，让用户误以为赛事访问依赖填写水平/城市等打球偏好。
+
+### 修复
+
+- 新增 `private.profile_auth_aliases`，允许多个测试期 auth session 稳定解析到同一个 canonical Profile，但不复制 Profile/Player/Connection 数据。
+- `current_profile_id()` 与 `ensure_profile()` 优先支持 alias 恢复。
+- `complete_profile()` 在测试昵称对应既有 canonical Profile 时新增 auth alias，而不再不断改写 canonical Profile 的唯一 auth 绑定；避免以后再次把旧设备踢出身份。
+- 对当前测试库中已知的历史 G / 老郑 session 做一次性 alias 回填。
+- IdentityGate 文案改为“正在恢复你的球搭子身份”，明确身份恢复与“我的打球档案”是两件事。
+- “我的打球档案”在 self Player 意外读取不到时不再显示空白页，而是给出明确恢复/重试状态。
+
+### 验证
+
+- 使用一个此前已被解绑的历史 G auth session 调 `current_profile_id()`，现在正确返回 canonical G Profile。
+- 同一历史 G session 可以读取 G 的 self Player。
+- 同一历史 G session 的“我创建的赛事”重新返回 `test`（北京）。
+- 同一历史 G session 的 `list_connections()` 重新返回老郑。
+- 因此查看“我创建的赛事”只依赖恢复用户身份，不依赖填写水平、常打城市、单双打偏好或约球时间等打球档案字段。
+
+### 仓库 migration
+
+- `20260829155000_support_test_auth_aliases.sql`
+
+---
+
 ## 2026-08-29 — Event city required / public-private visibility
 
 **状态**：已直接更新 `main` 与当前 Supabase 测试数据库，等待中国区前端重新部署验证。
