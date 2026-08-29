@@ -89,7 +89,7 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
     }
   }
   async function share() {
-    const url = location.origin + "/events/" + id;
+    const url = `${location.origin}${location.pathname}#/events/${id}`;
     try {
       if (navigator.share) {
         try {
@@ -703,6 +703,7 @@ function SignupSheet({
     {(hasTemporaryPartner || hasProxyPlayer) && <label className="check"><input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} /><span>我已获得临时球搭子本人同意，代其提交本次赛事报名信息。</span></label>}
     <p className="muted small">名额以提交时数据库为准。正式名额已满将按顺序加入候补，最多候补2{unit(s.event)}。</p>
     <ErrorNotice message={error} />
-    <button className="full" disabled={busy || selected.length !== count || ((hasTemporaryPartner || hasProxyPlayer) && !consent) || selected.some((id) => taken.has(id))} onClick={save}>{busy ? "正在提交…" : manual ? "确认代报名" : "确认报名"}</button>
+    {manual && selected.length === 0 && <p className="muted small">邀请真实球搭子后由 TA 自行报名；选择临时球搭子后可在这里确认代报名。</p>}
+    {(!manual || selected.length > 0) && <button className="full" disabled={busy || selected.length !== count || ((hasTemporaryPartner || hasProxyPlayer) && !consent) || selected.some((id) => taken.has(id))} onClick={save}>{busy ? "正在提交…" : manual ? "确认代报名" : "确认报名"}</button>}
   </Sheet>;
 }
