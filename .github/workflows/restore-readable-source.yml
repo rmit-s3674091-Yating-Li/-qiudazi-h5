@@ -1,0 +1,41 @@
+name: Restore readable source
+
+on:
+  push:
+    branches:
+      - chore/restore-readable-source
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    if: ${{ github.event.head_commit.message != 'Restore readable application source' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chore/restore-readable-source
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Restore deployment source
+        run: node scripts/restore-source.mjs
+      - name: Stop ignoring application source
+        run: |
+          sed -i '/^src\/$/d;/^public\/$/d' .gitignore
+      - name: Verify restored source
+        run: |
+          test -d src
+          test -f src/main.tsx
+          test -f src/repositories/supabase.ts
+          npm ci
+          npm run build
+      - name: Commit readable source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .gitignore src public
+          git commit -m "Restore readable application source" || exit 0
+          git push origin HEAD:chore/restore-readable-source
