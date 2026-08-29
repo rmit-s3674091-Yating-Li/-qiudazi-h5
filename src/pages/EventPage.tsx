@@ -543,10 +543,9 @@ function SignupSheet({
       .players()
       .then((ps) => {
         setPlayers(ps);
-        if (!manual)
-          setSelected(
-            ps.filter((p) => p.player_type === "self").map((p) => p.id),
-          );
+        // Do not preselect or lock the current user. Signup is about choosing
+        // who is actually playing in this entry, including proxy signup.
+        setSelected([]);
       })
       .catch((e) => setError(explainError(e)));
   }, [manual]);
@@ -555,6 +554,8 @@ function SignupSheet({
       .filter((e) => e.status !== "withdrawn")
       .flatMap((e) => e.players.map((p) => p.id)),
   );
+  const selectedPlayers = players.filter((p) => selected.includes(p.id));
+  const hasProxyPlayer = selectedPlayers.some((p) => p.player_type !== "self");
   async function add() {
     if (!newName.trim()) return;
     setBusy(true);
@@ -593,8 +594,8 @@ function SignupSheet({
         manual
           ? "手动添加" + (count === 2 ? "双打队伍" : "临时参赛者")
           : count === 2
-            ? "双打报名"
-            : "确认报名"
+            ? "选择双打参赛者"
+            : "选择参赛者"
       }
       onClose={onClose}
     >
@@ -622,7 +623,7 @@ function SignupSheet({
           <input
             type="checkbox"
             checked={selected.includes(p.id)}
-            disabled={taken.has(p.id) || (!manual && p.player_type === "self")}
+            disabled={taken.has(p.id)}
             onChange={(e) =>
               setSelected((x) =>
                 e.target.checked
@@ -660,14 +661,16 @@ function SignupSheet({
           </button>
         </div>
       )}
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={consent}
-          onChange={(e) => setConsent(e.target.checked)}
-        />
-        <span>已确认参赛信息；临时参赛者已取得本人许可。</span>
-      </label>
+      {hasProxyPlayer && (
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={consent}
+            onChange={(e) => setConsent(e.target.checked)}
+          />
+          <span>我已获得所选参赛者同意，代其提交本次赛事报名信息。</span>
+        </label>
+      )}
       <p className="muted small">
         名额以提交时数据库为准。正式名额已满将按顺序加入候补，最多候补2
         {unit(s.event)}。
@@ -678,7 +681,7 @@ function SignupSheet({
         disabled={
           busy ||
           selected.length !== count ||
-          !consent ||
+          (hasProxyPlayer && !consent) ||
           selected.some((id) => taken.has(id))
         }
         onClick={save}
