@@ -36,6 +36,16 @@ jobs:
         run: supabase start
       - name: Replay repository migrations from a clean database
         run: supabase db reset --local
+      - name: Assert storage buckets and policies were reconstructed
+        env:
+          PGPASSWORD: postgres
+        run: |
+          bucket_count=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from storage.buckets where (id='avatars' and public=true and file_size_limit=3145728 and allowed_mime_types=array['image/jpeg','image/png','image/webp']::text[]) or (id='event-photos' and public=true and file_size_limit=10485760 and allowed_mime_types=array['image/jpeg','image/png','image/webp']::text[]);")
+          policy_count=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from pg_policies where schemaname='storage' and tablename='objects' and policyname in ('qiudazi_avatar_insert','qiudazi_avatar_read_own','qiudazi_avatar_delete_own','qiudazi_photo_insert','qiudazi_photo_read_own','qiudazi_photo_delete_own');")
+          function_count=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='can_upload_photo';")
+          test "$bucket_count" = "2"
+          test "$policy_count" = "6"
+          test "$function_count" = "1"
       - name: Stop isolated local Supabase
         if: always()
         run: supabase stop --no-backup
