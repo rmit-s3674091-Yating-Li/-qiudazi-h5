@@ -20,6 +20,42 @@
 
 ---
 
+## 2026-08-29 — Event city required / public-private visibility
+
+**状态**：已直接更新 `main` 与当前 Supabase 测试数据库，等待中国区前端重新部署验证。
+
+### 产品变化
+
+- `city` 正式改为赛事必填字段；赛事卡直接显示城市，不再只把城市当可选辅助信息。
+- 当前测试数据库中原有缺失城市的历史赛事统一补为“北京”；其中 `test` 赛事现在明确为“北京”。
+- 创建赛事的可见范围统一为两种：`公开` / `私有`，旧“仅链接可见”模式退出当前产品规则。
+- 公开赛事：所有用户可在赛事大厅发现和查看。
+- 私有赛事：不进入公开赛事大厅；只有组织者、明确收到该赛事邀请的用户，以及已经实际报名进入赛事的用户可以查看。仅知道 URL 不获得查看权限。
+- 被邀请并有权查看私有赛事的用户仍可自行完成报名；隐私权限由后端 `get_event_snapshot` 强制执行，不依赖前端隐藏。
+
+### 数据与兼容
+
+- 旧 `link_only` 赛事迁移为 `private`。
+- `events.city` 改为 NOT NULL。
+- `events.visibility` 约束改为 `public/private`。
+- 同步修正赛事等级数据库约束，使其支持与前端一致的 `4.5 / 5.0+`。
+- 仓库 migration：`20260829154000_require_event_city_and_private_visibility.sql`。
+
+### 验证
+
+- 当前 `test` 赛事数据库值：城市 `北京`、可见性 `public`。
+- 使用当前 G 身份读取 `test` 赛事，快照返回城市 `北京`。
+- 使用 G 身份直接访问老郑的私有赛事，后端返回 `EVENT_NOT_FOUND`，说明单纯知道赛事 ID/URL 无法越权查看。
+
+### 关键 commit
+
+- `24b69b9` — 创建赛事表单增加必填城市与公开/私有说明
+- `0688744` / `fccc5e3` — 前端赛事规则校验与私有赛事报名兼容
+- `4b8d28f` — 数据库 migration 最终版
+- `0816dde` — 产品基线同步公开/私有与城市必填规则
+
+---
+
 ## 2026-08-29 — Test identity / history consistency hotfix
 
 **分支**：`fix/test-identity-history-consistency`  
