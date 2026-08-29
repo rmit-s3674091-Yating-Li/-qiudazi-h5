@@ -44,6 +44,7 @@ const messages: Record<string, string> = {
   FORBIDDEN: "仅创建者可执行此操作",
   VERSION_CONFLICT: "数据已被其他页面更新，请刷新后重试",
   NICKNAME_REQUIRED: "请填写1–40字昵称",
+  NICKNAME_TAKEN: "这个昵称已经有人使用了，请换一个昵称",
   ROSTER_LOCKED: "参赛名单已锁定",
   PLAYER_HAS_HISTORY: "已参与赛事的临时球搭子不能删除",
   SELF_PLAYER_PROTECTED: "我的打球档案不能删除",
