@@ -207,8 +207,8 @@ export function IdentityGate({ children }: { children: ReactNode }) {
   if (auth.profile?.profile_status === "completed") return <>{children}</>;
   return (
     <section className="empty">
-      <h2>准备你的打球档案</h2>
-      <p>{auth.error || "正在恢复登录状态…"}</p>
+      <h2>正在恢复你的球搭子身份</h2>
+      <p>{auth.error || "正在连接之前的赛事和球搭子记录…"}</p>
       {auth.error && (
         <button
           onClick={() =>
