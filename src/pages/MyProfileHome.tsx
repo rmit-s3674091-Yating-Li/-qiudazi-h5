@@ -1,0 +1,27 @@
+import { Link, Navigate } from "react-router-dom";
+import { ArrowRight, ShieldCheck } from "lucide-react";
+import { Avatar, Header, Loading, ErrorNotice } from "../components/UI";
+import { useAuth } from "../hooks/Auth";
+import { repository } from "../repositories/supabase";
+import { useQuery } from "../hooks/useQuery";
+
+export function MyProfileHome() {
+  const { profile } = useAuth();
+  const q = useQuery("my-self-player", () => repository.players());
+  const self = q.data?.find(p => p.player_type === "self");
+  return <>
+    <Header title="我的" back={false} />
+    <main className="page">
+      <div className="profile-banner">
+        <Avatar path={profile?.avatar_url} name={profile?.nickname || ""} size={64}/>
+        <div><span className="eyebrow">OFF THE COURT</span><h1>{profile?.nickname}</h1><p>每一场球，都值得认真对待。</p></div>
+      </div>
+      <ErrorNotice message={q.error} retry={q.refresh}/>
+      {q.loading && !q.data ? <Loading/> : self ? <Link className="card row between" to={`/players/${self.id}/edit`}><span>我的打球档案</span><ArrowRight size={18}/></Link> : <div className="card row between"><span>我的打球档案</span><span className="badge">待创建</span></div>}
+      <Link className="card row between" to="/my-results">我的战绩 <ArrowRight size={18}/></Link>
+      <Link className="card row between" to="/players">我的球搭子 <ArrowRight size={18}/></Link>
+      <Link className="card row between" to="/privacy">设置与隐私 <ArrowRight size={18}/></Link>
+      <div className="notice"><ShieldCheck size={20}/><p>当前使用临时账号。请保留这个浏览器的登录数据；换手机、无痕模式或清除网站数据，会产生新账号。</p></div>
+    </main>
+  </>;
+}
