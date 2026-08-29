@@ -1,0 +1,1 @@
+-- Require event city and enforce private-event visibility.
