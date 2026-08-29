@@ -1,4 +1,5 @@
--- Ensure "My Events -> Joined" follows actual active Player membership in an Entry,
+-- AUD-20260829-008
+-- "My Events -> Joined" follows actual active Player membership in an Entry,
 -- including both linked users in a doubles Entry, rather than only the user who submitted it.
 create or replace function public.list_events(p_mine boolean default false, p_filters jsonb default '{}'::jsonb)
 returns jsonb
