@@ -7,7 +7,7 @@ import { useQuery } from "../hooks/useQuery";
 
 export function MyProfileHome() {
   const { profile } = useAuth();
-  const q = useQuery("my-self-player", () => repository.players());
+  const q = useQuery("players", () => repository.players());
   const self = q.data?.find((p) => p.player_type === "self");
 
   return (
