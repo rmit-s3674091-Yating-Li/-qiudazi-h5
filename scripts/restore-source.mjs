@@ -25,7 +25,12 @@ const authSource = await readFile(authPath, "utf8");
 const anonymousBlock = `      if (!s) {\n        const result = await supabase.auth.signInAnonymously();\n        if (result.error) throw result.error;\n        s = result.data.session;\n      }`;
 const guestBlock = `      if (!s) {\n        const storageKey = "qiudazi_guest_credentials_v3";\n        let credentials: { email: string; password: string } | null = null;\n        try {\n          const raw = localStorage.getItem(storageKey);\n          if (raw) {\n            const saved = JSON.parse(raw) as { email?: unknown; password?: unknown };\n            if (typeof saved.email === "string" && typeof saved.password === "string") credentials = { email: saved.email, password: saved.password };\n          }\n        } catch {}\n\n        if (credentials) {\n          const signInResult = await supabase.auth.signInWithPassword(credentials);\n          if (!signInResult.error) s = signInResult.data.session;\n          else { localStorage.removeItem(storageKey); credentials = null; }\n        }\n\n        if (!s) {\n          const provision = await supabase.functions.invoke("guest-session", { body: {} });\n          if (provision.error) throw provision.error;\n          const data = provision.data as { email?: unknown; password?: unknown; error?: unknown } | null;\n          if (!data || typeof data.email !== "string" || typeof data.password !== "string") throw new Error(typeof data?.error === "string" ? data.error : "游客身份创建失败");\n          credentials = { email: data.email, password: data.password };\n          localStorage.setItem(storageKey, JSON.stringify(credentials));\n          const signInResult = await supabase.auth.signInWithPassword(credentials);\n          if (signInResult.error) throw signInResult.error;\n          s = signInResult.data.session;\n        }\n        if (!s) throw new Error("游客身份创建失败，请刷新页面重试");\n      }`;
 const authPatched = authSource.replace(anonymousBlock, guestBlock);
-if (authPatched === authSource) throw new Error("Failed to patch guest authentication flow");
+if (
+  authPatched === authSource &&
+  !authSource.includes('qiudazi_guest_credentials_v3')
+) {
+  throw new Error("Failed to patch guest authentication flow");
+}
 await writeFile(authPath, authPatched, "utf8");
 
 // CloudBase static hosting does not provide an SPA history fallback by default.
@@ -39,6 +44,8 @@ for (const routerPath of routerCandidates) {
     if (routerSource.includes("BrowserRouter")) {
       const next = routerSource.replaceAll("BrowserRouter", "HashRouter");
       await writeFile(routerPath, next, "utf8");
+      routerPatched = true;
+    } else if (routerSource.includes("HashRouter")) {
       routerPatched = true;
     }
   } catch {}

@@ -7,3 +7,5 @@ test-results/
 coverage/
 .server-build/
 playwright-report/
+src/
+public/

@@ -8,6 +8,7 @@
   },
   "scripts": {
     "restore": "node scripts/restore-source.mjs",
+    "pack": "node scripts/pack-source.mjs",
     "dev": "node scripts/restore-source.mjs && vite --host 0.0.0.0",
     "build": "node scripts/restore-source.mjs && tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0"
