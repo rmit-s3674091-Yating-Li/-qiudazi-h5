@@ -32,6 +32,7 @@ import {
   RankingPanel,
   PhotoPanel,
 } from "../components/TournamentPanels";
+import { EventInviteSheet } from "../components/EventInviteUI";
 export function EventPage({ manage = false }: { manage?: boolean }) {
   const { id } = useParams(),
     auth = useAuth(),
@@ -43,6 +44,7 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
     [signup, setSignup] = useState<"self" | "manual" | null>(null),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
+    [inviteOpen, setInviteOpen] = useState(false),
     [busy, setBusy] = useState(false),
     [confirm, setConfirm] = useState<{
       title: string;
@@ -239,6 +241,11 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
               >
                 编辑赛事
               </Link>
+            )}
+            {e.status === "signup" && (
+              <button className="secondary full" onClick={() => setInviteOpen(true)}>
+                邀请球搭子参赛
+              </button>
             )}
           </>
         )}
@@ -473,6 +480,7 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
           </div>
         </div>
       </main>
+      <EventInviteSheet eventId={e.id} open={inviteOpen} onClose={() => setInviteOpen(false)} />
       {signup && (
         <SignupSheet
           snapshot={s}
