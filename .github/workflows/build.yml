@@ -21,3 +21,21 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+
+  supabase-clean-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Initialize local Supabase config
+        run: supabase init --force
+      - name: Start isolated local Supabase
+        run: supabase start
+      - name: Replay repository migrations from a clean database
+        run: supabase db reset --local
+      - name: Stop isolated local Supabase
+        if: always()
+        run: supabase stop --no-backup
