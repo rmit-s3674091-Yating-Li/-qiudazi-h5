@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import type { Player } from "../domain/types";
 import { Avatar, Header, Loading, Empty, ErrorNotice } from "../components/UI";
 import { repository, rpc, explainError } from "../repositories/supabase";
@@ -90,7 +90,7 @@ export function ConnectionsPage() {
       setFeedback(
         await shareUrl(
           `邀请 ${player.name} 加入球搭子`,
-          `我之前已经在球搭子里帮你记录过比赛。加入后，这些记录可以关联到你的打球档案。`,
+          "我之前已经在球搭子里帮你记录过比赛。加入后，这些记录可以关联到你的打球档案。",
           url,
         ),
       );
@@ -159,13 +159,14 @@ export function ConnectionsPage() {
           connections.data?.length ? (
             <div className="partner-list">
               {connections.data.map((c) => (
-                <div className="card row partner-card" key={c.connection_id}>
+                <Link className="card row partner-card" key={c.connection_id} to={`/partners/${c.id}`}>
                   <Avatar path={c.avatar_url} name={c.nickname || "球搭子"} />
                   <div className="grow">
                     <strong>{c.nickname || "球搭子"}</strong>
-                    <div className="muted small">以后报名双打时可以直接邀请 TA 组队</div>
+                    <div className="muted small">查看打球档案和近期战绩</div>
                   </div>
-                </div>
+                  <ArrowRight size={18} />
+                </Link>
               ))}
             </div>
           ) : (
