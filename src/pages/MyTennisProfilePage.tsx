@@ -7,7 +7,7 @@ import { useQuery } from "../hooks/useQuery";
 const timeOptions = ["工作日白天", "工作日晚上", "周末白天", "周末晚上"];
 
 export function MyTennisProfilePage() {
-  const q = useQuery("players", () => repository.players());
+  const q = useQuery("partner-players", () => repository.players());
   const player = q.data?.find((x) => x.player_type === "self") || null;
   const [editing, setEditing] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState("");
   const [level, setLevel] = useState(""), [city, setCity] = useState(""), [times, setTimes] = useState<string[]>([]), [pref, setPref] = useState("");
