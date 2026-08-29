@@ -19,3 +19,4 @@ insert='''function HomeRedirect() {\n  const inviterId = new URLSearchParams(win
 if marker not in s: raise SystemExit('App marker not found')
 s=s.replace(marker,insert+marker,1)
 p.write_text(s)
+# trigger
