@@ -45,6 +45,8 @@ const messages: Record<string, string> = {
   VERSION_CONFLICT: "数据已被其他页面更新，请刷新后重试",
   NICKNAME_REQUIRED: "请填写1–40字昵称",
   NICKNAME_TAKEN: "这个昵称已经有人使用了，请换一个昵称",
+  TEST_IDENTITY_UNAVAILABLE: "这个测试昵称暂时无法进入，请换一个昵称或稍后重试",
+  TEST_IDENTITY_RETRY: "测试身份刚刚发生变化，请重新提交一次",
   ROSTER_LOCKED: "参赛名单已锁定",
   PLAYER_HAS_HISTORY: "已参与赛事的临时球搭子不能删除",
   SELF_PLAYER_PROTECTED: "我的打球档案不能删除",
