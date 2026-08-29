@@ -13,7 +13,6 @@ import { BottomNav, Brand } from "./components/UI";
 import {
   EventForm,
   Hall,
-  PlayerForm,
   PrivacyPage,
 } from "./pages/Basics";
 import { InviteAwareProfilePage } from "./pages/InviteAwareProfilePage";
@@ -21,6 +20,7 @@ import { MyProfileHome } from "./pages/MyProfileHome";
 import { MyResultsPage } from "./pages/MyResultsPage";
 import { MyTennisProfilePage } from "./pages/MyTennisProfilePage";
 import { PartnerInvitesPage } from "./pages/PartnerInvitesPage";
+import { PlayerFormPage } from "./pages/PlayerFormPage";
 import {
   ConnectionInvitePage,
   ConnectionsPage,
@@ -77,8 +77,8 @@ function App() {
         <Route path="/partner-invites" element={<IdentityGate><PartnerInvitesPage /></IdentityGate>} />
         <Route path="/connect/:inviterId" element={<IdentityGate><ConnectionInvitePage /></IdentityGate>} />
         <Route path="/claim-player/:token" element={<IdentityGate><PlayerClaimInvitePage /></IdentityGate>} />
-        <Route path="/players/new" element={<IdentityGate><PlayerForm /></IdentityGate>} />
-        <Route path="/players/:id/edit" element={<IdentityGate><PlayerForm /></IdentityGate>} />
+        <Route path="/players/new" element={<IdentityGate><PlayerFormPage /></IdentityGate>} />
+        <Route path="/players/:id/edit" element={<IdentityGate><PlayerFormPage /></IdentityGate>} />
         <Route path="/my-tennis-profile" element={<IdentityGate><MyTennisProfilePage /></IdentityGate>} />
         <Route path="/me" element={<IdentityGate><MyProfileHome /></IdentityGate>} />
         <Route path="/profile" element={<InviteAwareProfilePage />} />
