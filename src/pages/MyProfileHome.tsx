@@ -19,7 +19,6 @@ export function MyProfileHome() {
           <div>
             <span className="eyebrow">OFF THE COURT</span>
             <h1>{profile?.nickname}</h1>
-            {profile?.public_code && <p className="muted small">球搭子ID · {profile.public_code}</p>}
             <p>每一场球，都值得认真对待。</p>
           </div>
         </div>
@@ -54,7 +53,7 @@ export function MyProfileHome() {
 
         <div className="notice">
           <ShieldCheck size={20} />
-          <p>球搭子ID用于区分同名球友，不是登录密码。当前仍使用临时账号，请保留这个浏览器的登录数据；后续可通过账号恢复功能在新设备找回身份。</p>
+          <p>当前为测试账号，请尽量使用同一设备和浏览器。清除浏览器数据或更换设备后，测试身份可能无法恢复。</p>
         </div>
       </main>
     </>
