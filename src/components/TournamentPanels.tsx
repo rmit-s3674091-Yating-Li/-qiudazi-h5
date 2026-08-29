@@ -30,6 +30,8 @@ export function MatchCard({ m, s }: { m: Match; s: Snapshot }) {
       .filter((x) => x.match_id === m.id)
       .sort((a, b) => a.set_no - b.set_no);
   const status=m.is_bye?(language==="en"?"Bye":"轮空"):m.status==="not_started"?(language==="en"?"Not started":"未开始"):m.status==="ongoing"?(language==="en"?"In progress":"进行中"):(language==="en"?"Finished":"已结束");
+  const aName=a?entryName(a):m.is_bye?(language==="en"?"Bye":"轮空"):(language==="en"?"TBD":"待晋级");
+  const bName=b?entryName(b):m.is_bye?(language==="en"?"Bye":"轮空"):(language==="en"?"TBD":"待晋级");
   return (
     <Link className="match-card" to={"/events/" + s.event.id + "/matches/" + m.id}>
       <div className="row between">
@@ -37,11 +39,11 @@ export function MatchCard({ m, s }: { m: Match; s: Snapshot }) {
         <small>{m.is_bye ? "Bye" : sets.length ? (language==="en"?"Set score":"盘分") : "VS"}</small>
       </div>
       <div className={"row between " + (m.winner_entry_id === a?.id ? "winner" : "")}>
-        <span>{a ? entryName(a) : m.is_bye ? (language==="en"?"Bye":"轮空") : entryName(a)}</span>
+        <span>{aName}</span>
         <b className="score">{sets.map((x) => x.a_games_or_points).join(" · ")}</b>
       </div>
       <div className={"row between " + (m.winner_entry_id === b?.id ? "winner" : "")}>
-        <span>{b ? entryName(b) : m.is_bye ? (language==="en"?"Bye":"轮空") : entryName(b)}</span>
+        <span>{bName}</span>
         <b className="score">{sets.map((x) => x.b_games_or_points).join(" · ")}</b>
       </div>
       {m.is_bye && <small>{m.stage === "knockout" ? (language==="en"?"Advances automatically to the next round":"自动晋级下一轮") : (language==="en"?"Rest this round; does not count as a win":"本轮休息，不计入胜场")}</small>}
@@ -72,7 +74,7 @@ export function DrawPanel({ s }: { s: Snapshot }) {
     league = s.matches.filter((m) => m.stage !== "knockout" && (m.group_no === null || m.group_no === group));
   return <>
     {!s.matches.length && <DrawPlaceholder s={s}/>} 
-    {s.event.format === "group_knockout" && s.matches.length > 0 && <div className="chips">{Array.from({ length: s.event.group_count! }, (_, i) => <button key={i} className={group === i + 1 ? "active" : ""} onClick={() => setGroup(i + 1)}>{language==="en"?`Group ${String.fromCharCode(65+i)}`:`${String.fromCharCode(65+i)} 组`}</button>)}</div>}
+    {s.event.format === "group_knockout" && s.matches.length > 0 && <div className="chips">{Array.from({ length: s.event.group_count! }, (_, i) => <button key={i} className={group === i + 1 ? "active":""} onClick={() => setGroup(i + 1)}>{language==="en"?`Group ${String.fromCharCode(65+i)}`:`${String.fromCharCode(65+i)} 组`}</button>)}</div>}
     {s.event.format === "group_knockout" && !!league.length && <div className="card"><h3>{language==="en"?"Live group standings":"本组实时排名"}</h3>{groupRankings(s)[group - 1].map((r) => <div className="row between small" key={r.entry_id}><span>{r.rank}. {entryName(s.entries.find((e) => e.id === r.entry_id))}</span><span>{language==="en"?`${r.wins} wins · game diff ${r.game_difference}`:`${r.wins}胜 · 局差${r.game_difference}`}</span></div>)}</div>}
     {[...new Set(league.map((m) => m.round_no))].sort((a, b) => a - b).map((r) => <section key={r}><h3>{language==="en"?`Round ${r}`:`第 ${r} 轮`}</h3>{league.filter((m) => m.round_no === r).map((m) => <MatchCard key={m.id} m={m} s={s} />)}</section>)}
     {!!ko.length && <><h2>{language==="en"?"Knockout draw":"淘汰签表"}</h2><p className="small muted">{language==="en"?"Swipe horizontally to view rounds · Tap a match to view or score":"左右滑动查看各轮 · 点击比赛查看或记分"}</p><div className="bracket">{[...new Set(ko.map((m) => m.round_no))].sort((a, b) => a - b).map((r) => <section key={r} className="bracket-round"><h3>{ko.filter((m) => m.round_no === r).length === 1 ? (language==="en"?"Final":"决赛") : ko.filter((m) => m.round_no === r).length === 2 ? (language==="en"?"Semifinals":"半决赛") : (language==="en"?`Round ${r}`:`第 ${r} 轮`)}</h3>{ko.filter((m) => m.round_no === r).sort((a, b) => a.bracket_position! - b.bracket_position!).map((m) => <MatchCard key={m.id} m={m} s={s} />)}</section>)}</div></>}
@@ -96,7 +98,7 @@ export function RankingPanel({ s }: { s: Snapshot }) {
     {!s.matches.length && <RankingPlaceholder/>}
     {complete && results.length > 0 && <div className="winner-banner"><Trophy size={30} /><h2>{entryName(results[0].entries[0])}</h2><p>{language==="en"?"Champion":"本场冠军"}</p></div>}
     {s.matches.length > 0 && (s.event.format === "knockout" ? (results.length ? results.map((r) => <div className="card" key={r.label}><span className="badge">{podiumLabel(r.label,language)}</span><h3>{r.entries.map(entryName).join(language==="en"?", ":"、")}</h3></div>) : <div className="tournament-placeholder compact-placeholder"><div className="placeholder-heading row"><span className="placeholder-icon"><Trophy size={18}/></span><div><strong>{language==="en"?"Podium awaiting results":"领奖台等待赛果"}</strong><p className="muted small">{language==="en"?"Champion, runner-up and joint third place appear after the final.":"决赛结束后，这里会展示冠军、亚军和并列季军。"}</p></div></div></div>) : <>
-      {s.event.format === "group_knockout" && <div className="chips">{Array.from({ length: s.event.group_count! }, (_, i) => <button key={i} className={group === i + 1 ? "active" : ""} onClick={() => setGroup(i + 1)}>{language==="en"?`Group ${String.fromCharCode(65+i)}`:`${String.fromCharCode(65+i)} 组`}</button>)}</div>}
+      {s.event.format === "group_knockout" && <div className="chips">{Array.from({ length: s.event.group_count! }, (_, i) => <button key={i} className={group === i + 1 ? "active":""} onClick={() => setGroup(i + 1)}>{language==="en"?`Group ${String.fromCharCode(65+i)}`:`${String.fromCharCode(65+i)} 组`}</button>)}</div>}
       {rows.map((row) => <div className="card" key={row.entry_id}><div className="row"><b className="rank-number">{String(row.rank).padStart(2, "0")}</b><strong className="grow">{entryName(s.entries.find((e) => e.id === row.entry_id))}</strong>{s.event.format === "group_knockout" && row.rank <= s.event.qualifiers_per_group! && <span className="badge">{s.matches.filter((m) => m.stage === "group").every((m) => m.status === "finished") ? (language==="en"?"Qualified":"晋级") : (language==="en"?"Qualifying position":"暂列晋级位")}</span>}</div><div className="ranking-stats"><span>{language==="en"?`Played ${row.played}`:`已赛 ${row.played}`}</span><span>{language==="en"?`${row.wins} W / ${row.losses} L`:`${row.wins} 胜 / ${row.losses} 负`}</span><span>{language==="en"?`Game diff ${row.game_difference>0?"+":""}${row.game_difference}`:`局差 ${row.game_difference>0?"+":""}${row.game_difference}`}</span><span>{language==="en"?`Games won ${row.games_won}`:`胜局 ${row.games_won}`}</span></div></div>)}
       <p className="muted small">{language==="en"?"Order: wins → head-to-head when exactly two players are tied → game difference → games won → registration time. Head-to-head is not used for ties among three or more players; point-race points do not count toward game difference.":"排序：胜场 → 两人同胜场时相互战绩 → 局差 → 胜局 → 报名时间。三人及以上同胜场不使用两两相互战绩；连续抢分的小分不计入局差。"}</p>
     </>)}
