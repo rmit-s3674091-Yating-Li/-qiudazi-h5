@@ -53,7 +53,7 @@ export function MyProfileHome() {
 
         <div className="notice">
           <ShieldCheck size={20} />
-          <p>当前仅为受控测试版，昵称直接作为测试身份识别；不用于真实身份验证。</p>
+          <p>当前为受控测试版，昵称仅用于识别测试身份。</p>
         </div>
       </main>
     </>
