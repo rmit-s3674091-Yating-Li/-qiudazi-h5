@@ -262,6 +262,12 @@ export function EventCard({
         </small>
       </div>
       <h3>{e.name}</h3>
+      <div className="row organizer-line">
+        <Avatar path={e.owner_avatar_url} name={e.owner_nickname || "组织者"} size={24} />
+        <span className="muted small">
+          <b>{e.owner_nickname || "球搭子"}</b> · 组织者
+        </span>
+      </div>
       <p className="muted">
         {labels[e.format]} ·{" "}
         {e.best_of === 1
