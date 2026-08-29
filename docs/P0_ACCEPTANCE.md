@@ -54,8 +54,11 @@
 ## F. 权威赛事身份与管理入口
 - [ ] `get_event_snapshot` 等服务端快照返回的 `viewer_role` 是赛事详情角色判断权威依据。
 - [ ] EventPage 不得仅通过本地 `auth.profile.id === event.owner_user_id` 判断组织者。
+- [ ] MatchPage 的比赛详情、实时记分、直接录入比分与比分更正同样以 `viewer_role === 'owner'` 判断组织者记分能力；不得仅依赖本地 Profile ID。
+- [ ] MatchPage 本地比分级联预演需要 actor ID 时使用快照中的 canonical `event.owner_user_id`，不使用可能过期的本地 `auth.profile.id`。
 - [ ] owner / invited / participant / viewer 的前端入口与服务端权限一致；前端隐藏按钮不能替代后端授权。
-- [ ] canonical Profile alias/旧 session 场景中合法组织者仍能看到并使用管理、编辑、编排、开赛等应有入口。
+- [ ] 实际有效 Entry 中的 Player membership 优先识别为 participant；双打两名已关联真实用户的搭档在 snapshot/preview 中均按实际参与事实获得正确角色/访问，不因 signup_user_id 或历史 accepted invite 被误判。
+- [ ] canonical Profile alias/旧 session 场景中合法组织者仍能看到并使用管理、编辑、编排、开赛、实时记分、直接录分和比分更正等应有入口。
 
 ## G. 设置、隐私与语言
 - [ ] “我的 → 设置与隐私”可真实保存设置。
