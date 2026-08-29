@@ -30,6 +30,12 @@ import { EventInvitesPage } from "./components/EventInviteUI";
 import "./styles.css";
 import "./polish.css";
 
+function HomeRedirect() {
+  const inviterId = new URLSearchParams(window.location.search).get("connect");
+  const validInvite = inviterId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(inviterId);
+  return <Navigate to={validInvite ? `/connect/${inviterId}` : "/events"} replace />;
+}
+
 function App() {
   const location = useLocation();
   if (!configured) {
@@ -51,7 +57,7 @@ function App() {
   return (
     <div className={"app-shell " + (tab ? "with-nav" : "")}>
       <Routes>
-        <Route path="/" element={<Navigate to="/events" replace />} />
+        <Route path="/" element={<HomeRedirect />} />
         <Route path="/events" element={<IdentityGate><Hall /></IdentityGate>} />
         <Route path="/my-events" element={<IdentityGate><Hall mine /></IdentityGate>} />
         <Route path="/event-invites" element={<IdentityGate><EventInvitesPage /></IdentityGate>} />

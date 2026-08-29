@@ -32,7 +32,7 @@ export function ConnectionsPage() {
 
   async function shareInvite() {
     if (!profile?.id) return;
-    const url = `${window.location.origin}${window.location.pathname}#/connect/${profile.id}`;
+    const url = `${window.location.origin}${window.location.pathname}?connect=${encodeURIComponent(profile.id)}`;
     try {
       if (navigator.share) {
         await navigator.share({
