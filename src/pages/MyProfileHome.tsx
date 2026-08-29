@@ -53,7 +53,7 @@ export function MyProfileHome() {
 
         <div className="notice">
           <ShieldCheck size={20} />
-          <p>当前为测试账号，请尽量使用同一设备和浏览器。清除浏览器数据或更换设备后，测试身份可能无法恢复。</p>
+          <p>当前仅为受控测试版，昵称直接作为测试身份识别；不用于真实身份验证。</p>
         </div>
       </main>
     </>
