@@ -98,7 +98,18 @@ export function Hall({ mine = false }: { mine?: boolean }) {
             </div>
           </div>
         )}
-        {mine && <EventInviteInboxLink />}
+        {mine && (
+          <>
+            <EventInviteInboxLink />
+            <Link className="card row between" to="/events/new">
+              <div>
+                <strong>创建新赛事</strong>
+                <p className="muted small">随时再发起一场单打或双打比赛</p>
+              </div>
+              <Plus size={20} />
+            </Link>
+          </>
+        )}
         <div className="section-heading">
           <h2>{mine ? "我的赛场" : "最近的比赛"}</h2>
           <button
