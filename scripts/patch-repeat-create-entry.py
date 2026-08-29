@@ -6,3 +6,4 @@ new='''        {mine && <EventInviteInboxLink />}\n        <div className="secti
 if old not in s: raise SystemExit('section heading pattern not found')
 s=s.replace(old,new,1)
 p.write_text(s)
+# one-off patch; workflow removes this file after a successful build
