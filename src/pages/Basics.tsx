@@ -36,6 +36,7 @@ import {
   Confirm,
 } from "../components/UI";
 import { imageBlob } from "../utils/images";
+import { EventInviteInboxLink } from "../components/EventInviteUI";
 
 export function Hall({ mine = false }: { mine?: boolean }) {
   const [scope, setScope] = useState("created");
@@ -97,6 +98,7 @@ export function Hall({ mine = false }: { mine?: boolean }) {
             </div>
           </div>
         )}
+        {mine && <EventInviteInboxLink />}
         <div className="section-heading">
           <h2>{mine ? "我的赛场" : "最近的比赛"}</h2>
           <button
