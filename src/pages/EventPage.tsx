@@ -185,7 +185,7 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
               key={entry.id}
               entry={entry}
               language={language}
-              remove={registrationOpen && (owner || entry.signup_user_id === auth.profile?.id) ? () => setConfirm({
+              remove={registrationOpen && (owner || entry.id === own?.id) ? () => setConfirm({
                 title: owner ? txt("移出参赛名单？", "Remove from roster?") : txt("确认退出报名？", "Withdraw registration?"),
                 description: txt("退出后会自动递补最早报名的候补；重新报名将按新的时间排序。", "The earliest waitlisted entry will be promoted automatically. Registering again uses a new registration time."),
                 run: () => rpc("withdraw_entry", { p_event_id: id, p_entry_id: entry.id }),
@@ -198,7 +198,7 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
               key={entry.id}
               entry={entry}
               language={language}
-              remove={registrationOpen && (owner || entry.signup_user_id === auth.profile?.id) ? () => setConfirm({
+              remove={registrationOpen && (owner || entry.id === own?.id) ? () => setConfirm({
                 title: txt("退出候补？", "Leave the waitlist?"),
                 description: txt("将释放整个参赛单元，双打将同时退出两位参赛者。", "The whole entry will be released; a doubles team withdraws both players together."),
                 run: () => rpc("withdraw_entry", { p_event_id: id, p_entry_id: entry.id }),
@@ -251,7 +251,9 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
               : owner ? txt("我也参赛", "Register myself") : txt("立即报名", "Register now")}
           </button>}
           {own && <button className="secondary grow" onClick={() => { setTab("roster"); setRosterStatus(own.status); }}>
-            {own.status === "waitlist" ? txt("已候补 · 查看/退出", "Waitlisted · view / withdraw") : txt("已报名 · 查看/退出", "Registered · view / withdraw")}
+            {registrationOpen
+              ? own.status === "waitlist" ? txt("已候补 · 查看/退出", "Waitlisted · view / withdraw") : txt("已报名 · 查看/退出", "Registered · view / withdraw")
+              : own.status === "waitlist" ? txt("已候补 · 查看名单", "Waitlisted · view roster") : txt("已报名 · 查看名单", "Registered · view roster")}
           </button>}
           {owner && e.status === "signup" && <button className="grow" disabled={busy} onClick={() => setConfirm({
             title: txt("锁定参赛名单？", "Lock the roster?"),
