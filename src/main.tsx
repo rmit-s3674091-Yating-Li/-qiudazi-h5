@@ -15,8 +15,8 @@ import {
   Hall,
   PlayerForm,
   PrivacyPage,
-  ProfilePage,
 } from "./pages/Basics";
+import { InviteAwareProfilePage } from "./pages/InviteAwareProfilePage";
 import { MyProfileHome } from "./pages/MyProfileHome";
 import { MyResultsPage } from "./pages/MyResultsPage";
 import { MyTennisProfilePage } from "./pages/MyTennisProfilePage";
@@ -81,7 +81,7 @@ function App() {
         <Route path="/players/:id/edit" element={<IdentityGate><PlayerForm /></IdentityGate>} />
         <Route path="/my-tennis-profile" element={<IdentityGate><MyTennisProfilePage /></IdentityGate>} />
         <Route path="/me" element={<IdentityGate><MyProfileHome /></IdentityGate>} />
-        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/profile" element={<InviteAwareProfilePage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/events/new" element={<IdentityGate><EventForm /></IdentityGate>} />
         <Route path="/events/:id/edit" element={<IdentityGate><EventForm /></IdentityGate>} />
