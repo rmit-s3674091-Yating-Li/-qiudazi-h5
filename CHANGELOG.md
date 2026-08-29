@@ -20,6 +20,26 @@
 
 ---
 
+## 2026-08-30 — AUD-20260830-001 audit backlog concurrency remediation
+
+**分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
+**状态**：`AUD-20260830-001` 的并发语义去重竞态已完成 repository/live 修复与基础验证，候选仅进入 `FIXED_PENDING_VERIFY`；最终并发回归由独立流程验证，修复者不自行标记 VERIFIED。
+
+### 修复事实
+
+- `audit_ops.create_issue(...)` 在读取 `(audit_date, semantic_key)` 既有记录之前恢复与旧 `reserve_issue_id(...)` 相同命名空间的按日期事务级 `pg_advisory_xact_lock`；同一天的并发创建会先串行进入语义去重，再执行计数器分配，避免两个事务同时错过既有 row 后由唯一约束异常中断。
+- 现有 `(audit_date, semantic_key)` / `(audit_date, sequence_no)` 唯一约束、正式 backlog 行模型、`created=true/false` 返回语义与 `security invoker` 边界保持不变；未修改产品业务规则。
+- repository migration 与 live Supabase migration 已对齐为 `20260829200350_audit_create_issue_concurrency.sql` / `20260829200350 audit_create_issue_concurrency`；live `pg_get_functiondef` 已只读确认 advisory lock 位于 semantic-key 查询之前。
+
+### 验证与审计轨迹
+
+- 起始修复提交为 `0b02a83e6b394fb4e9bd72c05dd9c42dd627cdda`；为与 live 自动生成的 migration version 精确对齐，仓库最终迁移文件在 `cde5a6827edd26ac26f40ce70fbbef12870718ed` 建立，并在 `e09ee9905b27a37bf36a018a0dd15d02fac2cb19` 删除临时文件名。
+- exact-head `e09ee9905b27a37bf36a018a0dd15d02fac2cb19` 的 H5 Build Check run `33272501660` 已 `success`。
+- 验证正式 `create_issue` 复用语义时，首次测试调用按正常规则创建了 `AUD-20260830-002`，相同 semantic key 的第二次调用返回同一 `audit_id` 且 `created=false`。该验证 row 已保留编号并标记 `DUPLICATE` 指向本整改语义；不删除、不复用 AUD 编号。计数器因此合法推进至 2，本批不执行回退或破坏性清理。
+- README、PRD V6、PRODUCT/INTERACTION/VISUAL baseline 与 P0_ACCEPTANCE 经复核均不受本治理内部实现修复影响；`AUDIT_AUTOMATION_GOVERNANCE.md` 已明确要求并发相同 semantic key 必须收敛为单一 AUD 并返回 `created=false`，因此无需新增产品或治理规则，只记录实现闭环。
+
+---
+
 ## 2026-08-30 — AUD-017 protected event photos remediation
 
 **分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
@@ -170,7 +190,7 @@
 
 - `0f738703` — 对阵 / 排名 / 合影面板双语化
 - `9a013d6d` — 球搭子主页、关系邀请与历史关联邀请双语化
-- `5b82c144` — 私有赛事预览双语化
+- `5b82c144` — 私有赛事受限预览页双语化
 - `e28f876a` / `aaf90f7a` — 我的战绩 / 我的打球档案双语化
 - `c2f741a7` / `0dbe8376` / `a1bb7931` — 球搭子详情、临时球搭子、邀请记录双语化
 - `c80b85e3` / `e90d1e81` — 身份建档与 Player 编辑双语化
