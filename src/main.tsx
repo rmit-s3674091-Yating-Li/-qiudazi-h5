@@ -17,6 +17,7 @@ import { PartnerInvitesPage } from "./pages/PartnerInvitesPage";
 import { PlayerFormPage } from "./pages/PlayerFormPage";
 import { ConnectionInvitePage, ConnectionsPage, PlayerClaimInvitePage } from "./pages/ConnectionsPage";
 import { EventPage } from "./pages/EventPage";
+import { PrivateEventPreviewPage } from "./pages/PrivateEventPreviewPage";
 import { MatchPage } from "./pages/MatchPage";
 import { EventInvitesPage } from "./components/EventInviteUI";
 import "./styles.css";
@@ -49,6 +50,7 @@ function App(){
     <Route path="/events/new" element={<IdentityGate><EventFormPage/></IdentityGate>}/>
     <Route path="/events/:id/edit" element={<IdentityGate><EventFormPage/></IdentityGate>}/>
     <Route path="/events/:id/manage" element={<IdentityGate><EventPage manage/></IdentityGate>}/>
+    <Route path="/events/:id/preview" element={<IdentityGate><PrivateEventPreviewPage/></IdentityGate>}/>
     <Route path="/events/:id/matches/:matchId" element={<MatchPage/>}/>
     <Route path="/events/:id/matches/:matchId/score" element={<IdentityGate><MatchPage mode="direct"/></IdentityGate>}/>
     <Route path="/events/:id/matches/:matchId/live" element={<IdentityGate><MatchPage mode="live"/></IdentityGate>}/>
