@@ -20,6 +20,37 @@
 
 ---
 
+## 2026-08-29 — V6 release traceability addendum
+
+**分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
+**状态**：参与事实与比赛页权威身份修复已完成独立白盒验证；当前候选仍受 AUD-001/003/006 等发布项阻塞，不可部署。
+
+### 已落地并独立验证
+- `AUD-20260829-008` VERIFIED：`20260829181400_v6_joined_event_participant_sync.sql` 将“我参与的”统一为 active Entry → entry_players → linked Player 的实际参与事实，覆盖双打两名真实搭档；live `list_events` 定义已核对。
+- `AUD-20260829-009` VERIFIED：`MatchPage.tsx` 使用服务端 `viewer_role === 'owner'` 判断组织者记分能力；比分级联预演 actor 使用赛事快照 canonical `owner_user_id`。
+- `AUD-20260829-012` VERIFIED：`20260829181500_v6_event_participant_role_sync.sql` 让 snapshot/private preview 按 active Entry/Player membership 识别 participant，并让 participant 优先于历史 invited；live function definition 已核对。
+
+### 已修复待独立验证
+- `AUD-20260829-010`：截止后“我参与的 → 喊球搭子一起来”入口改用有效报名状态 helper。
+- `AUD-20260829-011`：参赛建议级别展示 helper 按基线统一边界文案并移除重复后缀补丁。
+
+### 当前发布阻塞
+- `AUD-20260829-006`：EventPage 仍存在真实 TypeScript build failure。
+- `AUD-20260829-001`：仍需 clean replay / migration history / repository 与 live schema-function 一致性证明；live migration version 与仓库 `181400/181500` 文件名目前不一一对应。
+- `AUD-20260829-003`：核心 English 流程仍需完成全量 i18n 闭环。
+- `AUD-20260829-004/005/010/011`：等待独立回归/验证。
+
+### 关键实现
+- `9e874389` — MatchPage 权威身份修复
+- `217ef648` — 报名截止后的邀请入口状态修复
+- `4d4bd831` — 建议级别展示 helper 收口
+- `20260829181400_v6_joined_event_participant_sync.sql`
+- `20260829181500_v6_event_participant_role_sync.sql`
+
+> 本 addendum 只修正事实性 release traceability，不新增产品规则；下方历史记录保持原样。
+
+---
+
 ## 2026-08-29 — Private event discovery / participant invitation revision
 
 **状态**：已更新 `main` 与当前 Supabase 测试数据库；属于下一次中国区 CloudBase 部署前收口批次。
@@ -181,7 +212,7 @@
 - 旧 `link_only` 赛事迁移为 `private`。
 - `events.city` 改为 NOT NULL。
 - `events.visibility` 约束改为 `public/private`。
-- 同步修正赛事等级数据库约束；后续六档体系最终收口为 2.0及以下 ～ 4.5及以上。
+- 同步修正赛事等级数据库约束；后续六档体系最终收口为当前六档大众业余体系。
 - 仓库 migration：`20260829154000_require_event_city_and_private_visibility.sql`。
 
 ### 验证
@@ -343,7 +374,7 @@
 
 ### 发布状态说明
 
-- 本节只表示产品/交互/验收文档已建立一致依据，不等于相关代码已经通过验证。
-- `AUD-20260829-006`（EventPage 权威 viewer_role）仍需修复 build failure 并独立验证。
-- `AUD-20260829-008`（双打实际搭档进入“我参与的”）仍需代码/migration 整改与独立验证。
-- `AUD-20260829-001` 仍需 clean replay / live schema 一致性证明。
+- 本节是最初建立 V6 文档依据时的历史快照；最新实现/验证状态以上方 `V6 release traceability addendum` 为准。
+- 当时 `AUD-20260829-006` 已知存在 EventPage 权威身份/build 阻塞。
+- 当时 `AUD-20260829-008` 尚未完成；现已由后续 migration 修复并独立验证，见上方 addendum。
+- `AUD-20260829-001` clean replay / migration history 一致性仍待证明。
