@@ -1,0 +1,17 @@
+import { Link, useParams } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
+import { Avatar, Empty, ErrorNotice, Header, Loading } from "../components/UI";
+import { rpc } from "../repositories/supabase";
+import { useQuery } from "../hooks/useQuery";
+
+type PartnerProfile={id:string;nickname:string|null;avatar_url:string|null;player_id:string|null;level:string|null;city:string|null;play_times:string[];play_preference:"singles"|"doubles"|"both"|null};
+type PartnerMatch={match_id:string;event_id:string;event_name:string;event_date:string|null;match_type:"singles"|"doubles";stage:string|null;round_no:number|null;won:boolean;opponents:{name:string;avatar_url:string|null}[]};
+type PartnerDetail={profile:PartnerProfile;summary:{played:number;wins:number;losses:number};recent_matches:PartnerMatch[]}|null;
+const preferenceLabel:Record<string,string>={singles:"偏好单打",doubles:"偏好双打",both:"单打 / 双打都打"};
+export function PartnerDetailPage(){
+  const{profileId}=useParams();const q=useQuery(`partner-detail-${profileId}`,()=>rpc<PartnerDetail>("get_connected_partner_profile",{p_profile_id:profileId}));
+  if(q.loading&&!q.data)return <><Header title="球搭子档案"/><main className="page"><Loading/></main></>;
+  if(!q.data)return <><Header title="球搭子档案"/><main className="page"><ErrorNotice message={q.error} retry={q.refresh}/>{!q.error&&<Empty title="暂时看不到这位球搭子的档案"><p>只有已经建立球搭子关系的用户可以互相查看档案。</p></Empty>}</main></>;
+  const{profile,summary,recent_matches}=q.data;const winRate=summary.played?Math.round(summary.wins/summary.played*100):0;const profileBits=[profile.level?`${profile.level} 级`:null,profile.city,profile.play_preference?preferenceLabel[profile.play_preference]:null].filter(Boolean);
+  return <><Header title="球搭子档案"/><main className="page"><div className="profile-banner"><Avatar path={profile.avatar_url} name={profile.nickname||"球搭子"} size={72}/><div><span className="eyebrow">TENNIS PARTNER</span><h1>{profile.nickname||"球搭子"}</h1><p>{profileBits.length?profileBits.join(" · "):"还没有补充更多打球资料"}</p></div></div><ErrorNotice message={q.error} retry={q.refresh}/><div className="stats"><div><b>{summary.played}</b><small>已完成比赛</small></div><div><b>{summary.wins}</b><small>胜场</small></div><div><b>{summary.played?`${winRate}%`:"—"}</b><small>胜率</small></div></div><div className="card"><div className="section-heading"><h2>打球档案</h2></div><div className="event-facts"><div><small>水平</small><strong>{profile.level||"未填写"}</strong></div><div><small>常打城市</small><strong>{profile.city||"未填写"}</strong></div><div><small>偏好</small><strong>{profile.play_preference?preferenceLabel[profile.play_preference]:"未填写"}</strong></div><div><small>常打时间</small><strong>{profile.play_times?.length?profile.play_times.join("、"):"未填写"}</strong></div></div></div><div className="section-heading"><h2>最近战绩</h2><span className="muted small">{summary.wins} 胜 · {summary.losses} 负</span></div>{recent_matches.length?<div className="stack">{recent_matches.map(m=><Link className="card row between" key={m.match_id} to={`/events/${m.event_id}`}><div className="grow"><div className="row"><span className={m.won?"badge":"badge muted"}>{m.won?"胜":"负"}</span><strong>{m.event_name}</strong></div><p className="muted small">{m.event_date||"日期待定"} · {m.match_type==="doubles"?"双打":"单打"} · 对阵 {m.opponents.map(o=>o.name).join(" / ")||"对手待定"}</p></div><ArrowRight size={18}/></Link>)}</div>:<Empty title="还没有已完成的比赛"><p>完成赛事并记录赛果后，这里会显示 TA 最近的比赛概况。</p></Empty>}</main></>;
+}

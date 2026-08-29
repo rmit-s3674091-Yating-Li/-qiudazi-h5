@@ -38,263 +38,48 @@ export function entryName(e: Entry | undefined) {
 }
 export function feeText(e: Event, count = e.confirmed_count || 0) {
   if (e.fee_type === "free") return "免费";
-  if (e.fee_type === "fixed")
-    return "¥" + e.fixed_fee_per_entry + "/" + unit(e);
-  const total =
-    (e.venue_fee_total || 0) +
-    (e.ball_fee_total || 0) +
-    (e.other_fee_total || 0);
-  return count
-    ? "AA 预计 ¥" + (total / count).toFixed(2) + "/" + unit(e)
-    : "AA 总额 ¥" + total;
+  if (e.fee_type === "fixed") return "¥" + e.fixed_fee_per_entry + "/" + unit(e);
+  const total = (e.venue_fee_total || 0) + (e.ball_fee_total || 0) + (e.other_fee_total || 0);
+  return count ? "AA 预计 ¥" + (total / count).toFixed(2) + "/" + unit(e) : "AA 总额 ¥" + total;
 }
 export function Brand() {
-  return (
-    <span className="brand">
-      <i className="brand-mark" />
-      <span>
-        球搭子<small>TENNIS · TOGETHER</small>
-      </span>
-    </span>
-  );
+  return <span className="brand"><i className="brand-mark" /><span>球搭子<small>TENNIS · TOGETHER</small></span></span>;
 }
-export function Avatar({
-  path,
-  name,
-  size = 48,
-}: {
-  path?: string | null;
-  name?: string;
-  size?: number;
-}) {
-  return path ? (
-    <img
-      className="avatar"
-      style={{ width: size, height: size }}
-      src={assetUrl(path)}
-      alt={name || "参赛者头像"}
-    />
-  ) : (
-    <span
-      className="avatar fallback"
-      style={{ width: size, height: size }}
-      aria-label="默认网球头像"
-    >
-      <i />
-    </span>
-  );
+export function Avatar({ path, name, size = 48 }: { path?: string | null; name?: string; size?: number }) {
+  return path ? <img className="avatar" style={{ width: size, height: size }} src={assetUrl(path)} alt={name || "参赛者头像"} /> : <span className="avatar fallback" style={{ width: size, height: size }} aria-label="默认网球头像"><i /></span>;
 }
-export function Header({
-  title,
-  back = true,
-  action,
-}: {
-  title: string;
-  back?: boolean;
-  action?: ReactNode;
-}) {
+export function Header({ title, back = true, action }: { title: string; back?: boolean; action?: ReactNode }) {
   const navigate = useNavigate();
-  return (
-    <header className="topbar">
-      {back ? (
-        <button
-          className="icon-button"
-          aria-label="返回"
-          onClick={() =>
-            window.history.length > 1 ? navigate(-1) : navigate("/events")
-          }
-        >
-          <ArrowLeft size={21} />
-        </button>
-      ) : (
-        <span className="brand-mark small" />
-      )}
-      <strong>{title}</strong>
-      <span className="header-action">{action}</span>
-    </header>
-  );
+  return <header className="topbar">{back ? <button className="icon-button" aria-label="返回" onClick={() => window.history.length > 1 ? navigate(-1) : navigate("/events")}><ArrowLeft size={21} /></button> : <span className="brand-mark small" />}<strong>{title}</strong><span className="header-action">{action}</span></header>;
 }
 export function BottomNav() {
-  return (
-    <nav className="bottom-nav" aria-label="主导航">
-      {[
-        ["/events", "赛事大厅", Trophy],
-        ["/my-events", "我的赛事", Flag],
-        ["/players", "球搭子们", Users],
-        ["/me", "我的", UserRound],
-      ].map(([url, label, Icon]) => {
-        const I = Icon as typeof Trophy;
-        return (
-          <NavLink end key={url as string} to={url as string}>
-            <I size={21} />
-            <span>{label as string}</span>
-          </NavLink>
-        );
-      })}
-    </nav>
-  );
+  return <nav className="bottom-nav" aria-label="主导航">{[["/events", "赛事大厅", Trophy],["/my-events", "我的赛事", Flag],["/players", "球搭子们", Users],["/me", "我的", UserRound]].map(([url,label,Icon]) => { const I=Icon as typeof Trophy; return <NavLink end key={url as string} to={url as string}><I size={21}/><span>{label as string}</span></NavLink>; })}</nav>;
 }
-export function ErrorNotice({
-  message,
-  retry,
-}: {
-  message: string;
-  retry?: () => void;
-}) {
-  return message ? (
-    <div className="error" role="alert">
-      {message}
-      {retry && (
-        <button className="text-button" onClick={retry}>
-          <RefreshCw size={15} />
-          重新加载
-        </button>
-      )}
+export function ErrorNotice({ message, retry }: { message: string; retry?: () => void }) {
+  return message ? <div className="error" role="alert">{message}{retry && <button className="text-button" onClick={retry}><RefreshCw size={15}/>重新加载</button>}</div> : null;
+}
+export function Loading() { return <div className="loading" role="status"><span />正在连接球场…</div>; }
+export function Empty({ title, children }: { title: string; children?: ReactNode }) { return <div className="empty"><i className="court-mini"/><h3>{title}</h3>{children}</div>; }
+export function Sheet({ title, open, onClose, children }: { title:string; open:boolean; onClose:()=>void; children:ReactNode }) {
+  const ref=useRef<HTMLDialogElement>(null);
+  useEffect(()=>{if(open)ref.current?.showModal();else ref.current?.close();},[open]);
+  return <dialog ref={ref} className="sheet" onCancel={onClose} onClick={e=>{if(e.target===ref.current)onClose();}}><div className="sheet-content"><div className="sheet-handle"/><div className="row between"><h2>{title}</h2><button className="text-button" onClick={onClose}>关闭</button></div>{children}</div></dialog>;
+}
+export function Confirm({ title, description, onConfirm, onCancel, busy = false }: { title:string; description:string; onConfirm:()=>void; onCancel:()=>void; busy?:boolean }) {
+  return <Sheet open title={title} onClose={onCancel}><p>{description}</p><div className="row"><button className="secondary grow" onClick={onCancel}>取消</button><button className="grow" disabled={busy} onClick={onConfirm}>{busy?"处理中…":"确认"}</button></div></Sheet>;
+}
+export function EventCard({ event:e, manage=false }: { event:Event; manage?:boolean }) {
+  return <Link className="event-card" to={"/events/"+e.id+(manage?"/manage":"")}>
+    <div className="event-card-stripe"/>
+    <div className="row between"><span className={"badge "+e.status}>{labels[e.status]}</span><small>{labels[e.match_type]}{e.level?` · ${e.level}级`:""}</small></div>
+    <h3>{e.name}</h3>
+    <div className="row organizer-line"><Avatar path={e.owner_avatar_url} name={e.owner_nickname||"组织者"} size={24}/><span className="muted small"><b>{e.owner_nickname||"球搭子"}</b> · 组织者</span></div>
+    <p className="muted">{labels[e.format]} · {e.best_of===1?"一盘决胜":e.best_of===3?"三盘两胜":"五盘三胜"}</p>
+    <div className="event-meta">
+      <span><CalendarDays size={14}/>{e.event_date||"日期待定"} {e.event_time?.slice(0,5)}</span>
+      <span><MapPin size={14}/>{e.city ? `${e.city}${e.venue ? ` · ${e.venue}` : ""}` : e.venue || "城市 / 场地待补充"}</span>
     </div>
-  ) : null;
-}
-export function Loading() {
-  return (
-    <div className="loading" role="status">
-      <span />
-      正在连接球场…
-    </div>
-  );
-}
-export function Empty({
-  title,
-  children,
-}: {
-  title: string;
-  children?: ReactNode;
-}) {
-  return (
-    <div className="empty">
-      <i className="court-mini" />
-      <h3>{title}</h3>
-      {children}
-    </div>
-  );
-}
-export function Sheet({
-  title,
-  open,
-  onClose,
-  children,
-}: {
-  title: string;
-  open: boolean;
-  onClose: () => void;
-  children: ReactNode;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    if (open) ref.current?.showModal();
-    else ref.current?.close();
-  }, [open]);
-  return (
-    <dialog
-      ref={ref}
-      className="sheet"
-      onCancel={onClose}
-      onClick={(e) => {
-        if (e.target === ref.current) onClose();
-      }}
-    >
-      <div className="sheet-content">
-        <div className="sheet-handle" />
-        <div className="row between">
-          <h2>{title}</h2>
-          <button className="text-button" onClick={onClose}>
-            关闭
-          </button>
-        </div>
-        {children}
-      </div>
-    </dialog>
-  );
-}
-export function Confirm({
-  title,
-  description,
-  onConfirm,
-  onCancel,
-  busy = false,
-}: {
-  title: string;
-  description: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-  busy?: boolean;
-}) {
-  return (
-    <Sheet open title={title} onClose={onCancel}>
-      <p>{description}</p>
-      <div className="row">
-        <button className="secondary grow" onClick={onCancel}>
-          取消
-        </button>
-        <button className="grow" disabled={busy} onClick={onConfirm}>
-          {busy ? "处理中…" : "确认"}
-        </button>
-      </div>
-    </Sheet>
-  );
-}
-export function EventCard({
-  event: e,
-  manage = false,
-}: {
-  event: Event;
-  manage?: boolean;
-}) {
-  return (
-    <Link
-      className="event-card"
-      to={"/events/" + e.id + (manage ? "/manage" : "")}
-    >
-      <div className="event-card-stripe" />
-      <div className="row between">
-        <span className={"badge " + e.status}>{labels[e.status]}</span>
-        <small>
-          {e.level ? e.level + " · " : ""}
-          {labels[e.match_type]}
-        </small>
-      </div>
-      <h3>{e.name}</h3>
-      <p className="muted">
-        {labels[e.format]} ·{" "}
-        {e.best_of === 1
-          ? "一盘决胜"
-          : e.best_of === 3
-            ? "三盘两胜"
-            : "五盘三胜"}
-      </p>
-      <div className="event-meta">
-        <span>
-          <CalendarDays size={14} />
-          {e.event_date || "日期待定"} {e.event_time?.slice(0, 5)}
-        </span>
-        <span>
-          <MapPin size={14} />
-          {e.venue || "场地待定"}
-        </span>
-      </div>
-      <div className="card-bottom">
-        <span>
-          <b>{e.confirmed_count ?? "—"}</b>
-          <small>
-            {" "}
-            / {e.entry_limit || "不限"} {unit(e)}
-          </small>
-        </span>
-        <span className="fee">{feeText(e)}</span>
-      </div>
-      {!!e.waitlist_count && (
-        <small>
-          候补 {e.waitlist_count}/2 {unit(e)}
-        </small>
-      )}
-    </Link>
-  );
+    <div className="card-bottom"><span><b>{e.confirmed_count??"—"}</b><small> / {e.entry_limit||"不限"} {unit(e)}</small></span><span className="fee">{feeText(e)}</span></div>
+    {!!e.waitlist_count&&<small>候补 {e.waitlist_count}/2 {unit(e)}</small>}
+  </Link>;
 }
