@@ -4,13 +4,13 @@
 
 ## 1. 核心原则
 
-自动化体系必须把“问题本体”“展示镜像”“整改/验证过程日志”分离，禁止多个任务并发修改同一份问题清单文本。
+自动化体系必须把“问题本体”“展示镜像”“整改/验证过程日志”分离，并针对不同写入介质采用不同的并发控制方式，而不是简单限制为只有一个任务可以写。
 
-- **Supabase `audit_ops.issue_registry`：待整改问题唯一事实源（Source of Truth）**。
-- **GitHub Issue #21 正文：待整改问题清单的人类可读镜像**，不得作为新问题创建入口，也不得反向覆盖数据库事实。
-- **GitHub Issue #21 评论：仅记录已经存在 AUD 的整改、验证和补充证据过程**，不得用评论代替正式创建新待整改问题。
-- **「球搭子问题整改」：定时自动化中的唯一 writer**，负责修改产品代码、repo/canonical/CHANGELOG、必要 migration，并负责把 Supabase backlog 同步到 Issue #21 正文。
-- 代码变更巡检、全功能测试、部署前审计、周安全审计均为只读发现/验证角色，不得直接修改产品代码、数据库 schema/migration、canonical 文档或 Issue #21 正文。
+- **Supabase `audit_ops.issue_registry`：待整改问题唯一事实源（Source of Truth）**。多个审计/测试任务可以并发创建彼此独立的 backlog row；数据库负责原子编号、唯一约束和事务一致性。
+- **GitHub Issue #21 正文：待整改问题清单的人类可读镜像**，不得作为新问题创建入口，也不得反向覆盖数据库事实。由于正文属于整块共享文本，应由固定镜像同步流程更新，避免多个任务同时整段覆盖。
+- **GitHub Issue #21 评论：已存在 AUD 的整改、验证和补充证据日志**。评论采用 append-only；多个任务可以并发追加评论，不需要单 writer。
+- **「球搭子问题整改」：唯一自动修复者**，负责自动修改产品代码、必要 migration 和受影响文档，并可承担 Issue #21 正文镜像同步职责；它不是整个自动化体系的“唯一 writer”。
+- 代码变更巡检、全功能测试、部署前审计、周安全审计均可以写入其职责范围内的安全并发介质：创建新的 Supabase backlog row、向已有 AUD 追加 Issue 评论；但不得直接修改产品代码、数据库 schema/migration、canonical 文档或 Issue #21 正文。
 
 ## 2. 新待整改问题创建
 
@@ -82,7 +82,7 @@ AUD-YYYYMMDD-NNN
 - `created_at`
 - `updated_at`
 
-正式状态只能以 Supabase backlog 为准。允许状态：
+正式状态以 Supabase backlog 为准。允许状态：
 
 - `OPEN`
 - `IN_PROGRESS`
@@ -91,17 +91,17 @@ AUD-YYYYMMDD-NNN
 - `WONT_FIX`
 - `DUPLICATE`
 
-`FAILED`、`BLOCKED`、`NEEDS_DECISION` 可以进入工作上下文/评论证据，并由唯一 writer 根据实际情况决定正式状态是否退回 `OPEN`、保持 `IN_PROGRESS` 或进入其他允许状态。
+`FAILED`、`BLOCKED`、`NEEDS_DECISION` 可以进入工作上下文/评论证据，并由负责状态归并的流程根据实际情况同步正式状态。
 
 ## 5. Issue #21 正文镜像
 
 Issue #21 正文用于快速人工阅读，不是数据库。
 
-- 正文应由「球搭子问题整改」根据 `audit_ops.issue_registry` 重新生成或同步。
+- 正文应由固定的镜像同步流程根据 `audit_ops.issue_registry` 重新生成或同步；当前可由「球搭子问题整改」承担该同步职责。
 - 同步前必须重新读取最新 backlog。
 - 正文不得反向覆盖、推断或修改 backlog 状态。
-- 正文落后于数据库时，以数据库为准，并由唯一 writer 在后续同步中修正。
-- 其他定时任务不得直接编辑 Issue #21 正文。
+- 正文落后于数据库时，以数据库为准，并在后续同步中修正。
+- 其他审计/测试任务不得直接编辑 Issue #21 正文；这是为了避免整块文本并发覆盖，不意味着它们不能写 backlog 或追加评论。
 
 ## 6. Issue 评论用途
 
@@ -124,13 +124,32 @@ Issue #21 正文用于快速人工阅读，不是数据库。
 - 代替 Supabase backlog 的正式状态；
 - 覆盖或编辑历史评论来改写事实。
 
-评论应保持 append-only，形成可审计的工作流水。
+评论应保持 append-only，形成可审计的工作流水。多个任务可以同时追加不同评论；这类写入本身不需要单 writer。
 
-## 7. 唯一 writer 与文件并发保护
+## 7. 不同写入介质的并发规则
 
-「球搭子问题整改」是定时任务中的唯一自动 writer。
+自动化体系不采用“全局单 writer”，而按介质处理并发：
 
-对任何 GitHub repo 文件写入：
+### Supabase backlog
+
+- 多任务可并发创建独立问题 row；
+- 原子发号、semantic key 唯一约束和事务负责冲突控制；
+- 不通过共享文本文件维护正式 backlog。
+
+### GitHub Issue 评论
+
+- 多任务可并发 append；
+- 评论只记录已有 AUD 的整改/验证日志；
+- 不编辑旧评论改写历史。
+
+### GitHub Issue #21 正文
+
+- 属于整块共享文本，使用固定镜像同步流程；
+- 其他任务不直接整段覆盖正文。
+
+### Repo / canonical / CHANGELOG 文件
+
+任何会修改同一路径完整文件的流程都必须采用 optimistic concurrency：
 
 1. 写入前最后一步重新 fetch 完整文件；
 2. 获取当前最新 blob SHA；
@@ -138,9 +157,9 @@ Issue #21 正文用于快速人工阅读，不是数据库。
 4. 使用最新 SHA 执行 update；
 5. 如果发生 stale SHA / conflict，禁止拿旧内容盲目重试；必须重新读取最新文件、重新合并差异后再提交；
 6. 连续无法安全合并时停止并记录 `BLOCKED`，不得强制覆盖；
-7. 不并行修改同一路径；相互依赖的多文件修改按逻辑顺序逐个提交并持续使用最新 head。
+7. 同一任务不并行修改同一路径；相互依赖的多文件修改按逻辑顺序逐个提交并持续使用最新 head。
 
-交互式总控临时写文件时，也遵守同样的 optimistic concurrency 规则。
+当前定时体系中，产品代码和文档的自动修复仍集中由「球搭子问题整改」执行，以避免重复修复；交互式总控临时写文件时也可以写，但必须遵守同样的最新 SHA + 重新读取/合并规则。
 
 ## 8. 整改状态流转
 
@@ -165,26 +184,26 @@ P0 → P1 → P2
 
 独立巡检/测试/Gate 验证后：
 
-- 验证角色只记录已有 AUD 的验证评论；
-- 唯一 writer 根据独立证据将 backlog 更新为 `VERIFIED`，或失败时退回适当状态；
+- 验证角色向已有 AUD 追加验证评论；
+- 状态归并流程根据独立证据把 backlog 更新为 `VERIFIED`，或失败时退回适当状态；
 - 再同步 Issue #21 正文镜像。
 
 ## 9. 五个定时任务职责
 
 ### 球搭子代码变更巡检
-白盒发现与静态独立验证。新问题直接写 Supabase backlog；已有 AUD 的补证据/验证写评论；不修代码。
+白盒发现与静态独立验证。新问题直接写 Supabase backlog；已有 AUD 的补证据/验证写评论；不修代码、不整段修改 Issue 正文。
 
 ### 球搭子全功能测试
-黑盒 + Visual QA / UX QA / English QA。新问题直接写 Supabase backlog；已有 AUD 的复现与验证写评论；不修代码。
+黑盒 + Visual QA / UX QA / English QA。新问题直接写 Supabase backlog；已有 AUD 的复现与验证写评论；不修代码、不整段修改 Issue 正文。
 
 ### 球搭子部署前审计
-独立 Release Gate。新发布问题直接写 Supabase backlog；已有 AUD 的 Gate 证据写评论；不修代码。
+独立 Release Gate。新发布问题直接写 Supabase backlog；已有 AUD 的 Gate 证据写评论；不修代码、不整段修改 Issue 正文。
 
 ### 球搭子周安全审计
-独立安全发现与安全验证。新安全问题直接写 Supabase backlog；已有 AUD 的安全证据写评论；不直接整改。
+独立安全发现与安全验证。新安全问题直接写 Supabase backlog；已有 AUD 的安全证据写评论；不直接整改、不整段修改 Issue 正文。
 
 ### 球搭子问题整改
-唯一自动 writer、唯一自动修复者、Issue #21 正文镜像同步者。原则上处理已有 backlog；若整改过程中确实发现无法并入当前 AUD 的独立问题，也必须通过 `audit_ops.create_issue` 正式创建。
+唯一自动修复者，并承担当前 Issue #21 正文镜像同步职责。原则上处理已有 backlog；若整改过程中确实发现无法并入当前 AUD 的独立问题，也必须通过 `audit_ops.create_issue` 正式创建。它不是 backlog/comment 的唯一 writer。
 
 ## 10. 发布与审计要求
 
@@ -202,4 +221,5 @@ P0 → P1 → P2
 - 新增 `audit_ops.create_issue(...)`，在一个数据库事务内完成编号分配与待整改问题 row 创建；
 - 既有 `AUD-20260829-001` ～ `AUD-20260829-017` 已迁入 `audit_ops.issue_registry`，保持原编号、严重级别、状态与语义；
 - 2026-08-29 的计数器保持在 17，不因迁移或自测消耗正式编号；
-- GitHub Issue #21 从“唯一问题台账”调整为“正式 backlog 的人类可读镜像 + 已有问题工作评论区”。
+- GitHub Issue #21 从“唯一问题台账”调整为“正式 backlog 的人类可读镜像 + 已有问题工作评论区”；
+- 并发治理采用“数据库行级原子写入 + 评论 append-only + Issue 正文固定镜像同步 + repo 文件 optimistic concurrency”，而不是全局单 writer。
