@@ -242,7 +242,7 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
                 编辑赛事
               </Link>
             )}
-            {e.status === "signup" && (
+            {owner && e.status === "signup" && (
               <button className="secondary full" onClick={() => setInviteOpen(true)}>
                 邀请球搭子参赛
               </button>

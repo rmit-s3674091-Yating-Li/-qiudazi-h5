@@ -104,7 +104,7 @@ export function EventInvitesPage() {
       <main className="page">
         <span className="eyebrow">EVENT INVITATIONS</span>
         <h1>收到的邀请</h1>
-        <p className="muted">这里仅处理参赛邀请，不是聊天消息。</p>
+        <p className="muted">接受表示你愿意参加；请进入赛事详情后点击“立即报名”，选择本次实际参赛者并完成报名。</p>
         <ErrorNotice message={error || q.error} retry={q.refresh} />
         {q.loading && !q.data ? <Loading /> : q.data?.length ? (
           <div className="stack">
