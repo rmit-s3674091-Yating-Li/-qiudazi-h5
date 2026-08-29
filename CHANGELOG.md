@@ -23,7 +23,7 @@
 ## 2026-08-29 — V6 release traceability addendum
 
 **分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
-**状态**：参与事实与比赛页权威身份修复已完成独立白盒验证；当前候选仍受 AUD-001/003/006 等发布项阻塞，不可部署。
+**状态**：参与事实与比赛页权威身份修复已完成独立白盒验证；EventPage 已修复原 TypeScript build blocker 并恢复绿色构建，等待独立验证。当前候选仍受 AUD-001/003 及其他待回归发布项阻塞，不可部署。
 
 ### 已落地并独立验证
 - `AUD-20260829-008` VERIFIED：`20260829181400_v6_joined_event_participant_sync.sql` 将“我参与的”统一为 active Entry → entry_players → linked Player 的实际参与事实，覆盖双打两名真实搭档；live `list_events` 定义已核对。
@@ -31,16 +31,17 @@
 - `AUD-20260829-012` VERIFIED：`20260829181500_v6_event_participant_role_sync.sql` 让 snapshot/private preview 按 active Entry/Player membership 识别 participant，并让 participant 优先于历史 invited；live function definition 已核对。
 
 ### 已修复待独立验证
+- `AUD-20260829-006`：`EventPage.tsx` 已保持 `viewer_role === 'owner'` 的权威身份判断，并修正 DrawPanel/RankingPanel/PhotoPanel/Sheet 的旧 props 调用；commit `19c6f084501947c72585cd92ae527912690c998b` 对应 Actions run `33252030178` 已通过 `npm ci`、`tsc --noEmit` 与 Vite production build。该项仍需独立流程验证后才能 VERIFIED。
 - `AUD-20260829-010`：截止后“我参与的 → 喊球搭子一起来”入口改用有效报名状态 helper。
 - `AUD-20260829-011`：参赛建议级别展示 helper 按基线统一边界文案并移除重复后缀补丁。
 
 ### 当前发布阻塞
-- `AUD-20260829-006`：EventPage 仍存在真实 TypeScript build failure。
 - `AUD-20260829-001`：仍需 clean replay / migration history / repository 与 live schema-function 一致性证明；live migration version 与仓库 `181400/181500` 文件名目前不一一对应。
 - `AUD-20260829-003`：核心 English 流程仍需完成全量 i18n 闭环。
-- `AUD-20260829-004/005/010/011`：等待独立回归/验证。
+- `AUD-20260829-004/005/006/010/011`：等待独立回归/验证；其中 AUD-006 已恢复绿色 build，但尚未独立 VERIFIED。
 
 ### 关键实现
+- `19c6f084` — EventPage panel props / Sheet build blocker 修复，CI 绿色
 - `9e874389` — MatchPage 权威身份修复
 - `217ef648` — 报名截止后的邀请入口状态修复
 - `4d4bd831` — 建议级别展示 helper 收口
@@ -276,8 +277,7 @@
 
 ### 球搭子邀请与历史关联
 
-- 普通球搭子邀请由永久 profile 链接升级为一条一条可追踪的 token 邀请记录。
-- 普通邀请维持低摩擦体验：打开邀请后可自动建立球搭子关系，不增加冗余确认步骤。
+- 普通球搭子邀请由永久 profile 链接升级为一条一条可追踪邀请记录/token；对方完成必要身份流程后自动建立 Connection，不增加冗余确认步骤。
 - 临时球搭子可发起“邀请 TA 加入并关联历史记录”；对方确认后保留此前比赛历史并建立 Connection。
 - “球搭子邀请记录”统一展示两类邀请：普通球搭子邀请 + 临时球搭子历史关联邀请，但保持两类业务语义独立。
 - 用户可见文案不暴露 claim / merge / Player 合并等内部实现概念。
