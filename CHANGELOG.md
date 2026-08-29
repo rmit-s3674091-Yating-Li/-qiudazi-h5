@@ -20,6 +20,42 @@
 
 ---
 
+## 2026-08-30 — AUD-017 protected event photos remediation
+
+**分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
+**状态**：`AUD-20260829-017` 的自动整改实现与基础 CI 已完成，候选仅进入 `FIXED_PENDING_VERIFY`；必须由独立全功能测试 / Visual QA / 安全审计继续验证，修复者不自行标记 VERIFIED。
+
+### 权限与默认展示
+
+- `event-photos` 已由 public bucket 收紧为 private；Storage SELECT 使用 `qiudazi_photo_read_event_member`，只有赛事 organizer 或有效 Entry → active `entry_players` → linked real Player 的真实参赛者能够读取对象。
+- 赛事 `visibility=public/private` 不改变照片读取权限；普通 viewer、仅 invited 未形成有效 Entry 的用户以及匿名用户不能因为赛事可见而获得照片读取能力。
+- `get_event_snapshot` 对无照片权限的 viewer / invited 不再下发照片对象路径；`can_view_event_photo` / `list_my_event_photos` 等相关 RPC 按最小执行权限收口。
+- EventPage 的 PhotoPanel 不再使用 `getPublicUrl()`。有权用户进入照片区域时只请求水印预览的私有 signed URL，当前预览 TTL 为 300 秒；高清原图不在默认页面加载，仅在用户显式点击“查看高清 / View HD photo”后通过私有 Storage 服务端 RLS 再授权并生成 60 秒 signed URL，关闭高清视图即从页面状态移除该短时链接。
+
+### 上传、替换与删除闭环
+
+- 继续由组织者在赛事结束后选择 JPEG / PNG / WebP；客户端生成高清原图和真实水印预览两份对象，不使用 CSS blur 伪装安全预览。
+- `photo-management` Edge Function 增加 `finalize_upload`：服务端重新确认当前 auth/Profile 为赛事 owner、赛事已经 finished、上传 path 固定属于当前 auth user + event，随后调用受控 `save_event_photo`；保存失败会清理本次新对象，替换时由服务端负责旧对象清理并在失败路径执行补偿，避免继续由客户端任意删除历史 path。
+- “我的 → 设置与隐私”新增“我的上传内容 / My uploaded content”，通过 `list_my_event_photos` 只列出当前账号有管理权的赛事主合影；列表默认同样只加载私有水印预览，不提供高清自动加载。
+- 删除操作必须二次确认并明确高清原图与水印预览都会永久删除、不可恢复；确认后调用 `photo-management`，客户端只提交 `event_id + version`，服务端从当前 metadata 取得固定 original/preview path 并校验 owner，不接受客户端任意 Storage path。
+- `photo-management` live v2 已部署且 `verify_jwt=true`；删除/替换失败使用明确失败返回和补偿路径，后续仍需独立故障注入验证无 orphan / 无误报成功语义。
+
+### Repository / live / CI
+
+- `20260829190000_event_photo_privacy.sql`：private bucket、真实 participant/owner 读取授权、snapshot photo path 裁剪与 `list_my_event_photos`；核心 commit `fe2d57026381b9592dc93a5eb89a783a16873837`。
+- 服务端照片管理初版 commit `0aecaae5704d937586ee9942516237cd4e36ccde`；本轮补偿式 finalize/delete 更新 commit `f70dbd4754649b4762bb046523fc9cd1d8a6166b`。
+- 受保护 signed preview / explicit HD 组件 commit `8029a94bb2a2a8cd95ed9a9f38e5f0521114875b`；PhotoPanel 接入 commit `e5e842c37638b30219984e0d1918368d55ab466f`；PrivacyPage 上传内容管理 commit `03fff99a6d9dea63906f8312f6fa8354bfba53c5`。
+- Storage clean-replay assertion 已同步 private bucket、新 read policy 与 photo helper functions，commit `8784c2be8374053d115934cd27a73fc58bd31444`。
+- H5 Build Check run `33269751341`：`build` 与 `supabase-clean-replay` 两个 job 均 success；fresh `supabase db reset --local`、private bucket / policy / function reconstruction assertion 全部通过。
+- live 只读核对：`event-photos.public=false`，10MB，JPEG/PNG/WebP；当前存在 `qiudazi_photo_read_event_member`；`photo-management` v2 ACTIVE。
+
+### 文档影响
+
+- PRD V6、PRODUCT_BASELINE、INTERACTION_BASELINE、VISUAL_DESIGN_BASELINE 与 P0_ACCEPTANCE 在本批代码前已经完整规定 private Storage、organizer/actual participant、默认水印 preview、显式高清短授权、设置页删除与无 orphan 验收语义，因此本批不重复改写这些长期规则。
+- 本节只同步本批实际实现、live 对齐、commit 与 CI 证据，不新增产品决策。
+
+---
+
 ## 2026-08-29 — Supabase fresh replay / Storage reproducibility closure
 
 **分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
