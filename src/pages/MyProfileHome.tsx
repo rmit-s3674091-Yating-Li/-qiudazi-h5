@@ -34,7 +34,7 @@ export function MyProfileHome() {
           <ArrowRight size={18} />
         </Link>
         <Link className="card row between" to="/partner-invites">
-          <span>邀请记录</span>
+          <span>球搭子邀请记录</span>
           <ArrowRight size={18} />
         </Link>
         <Link className="card row between" to="/privacy">
