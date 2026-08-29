@@ -32,19 +32,18 @@ import {
   RankingPanel,
   PhotoPanel,
 } from "../components/TournamentPanels";
-import { EventInviteSheet } from "../components/EventInviteUI";
 export function EventPage({ manage = false }: { manage?: boolean }) {
   const { id } = useParams(),
     auth = useAuth(),
     navigate = useNavigate(),
     [params, setParams] = useSearchParams();
   const q = useQuery("event-" + id, () => repository.event(id!), 10000);
+  const myEntryQ = useQuery("my-event-entry-" + id, () => rpc<string | null>("get_my_event_entry_id", { p_event_id: id }), 10000);
   const [rosterStatus, setRosterStatus] = useState("confirmed");
   const [tab, setTab] = useState("info"),
     [signup, setSignup] = useState<"self" | "manual" | null>(null),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
-    [inviteOpen, setInviteOpen] = useState(false),
     [busy, setBusy] = useState(false),
     [confirm, setConfirm] = useState<{
       title: string;
@@ -122,7 +121,7 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
     active = s.entries.filter((x) => x.status === "confirmed"),
     waiting = s.entries.filter((x) => x.status === "waitlist"),
     own = s.entries.find(
-      (x) => x.signup_user_id === auth.profile?.id && x.status !== "withdrawn",
+      (x) => (x.id === myEntryQ.data || x.signup_user_id === auth.profile?.id) && x.status !== "withdrawn",
     );
   return (
     <>
@@ -235,17 +234,13 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
               </div>
             )}
             {owner && e.status === "signup" && (
-              <Link
-                className="button secondary full"
-                to={"/events/" + id + "/edit"}
-              >
-                编辑赛事
+              <Link className="card row between" to={"/events/" + id + "/edit"}>
+                <div>
+                  <strong>赛事设置</strong>
+                  <p className="muted small">修改时间、场地、赛制和报名设置</p>
+                </div>
+                <span aria-hidden>›</span>
               </Link>
-            )}
-            {e.status === "signup" && (
-              <button className="secondary full" onClick={() => setInviteOpen(true)}>
-                邀请球搭子参赛
-              </button>
             )}
           </>
         )}
@@ -277,7 +272,7 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
                   onClick={() => setSignup("manual")}
                 >
                   <Plus size={16} />
-                  手动添加
+                  添加参赛者
                 </button>
               )}
             </div>
@@ -305,7 +300,7 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
                 />
               ))}
             {rosterStatus === "confirmed" && !active.length && (
-              <p className="muted">还没有参赛者，邀请球搭子来报名吧。</p>
+              <p className="muted">还没有参赛者。其他用户可自行报名，组织者也可以手动添加参赛者。</p>
             )}
             {rosterStatus === "waitlist" &&
               waiting.map((en) => (
@@ -424,7 +419,7 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
               !own &&
               (e.visibility === "public" || e.link_signup_enabled) && (
                 <button
-                  className="grow"
+                  className={owner ? "secondary grow" : "grow"}
                   disabled={
                     !!e.entry_limit &&
                     active.length >= e.entry_limit &&
@@ -436,7 +431,7 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
                     ? waiting.length >= 2
                       ? "报名已满"
                       : "加入候补"
-                    : "立即报名"}
+                    : owner ? "我也参赛" : "立即报名"}
                 </button>
               )}
             {own && (
@@ -454,7 +449,7 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
             )}
             {owner && e.status === "signup" && (
               <button
-                className="secondary grow"
+                className="grow"
                 disabled={busy}
                 onClick={() =>
                   setConfirm({
@@ -480,7 +475,6 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
           </div>
         </div>
       </main>
-      <EventInviteSheet eventId={e.id} open={inviteOpen} onClose={() => setInviteOpen(false)} />
       {signup && (
         <SignupSheet
           snapshot={s}
@@ -538,164 +532,45 @@ function SignupSheet({
   onClose: () => void;
   onDone: () => void;
 }) {
-  const [players, setPlayers] = useState<Player[]>([]),
-    [selected, setSelected] = useState<string[]>([]),
-    [team, setTeam] = useState(""),
-    [newName, setNewName] = useState(""),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
-    [consent, setConsent] = useState(false);
-  const count = s.event.match_type === "doubles" ? 2 : 1;
-  useEffect(() => {
-    repository
-      .players()
-      .then((ps) => {
-        setPlayers(ps);
-        // Do not preselect or lock the current user. Signup is about choosing
-        // who is actually playing in this entry, including proxy signup.
-        setSelected([]);
-      })
-      .catch((e) => setError(explainError(e)));
-  }, [manual]);
-  const taken = new Set(
-    s.entries
-      .filter((e) => e.status !== "withdrawn")
-      .flatMap((e) => e.players.map((p) => p.id)),
-  );
-  const selectedPlayers = players.filter((p) => selected.includes(p.id));
-  const hasProxyPlayer = selectedPlayers.some((p) => p.player_type !== "self");
-  async function add() {
-    if (!newName.trim()) return;
-    setBusy(true);
-    try {
-      const p = await repository.savePlayer(null, newName.trim(), null);
-      setPlayers((x) => [...x, p]);
-      setNewName("");
-      if (selected.length < count) setSelected((x) => [...x, p.id]);
-    } catch (e) {
-      setError(explainError(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function save() {
-    setBusy(true);
-    setError("");
-    try {
-      await rpc("join_event", {
-        p_event_id: s.event.id,
-        p_player_ids: selected,
-        p_team_name: team || null,
-        p_manual: manual,
-      });
-      onDone();
-    } catch (e) {
-      setError(explainError(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Sheet
-      open
-      title={
-        manual
-          ? "手动添加" + (count === 2 ? "双打队伍" : "临时参赛者")
-          : count === 2
-            ? "选择双打参赛者"
-            : "选择参赛者"
-      }
-      onClose={onClose}
-    >
-      <p>{s.event.name}</p>
-      <p className="muted small">
-        {s.event.event_date || "日期待定"} · {s.event.venue || "场地待定"} ·{" "}
-        {feeText(
-          s.event,
-          s.entries.filter((e) => e.status === "confirmed").length,
-        )}
-      </p>
-      {count === 2 && (
-        <label>
-          队伍名称（可选）
-          <input
-            maxLength={60}
-            value={team}
-            onChange={(e) => setTeam(e.target.value)}
-          />
-        </label>
-      )}
+  type Connection={connection_id:string;id:string;nickname:string|null;avatar_url:string|null};
+  type PartnerInvite={id:string;invitee_user_id:string;nickname:string|null;avatar_url:string|null;status:"pending"|"accepted"|"declined"|"cancelled"|"expired";self_player_id:string|null};
+  const count=s.event.match_type==="doubles"?2:1;
+  const [players,setPlayers]=useState<Player[]>([]),[selected,setSelected]=useState<string[]>([]),[team,setTeam]=useState(""),[newName,setNewName]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState(""),[consent,setConsent]=useState(false),[connections,setConnections]=useState<Connection[]>([]),[partnerInvites,setPartnerInvites]=useState<PartnerInvite[]>([]),[partnerBusy,setPartnerBusy]=useState<string|null>(null);
+  const loadPartnerInvites=()=>rpc<PartnerInvite[]>("list_sent_doubles_partner_invites",{p_event_id:s.event.id}).then(setPartnerInvites);
+  useEffect(()=>{
+    repository.players().then(ps=>{setPlayers(ps);if(!manual){const self=ps.find(p=>p.player_type==="self");if(self)setSelected([self.id]);else setError("请先完成我的打球档案，再报名参赛。");}else setSelected([])}).catch(e=>setError(explainError(e)));
+    if(!manual&&count===2){rpc<Connection[]>("list_connections").then(setConnections).catch(e=>setError(explainError(e)));loadPartnerInvites().catch(e=>setError(explainError(e)));}
+  },[manual,count]);
+  const taken=new Set(s.entries.filter(e=>e.status!=="withdrawn").flatMap(e=>e.players.map(p=>p.id)));
+  const selfPlayer=players.find(p=>p.player_type==="self");
+  const selectedOwned=players.filter(p=>selected.includes(p.id));
+  const hasTemporaryPartner=!manual&&count===2&&selectedOwned.some(p=>p.player_type!=="self");
+  const hasProxyPlayer=manual&&selectedOwned.some(p=>p.player_type!=="self");
+  const selectedAccepted=partnerInvites.find(i=>i.status==="accepted"&&i.self_player_id&&selected.includes(i.self_player_id));
+  async function add(){if(!newName.trim())return;setBusy(true);try{const p=await repository.savePlayer(null,newName.trim(),null);setPlayers(x=>[...x,p]);setNewName("");if(manual){if(selected.length<count)setSelected(x=>[...x,p.id]);}else if(selfPlayer)setSelected([selfPlayer.id,p.id]);}catch(e){setError(explainError(e))}finally{setBusy(false)}}
+  async function invitePartner(profileId:string){setPartnerBusy(profileId);setError("");try{await rpc("invite_doubles_partner",{p_event_id:s.event.id,p_invitee_user_id:profileId});await loadPartnerInvites();}catch(e){setError(explainError(e))}finally{setPartnerBusy(null)}}
+  function choosePartner(i:PartnerInvite){if(selfPlayer&&i.self_player_id)setSelected([selfPlayer.id,i.self_player_id]);setConsent(false)}
+  async function save(){setBusy(true);setError("");try{await rpc("join_event",{p_event_id:s.event.id,p_player_ids:selected,p_team_name:team||null,p_manual:manual});onDone()}catch(e){setError(explainError(e))}finally{setBusy(false)}}
+  const invitedIds=new Set(partnerInvites.filter(i=>i.status==="pending"||i.status==="accepted").map(i=>i.invitee_user_id));
+  return <Sheet open title={manual?(count===2?"添加双打队伍":"添加参赛者"):count===2?"双打报名":"确认报名"} onClose={onClose}>
+    <p>{s.event.name}</p><p className="muted small">{s.event.event_date||"日期待定"} · {s.event.venue||"场地待定"} · {feeText(s.event,s.entries.filter(e=>e.status==="confirmed").length)}</p>
+    {count===2&&<label>队伍名称（可选）<input maxLength={60} value={team} onChange={e=>setTeam(e.target.value)}/></label>}
+    {manual?<>
       <h3>选择 {count} 位参赛者</h3>
-      {players.map((p) => (
-        <label className="check" key={p.id}>
-          <input
-            type="checkbox"
-            checked={selected.includes(p.id)}
-            disabled={taken.has(p.id)}
-            onChange={(e) =>
-              setSelected((x) =>
-                e.target.checked
-                  ? x.length < count
-                    ? [...x, p.id]
-                    : x
-                  : x.filter((id) => id !== p.id),
-              )
-            }
-          />
-          <span>
-            {p.name}
-            {p.player_type === "self" ? "（我）" : ""}
-            {taken.has(p.id) ? " · 已在名单中" : ""}
-          </span>
-        </label>
-      ))}
-      {(manual || count === 2) && (
-        <div className="card">
-          <label>
-            临时参赛者姓名 / 昵称
-            <input
-              maxLength={40}
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="也可以直接录入临时参赛者"
-            />
-          </label>
-          <button
-            className="secondary full"
-            disabled={busy || !newName.trim()}
-            onClick={add}
-          >
-            录入临时参赛者
-          </button>
-        </div>
-      )}
-      {hasProxyPlayer && (
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
-          />
-          <span>我已获得所选参赛者同意，代其提交本次赛事报名信息。</span>
-        </label>
-      )}
-      <p className="muted small">
-        名额以提交时数据库为准。正式名额已满将按顺序加入候补，最多候补2
-        {unit(s.event)}。
-      </p>
-      <ErrorNotice message={error} />
-      <button
-        className="full"
-        disabled={
-          busy ||
-          selected.length !== count ||
-          (hasProxyPlayer && !consent) ||
-          selected.some((id) => taken.has(id))
-        }
-        onClick={save}
-      >
-        {busy ? "正在提交…" : "确认" + (manual ? "添加" : "报名")}
-      </button>
-    </Sheet>
-  );
+      {players.map(p=><label className="check" key={p.id}><input type="checkbox" checked={selected.includes(p.id)} disabled={taken.has(p.id)} onChange={e=>setSelected(x=>e.target.checked?(x.length<count?[...x,p.id]:x):x.filter(id=>id!==p.id))}/><span>{p.name}{p.player_type==="self"?"（我）":""}{taken.has(p.id)?" · 已在名单中":""}</span></label>)}
+      <div className="card"><label>临时参赛者姓名 / 昵称<input maxLength={40} value={newName} onChange={e=>setNewName(e.target.value)} placeholder="录入未注册用户的参赛身份"/></label><button className="secondary full" disabled={busy||!newName.trim()} onClick={add}>录入临时参赛者</button></div>
+    </>:count===1?<>
+      <h3>我的报名</h3>{selfPlayer&&<div className="card row"><Avatar path={selfPlayer.avatar_url} name={selfPlayer.name} size={42}/><div><strong>{selfPlayer.name}</strong><p className="muted small">使用我的打球档案参赛</p></div></div>}
+    </>:<>
+      <h3>我和谁搭档？</h3>
+      {selfPlayer&&<div className="card row"><Avatar path={selfPlayer.avatar_url} name={selfPlayer.name} size={42}/><div><strong>{selfPlayer.name}（我）</strong><p className="muted small">你已作为本队第一位参赛者</p></div></div>}
+      {selectedAccepted&&<div className="notice">已选择 {selectedAccepted.nickname||"球搭子"} 作为搭档。</div>}
+      <div className="card"><strong>选择球搭子</strong><p className="muted small">邀请已经是球搭子的用户和你组队，对方确认后再完成报名。</p><div className="stack">{partnerInvites.filter(i=>i.status==="pending"||i.status==="accepted").map(i=><div className="row" key={i.id}><Avatar path={i.avatar_url} name={i.nickname||"球搭子"} size={36}/><span className="grow">{i.nickname||"球搭子"}</span>{i.status==="accepted"?<button className={selectedAccepted?.id===i.id?"secondary":""} onClick={()=>choosePartner(i)}>{selectedAccepted?.id===i.id?"已选择":"选择"}</button>:<span className="muted small">等待确认</span>}</div>)}{connections.filter(c=>!invitedIds.has(c.id)).map(c=><div className="row" key={c.connection_id}><Avatar path={c.avatar_url} name={c.nickname||"球搭子"} size={36}/><span className="grow">{c.nickname||"球搭子"}</span><button className="secondary" disabled={partnerBusy===c.id} onClick={()=>invitePartner(c.id)}>{partnerBusy===c.id?"发送中…":"邀请组队"}</button></div>)}{!connections.length&&!partnerInvites.length&&<p className="muted small">还没有可邀请的球搭子，可以先去“球搭子们”建立关系。</p>}</div></div>
+      <div className="card"><strong>搭档还没注册？</strong><p className="muted small">可以录入一位临时搭档，只用于本次及你组织的比赛身份。</p><label>临时搭档姓名 / 昵称<input maxLength={40} value={newName} onChange={e=>setNewName(e.target.value)} placeholder="输入搭档姓名或昵称"/></label><button className="secondary full" disabled={busy||!newName.trim()} onClick={add}>添加临时搭档</button></div>
+    </>}
+    {(hasTemporaryPartner||hasProxyPlayer)&&<label className="check"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/><span>我已获得临时参赛者本人同意，代其提交本次赛事报名信息。</span></label>}
+    <p className="muted small">名额以提交时数据库为准。正式名额已满将按顺序加入候补，最多候补2{unit(s.event)}。</p><ErrorNotice message={error}/>
+    <button className="full" disabled={busy||selected.length!==count||((hasTemporaryPartner||hasProxyPlayer)&&!consent)||selected.some(id=>taken.has(id))} onClick={save}>{busy?"正在提交…":manual?"确认添加":"确认报名"}</button>
+  </Sheet>;
 }
+
