@@ -2,13 +2,20 @@ import { Link } from "react-router-dom";
 import { Header, Loading, Empty, ErrorNotice, labels } from "../components/UI";
 import { rpc } from "../repositories/supabase";
 import { useQuery } from "../hooks/useQuery";
+import "../results.css";
 
 type Score = { set_no:number; a:number; b:number; ta:number|null; tb:number|null };
-type MatchRow = { match_id:string; event_id:string; event_name:string; event_date:string|null; match_type:string; stage:string; round_no:number; won:boolean; opponents:{name:string}[]; scores:Score[] };
+type MatchRow = { match_id:string; event_id:string; event_name:string; event_date:string|null; match_type:string; stage:string; round_no:number; won:boolean; my_side:"a"|"b"; opponents:{name:string}[]; scores:Score[] };
 type History = { summary:{played:number;wins:number;losses:number}; matches:MatchRow[] };
 
-function scoreText(scores: Score[]) {
-  return scores.map(s => `${s.a}-${s.b}${s.ta != null && s.tb != null ? `(${s.ta}-${s.tb})` : ""}`).join("  ");
+function scoreText(scores: Score[], mySide: "a"|"b") {
+  return scores.map(s => {
+    const mine = mySide === "a" ? s.a : s.b;
+    const theirs = mySide === "a" ? s.b : s.a;
+    const myTie = mySide === "a" ? s.ta : s.tb;
+    const theirTie = mySide === "a" ? s.tb : s.ta;
+    return `${mine}-${theirs}${myTie != null && theirTie != null ? `(${myTie}-${theirTie})` : ""}`;
+  }).join("  ");
 }
 
 export function MyResultsPage() {
@@ -31,7 +38,7 @@ export function MyResultsPage() {
         {h.matches.length ? h.matches.map(m => <Link className="card result-card" to={`/events/${m.event_id}`} key={m.match_id}>
           <div className="row between"><strong>{m.event_name}</strong><span className={`badge ${m.won ? "success" : ""}`}>{m.won ? "胜" : "负"}</span></div>
           <p className="muted small">{m.event_date || "日期待定"} · {labels[m.match_type] || m.match_type} · 对阵 {m.opponents.map(x=>x.name).join(" / ") || "待补充"}</p>
-          <div className="result-score">{scoreText(m.scores) || "已完赛"}</div>
+          <div className="result-score">{scoreText(m.scores, m.my_side) || "已完赛"}</div>
         </Link>) : <Empty title="还没有比赛战绩"><p>完成并提交一场比赛后，结果会自动出现在这里。</p><Link className="button" to="/my-events">查看我的赛事</Link></Empty>}
       </> : null}
     </main>
