@@ -20,11 +20,39 @@
 
 ---
 
+## 2026-08-29 — Test identity / history consistency hotfix
+
+**分支**：`fix/test-identity-history-consistency`  
+**背景**：PR #14 合并 `main` 后，中国区实测发现“大厅显示 test 赛事由 G 创建，但 G → 我的赛事 → 我创建的中缺失”，同时 G 与老郑已经建立球搭子关系，但“球搭子邀请记录”中缺少该历史记录。
+
+### 根因
+
+- 测试期曾多次使用匿名 auth 会话创建同名 Profile，历史上形成 3 个 `G` Profile 与 2 个 `老郑` Profile。
+- `private.profile_nicknames` 已经指定 canonical Profile，但旧赛事、Connection、manual Player 等数据仍可能挂在其他同名 Profile 上，因此同一昵称在前台看起来像同一个人，数据库实际却是多个身份。
+- `connection_invites` 是后续才引入的持久邀请表；G → 老郑的 Connection 早于该表存在，因此关系成立但没有对应邀请历史行。
+
+### 修复
+
+- 以 `private.profile_nicknames` 为 canonical 身份来源，合并测试期同昵称重复 Profile。
+- 将旧 Profile 下的 Event、Entry、Connection、Event Invite、Player Claim Invite、Connection Invite 与 manual Player 所有权迁移到 canonical Profile。
+- 将重复 self Player 的历史 `entry_players` 记录迁移到 canonical self Player，再删除重复 self Player。
+- canonical Profile 绑定同昵称最新测试 auth 会话，保证当前测试设备继续落到正确身份。
+- 对早于 `connection_invites` 上线、但已经 accepted 的 Connection 补一条 accepted 邀请历史记录，从而让邀请记录页完整反映历史关系。
+
+### 验证
+
+- 数据库中现仅保留 1 个 `G` Profile 与 1 个 `老郑` Profile。
+- 使用 G 当前 auth 身份调用 `current_profile_id()` 后，可查询到 `test` 赛事属于当前 Profile。
+- 使用 G 当前 auth 身份调用 `list_my_connection_invites()`，已返回“老郑 / accepted”的邀请历史记录。
+- 本修复已直接应用到当前 Supabase 测试数据库；仓库 migration 为 `20260829153000_consolidate_test_identity_and_backfill_connection_history.sql`。
+
+---
+
 ## 2026-08-29 — Partner lifecycle / H5 architecture consolidation
 
 **分支**：`feat/partner-lifecycle-and-claim`  
 **PR**：#14 `Unify partner lifecycle and claim invitations`  
-**状态**：开发与部署前审计阶段；尚未合并 `main`；中国区 CloudBase 待统一手动部署验证。
+**状态**：已合并 `main`；merge commit `56c246a3a8dcb4d776646f73e7d849bb5617d8de`。合并后继续在中国区 CloudBase 做移动端回归测试。
 
 ### 产品与信息架构
 
@@ -90,14 +118,13 @@
 - 临时 Player 详情 RPC 已验证：本人管理对象可读取，其他用户返回 `null`，匿名角色无执行权限。
 - 赛事 `city` 字段已通过真实 `save_event` RPC 做事务验证。
 - 当前 Vercel check 仍受 Hobby build-rate-limit 影响，不能作为代码编译失败依据。
-- 本批变化在进入 `main` 前必须先完成中国区 CloudBase 手动部署和移动端 E2E 验证。
+- PR #14 已合并 `main`，之后继续以中国区 CloudBase 实际移动端测试结果作为回归依据。
 
 ### 关键 commit / 节点
 
 - `c23e264` — Event card organizer identity
 - `4e0f47f` — Restore cached test profile before network refresh
 - `0503661` — Connected partner card/detail flow
-- `c019a07` — Align hall level filters with player levels（本轮功能整合前的主要 head）
+- `c019a07` — Align hall level filters with player levels
 - `6be5136` — Canonical product / interaction / acceptance documentation consolidation
-
-> 注：本分支包含多个连续小 commit。最终部署节点应以部署时实际 branch head 为准，并在本文件后续版本记录中补充。
+- `56c246a` — PR #14 merged into `main`
