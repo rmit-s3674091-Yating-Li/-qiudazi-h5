@@ -68,17 +68,18 @@ Vercel Preview 属于稀缺测试资源，不作为日常每次代码/文档修�
 
 - Supabase `audit_ops.issue_registry` 是正式待整改问题清单和唯一事实源；AUD 的存在、编号、优先级和状态以该 backlog 为准。
 - 新问题必须通过 `audit_ops.create_issue(...)` 在一个数据库事务中完成语义去重、原子编号和正式记录创建；任何任务不得自行计算或预留 AUD 编号。
-- GitHub Issue #21 正文只是 backlog 的人类可读镜像，不是新问题创建入口，也不得反向覆盖 Supabase 状态。
-- Issue #21 评论只用于已经存在 AUD 的整改/验证工作详情，例如认领、修复范围、commit/migration、补充证据、FAILED/BLOCKED 和独立验证结论；评论不得代替正式新问题创建。
-- 「球搭子问题整改」是唯一自动 writer；其他巡检、测试、Gate、安全任务不得修改 Issue 正文、产品代码、canonical 文档或 CHANGELOG。
-- GitHub 文件更新必须采用 optimistic concurrency：写前重新获取完整文件和最新 blob SHA；若 stale/conflict，必须重新读取并重新合并，禁止用旧内容强制覆盖。
+- 多个审计/测试/Gate/安全任务可以并发创建不同 backlog row；这类写入由数据库事务和唯一约束处理，不需要单 writer。
+- GitHub Issue #21 正文只是 backlog 的人类可读镜像，不是新问题创建入口，也不得反向覆盖 Supabase 状态。由于正文属于整块共享文本，应由固定镜像同步流程更新。
+- Issue #21 评论只用于已经存在 AUD 的整改/验证工作详情，例如认领、修复范围、commit/migration、补充证据、FAILED/BLOCKED 和独立验证结论；评论采用 append-only，多个任务可以并发追加，不需要单 writer。
+- 「球搭子问题整改」是唯一自动修复者，而不是整个体系的唯一 writer。它当前同时承担 Issue #21 正文镜像同步职责。
+- GitHub repo/canonical/CHANGELOG 文件更新必须采用 optimistic concurrency：写前重新获取完整文件和最新 blob SHA；若 stale/conflict，必须重新读取并重新合并，禁止用旧内容强制覆盖。
 
 ### 球搭子代码变更巡检（白盒）
 
 - 角色：白盒代码 Bug 巡检者。
 - 目标：从候选分支、PR、migration、RPC/schema 和调用链发现 CI/build 不一定能捕获的逻辑回归。
 - 新问题：语义去重后直接通过 `audit_ops.create_issue(...)` 创建正式 backlog 记录。
-- 边界：只发现、取证和独立验证；不得修产品代码/数据库，不得修改 Issue 正文。对已有 AUD 的验证或补证据可追加 Issue 评论。
+- 边界：只发现、取证和独立验证；不得修产品代码/数据库，不得整段修改 Issue 正文。对已有 AUD 的验证或补证据可并发追加 Issue 评论。
 
 ### 球搭子全功能测试（黑盒 + Visual QA / UX QA）
 
@@ -86,22 +87,23 @@ Vercel Preview 属于稀缺测试资源，不作为日常每次代码/文档修�
 - 目标：沿完整用户旅程验证所有现有功能真实可用，同时检查实际移动端渲染，不以源码或绿色 CI 替代用户测试。
 - Visual/English QA：优先覆盖 375px、390px、430px 或最接近 viewport，并检查中文/English、长文本、长赛事名/用户名及完整页面状态。
 - 新问题：语义去重后直接通过 `audit_ops.create_issue(...)` 创建正式 backlog 记录。
-- 边界：不自行修复、不修改 Issue 正文；已有 AUD 的复现和验证详情记录为 Issue 评论。
+- 边界：不自行修复、不整段修改 Issue 正文；已有 AUD 的复现和验证详情可并发追加为 Issue 评论。
 
 ### 球搭子周安全审计
 
 - 角色：独立安全审计者。
 - 目标：检查身份/会话、邀请、RLS、SECURITY DEFINER/RPC、越权、私有数据边界、数据库并发、Storage、短时授权、依赖供应链和新增攻击面。
 - 新问题：语义去重后直接通过 `audit_ops.create_issue(...)` 创建正式 backlog 记录。
-- 边界：不直接整改、不修改 Issue 正文；已有 AUD 的安全证据和独立验证记录为 Issue 评论。
+- 边界：不直接整改、不整段修改 Issue 正文；已有 AUD 的安全证据和独立验证可并发追加为 Issue 评论。
 
 ### 球搭子问题整改
 
-- 角色：自动化体系中唯一的定时自动修复者和自动 writer。
+- 角色：自动化体系中唯一的定时自动修复者；不是全局唯一 writer。
 - 目标：只从 Supabase backlog 中按 P0 → P1 → P2 认领规则明确、范围可控的问题；发布阻塞优先。
 - 认领：先在 backlog 更新 `IN_PROGRESS`、owner、branch/PR/head 和范围，再记录对应工作日志。
-- 写入：产品代码、migration、Issue 正文镜像和 canonical/CHANGELOG 的自动修改均由该 writer 负责，并严格执行最新 blob SHA + 重新读取/合并规则。
-- 状态：修复成功只能进入 `FIXED_PENDING_VERIFY`；不得自行 `VERIFIED`。独立验证后再依据证据更新 backlog，并刷新 Issue #21 镜像。
+- 修复写入：负责自动修改产品代码、必要 migration 和受影响文档；当前同时承担 Issue #21 正文镜像同步。
+- 并发保护：对 repo/canonical/CHANGELOG 等完整文件严格执行最新 blob SHA + 重新读取/合并规则；这属于共享文件写入保护，不限制其他任务写 backlog row 或追加评论。
+- 状态：修复成功只能进入 `FIXED_PENDING_VERIFY`；不得自行 `VERIFIED`。独立验证后再依据证据归并 backlog 状态，并刷新 Issue #21 镜像。
 - 禁止：不得自动合并 `main`，不得主动触发 Vercel，不得自行发明产品规则或执行未经确认的破坏性数据库操作。
 
 ### 球搭子部署前审计
@@ -110,11 +112,13 @@ Vercel Preview 属于稀缺测试资源，不作为日常每次代码/文档修�
 - 目标：判断真正准备部署到中国区 CloudBase 的候选版本是否工程完整、可复现且满足发布条件。
 - 重点：候选 SHA、migration clean replay、repository↔live Supabase schema/RPC/RLS/Storage、CI、黑盒/Visual/English 证据和所有发布相关 P0/P1 的独立验证状态。
 - 新问题：语义去重后直接通过 `audit_ops.create_issue(...)` 创建正式 backlog 记录。
-- 边界：只审计和判定 Gate，不修代码/数据库，不修改 Issue 正文。
+- 边界：只审计和判定 Gate，不修代码/数据库，不整段修改 Issue 正文；已有 AUD 的 Gate 证据可并发追加评论。
 
 ### 自动化协作闭环
 
-推荐理解为：`代码变更巡检（白盒）` + `全功能测试（黑盒 + Visual/UX）` + `周安全审计` + `部署前审计（Gate）` 发现问题 → `audit_ops.create_issue(...)` 原子创建正式 backlog → `问题整改` 唯一 writer 认领并修复 → 独立检查者对已有 AUD 回归验证并记录工作日志 → writer 更新 backlog 状态并刷新 Issue #21 镜像 → Release Gate 判定是否可部署。
+推荐理解为：`代码变更巡检（白盒）` + `全功能测试（黑盒 + Visual/UX）` + `周安全审计` + `部署前审计（Gate）` 并发发现问题 → 各自通过 `audit_ops.create_issue(...)` 原子创建正式 backlog row → 对已有 AUD 的整改/验证过程通过 append-only 评论并发记录 → `问题整改` 作为唯一自动修复者认领并修复 → 独立检查者回归验证 → 状态归并后刷新 Issue #21 正文镜像 → Release Gate 判定是否可部署。
+
+并发治理原则是：**数据库行级原子写入 + Issue 评论 append-only + Issue 正文固定镜像同步 + repo 文件 optimistic concurrency**，而不是“整个自动化体系只有一个 writer”。
 
 所有任务运行开始都必须读取最新 canonical 文档、`docs/AUDIT_AUTOMATION_GOVERNANCE.md` 和 Supabase backlog。CI/build 绿色不得自动推定功能、视觉、安全或发布条件已经通过。
 
