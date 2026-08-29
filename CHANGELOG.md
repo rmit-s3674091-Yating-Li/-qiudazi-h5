@@ -20,6 +20,28 @@
 
 ---
 
+## 2026-08-29 — AUD-015 doubles partner withdrawal UI alignment
+
+**分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
+**状态**：`AUD-20260829-015` 已完成代码与 P0 验收文档整改，等待独立验证；修复者不得自行标记 VERIFIED。
+
+### 修复事实
+
+- `EventPage` 名单中的普通退出入口不再只依赖 `entry.signup_user_id`，而是复用 `get_my_event_entry_id` / `myEntryQ.data` 形成的 `own` Entry membership；因此双打 Entry 中不是报名提交者的第二位 linked self Player，在报名开放期也能从正常 UI 退出整个 Entry。
+- confirmed 与 waitlist 两类名单均使用同一 `entry.id === own?.id` 语义；组织者原有移出能力保持不变。
+- 报名截止或名单锁定后继续禁止普通退出；own action bar 不再显示“查看/退出”，改为只表达“查看名单”，避免前端暗示已经不可执行的退赛操作。
+- 本批未修改 `withdraw_entry`、`get_my_event_entry_id`、数据库、migration、RLS 或权限模型，只让前端入口与既有服务端 membership 权限一致。
+
+### 文档与验证
+
+- `docs/P0_ACCEPTANCE.md` 新增双打两位真实搭档在报名开放期均可退出整个 Entry、截止/锁定后均不可退出且 UI 不暗示退出的验收场景。
+- README、PRD V6、PRODUCT/INTERACTION/VISUAL baseline 已复核：现有规则已明确实际 Entry/Player membership、普通退赛截止边界及前后端权限一致性，不需要重复修改长期规则。
+- 代码 commit：`2fc160f13c39f2868147cfbf294e75f5306ac40e`。
+- P0 文档 commit：`dd7c1e7eaac819e65fd8074d9ec5e05b9ff282d1`。
+- 当前仍需独立双用户回归：A 提交双打 Entry 后，B 作为第二位 linked real partner 在报名开放期看到并可执行退出；截止/锁定后 A/B 均不可退出。
+
+---
+
 ## 2026-08-29 — EventPage lifecycle restoration / release traceability sync
 
 **分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
