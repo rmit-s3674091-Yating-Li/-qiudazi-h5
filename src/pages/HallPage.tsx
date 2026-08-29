@@ -6,7 +6,7 @@ import { useQuery } from "../hooks/useQuery";
 import { Header, Sheet, ErrorNotice, Loading, Empty, EventCard } from "../components/UI";
 import { EventInviteInboxLink } from "../components/EventInviteUI";
 
-const levelOptions=["2.0","2.5","3.0","3.5","4.0","4.5","5.0+"];
+const levelOptions:[string,string][]=[["≤2.0","2.0及以下"],["2.5","2.5"],["3.0","3.0"],["3.5","3.5"],["4.0","4.0"],["≥4.5","4.5及以上"]];
 export function Hall({mine=false}:{mine?:boolean}){
   const[scope,setScope]=useState("created");const[type,setType]=useState(""),[level,setLevel]=useState(""),[date,setDate]=useState(""),[status,setStatus]=useState(""),[filter,setFilter]=useState(false);
   const q=useQuery("events"+JSON.stringify({mine,scope,type,level,date,status}),()=>repository.events({mine,scope,match_type:type,level,event_date:date,status}));
@@ -18,5 +18,5 @@ export function Hall({mine=false}:{mine?:boolean}){
     <div className="chips">{(mine?[["","全部"],["signup","报名中"],["locked","已锁定"],["ongoing","进行中"],["finished","已结束"]]:[["","全部"],["singles","单打"],["doubles","双打"]]).map(([value,label])=><button className={(mine?status:type)===value?"active":""} key={value} onClick={()=>mine?setStatus(value):setType(value)}>{label}</button>)}</div>
     <ErrorNotice message={q.error} retry={q.refresh}/>
     {q.loading&&!q.data?<Loading/>:q.data?.length?q.data.map(e=><EventCard event={e} key={e.id} manage={mine&&scope==="created"}/>):!q.error&&<Empty title={mine?(scope==="created"?(status?"当前筛选下没有赛事":"还没有创建赛事"):(status?"当前筛选下没有赛事":"还没有参与赛事")):"暂时没有公开赛事"}><p>{mine?(scope==="created"?(status?"换个赛事状态看看，或创建一场新的比赛。":"召集搭子，开始一场自己的比赛。"):(status?"换个赛事状态看看。":"完成报名后，赛事会出现在这里。收到的邀请可以在上方查看。")):"现在还没有可以发现的公开比赛。可以稍后再来，或去“我的赛事”看看自己的比赛。"}</p>{mine&&scope==="created"&&!status&&<Link className="button" to="/events/new">创建赛事</Link>}{!mine&&<Link className="button secondary" to="/my-events">去我的赛事</Link>}</Empty>}
-  </main><Sheet open={filter} title="筛选赛事" onClose={()=>setFilter(false)}><label>赛事级别<select value={level} onChange={e=>setLevel(e.target.value)}><option value="">全部级别</option>{levelOptions.map(x=><option key={x}>{x}</option>)}</select></label><label>比赛日期<input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label><div className="row"><button className="secondary grow" onClick={()=>{setLevel("");setDate("");setType("");}}>重置</button><button className="grow" onClick={()=>setFilter(false)}>查看赛事</button></div></Sheet></>;
+  </main><Sheet open={filter} title="筛选赛事" onClose={()=>setFilter(false)}><label>赛事级别<select value={level} onChange={e=>setLevel(e.target.value)}><option value="">全部级别</option>{levelOptions.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><label>比赛日期<input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label><div className="row"><button className="secondary grow" onClick={()=>{setLevel("");setDate("");setType("");}}>重置</button><button className="grow" onClick={()=>setFilter(false)}>查看赛事</button></div></Sheet></>;
 }
