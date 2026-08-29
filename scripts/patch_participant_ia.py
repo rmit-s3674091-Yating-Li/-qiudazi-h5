@@ -1,0 +1,42 @@
+from pathlib import Path
+p=Path('src/pages/EventPage.tsx')
+s=p.read_text()
+s=s.replace('    [notice, setNotice] = useState(""),\n    [inviteOpen, setInviteOpen] = useState(false),\n    [busy, setBusy] = useState(false),','    [notice, setNotice] = useState(""),\n    [busy, setBusy] = useState(false),')
+s=s.replace('''            {e.status === "signup" && (\n              <button className="secondary full" onClick={() => setInviteOpen(true)}>\n                邀请球搭子参赛\n              </button>\n            )}\n''','')
+s=s.replace('还没有参赛者，邀请球搭子来报名吧。','还没有参赛者。')
+s=s.replace('''                    : "立即报名"}\n''','''                    : owner ? "报名参赛" : "立即报名"}\n''')
+s=s.replace('''      <EventInviteSheet eventId={e.id} open={inviteOpen} onClose={() => setInviteOpen(false)} />\n''','')
+marker='function SignupSheet({'
+assert marker in s
+head=s[:s.index(marker)]
+new=r'''type PartnerInvite = {
+  id: string;
+  invitee_user_id: string;
+  nickname: string | null;
+  avatar_url: string | null;
+  status: "pending" | "accepted" | "declined" | "cancelled" | "expired";
+  self_player_id: string | null;
+  created_at: string;
+};
+function SignupSheet({ snapshot: s, manual, onClose, onDone }: { snapshot: Snapshot; manual: boolean; onClose: () => void; onDone: () => void; }) {
+  const [players,setPlayers]=useState<Player[]>([]),[selected,setSelected]=useState<string[]>([]),[team,setTeam]=useState(""),[newName,setNewName]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState(""),[consent,setConsent]=useState(false),[partnerInviteOpen,setPartnerInviteOpen]=useState(false);
+  const count=s.event.match_type==="doubles"?2:1;
+  const partnerInvites=useQuery("accepted-partner-invites-"+s.event.id,()=>count===2&&!manual?rpc<PartnerInvite[]>("list_sent_doubles_partner_invites",{p_event_id:s.event.id}):Promise.resolve([] as PartnerInvite[]),10000);
+  useEffect(()=>{repository.players().then(ps=>{setPlayers(ps);const self=ps.find(p=>p.player_type==="self");setSelected(!manual&&self?[self.id]:[])}).catch(e=>setError(explainError(e)))},[manual]);
+  const taken=new Set(s.entries.filter(e=>e.status!=="withdrawn").flatMap(e=>e.players.map(p=>p.id)));
+  const selfPlayer=players.find(p=>p.player_type==="self"),manualPlayers=players.filter(p=>p.player_type==="manual"),selectedPlayers=players.filter(p=>selected.includes(p.id)),hasProxyPlayer=selectedPlayers.some(p=>p.player_type==="manual"),acceptedPartners=(partnerInvites.data||[]).filter(i=>i.status==="accepted"&&!!i.self_player_id),partnerId=selected.find(id=>id!==selfPlayer?.id);
+  function choosePartner(id:string){if(selfPlayer){setSelected([selfPlayer.id,id]);setConsent(false)}}
+  async function add(){if(!newName.trim())return;setBusy(true);try{const p=await repository.savePlayer(null,newName.trim(),null);setPlayers(x=>[...x,p]);setNewName("");if(manual){if(selected.length<count)setSelected(x=>[...x,p.id])}else if(count===2&&selfPlayer){setSelected([selfPlayer.id,p.id]);setConsent(false)}}catch(e){setError(explainError(e))}finally{setBusy(false)}}
+  async function save(){setBusy(true);setError("");try{await rpc("join_event",{p_event_id:s.event.id,p_player_ids:selected,p_team_name:team||null,p_manual:manual});onDone()}catch(e){setError(explainError(e))}finally{setBusy(false)}}
+  return <><Sheet open title={manual?"手动添加"+(count===2?"双打队伍":"临时参赛者"):count===2?"报名双打":"确认报名"} onClose={onClose}>
+    <p>{s.event.name}</p><p className="muted small">{s.event.event_date||"日期待定"} · {s.event.venue||"场地待定"} · {feeText(s.event,s.entries.filter(e=>e.status==="confirmed").length)}</p>
+    {count===2&&<label>队伍名称（可选）<input maxLength={60} value={team} onChange={e=>setTeam(e.target.value)}/></label>}
+    {manual?<><h3>选择 {count} 位参赛者</h3>{players.map(p=><label className="check" key={p.id}><input type="checkbox" checked={selected.includes(p.id)} disabled={taken.has(p.id)} onChange={e=>setSelected(x=>e.target.checked?(x.length<count?[...x,p.id]:x):x.filter(id=>id!==p.id))}/><span>{p.name}{p.player_type==="self"?"（我）":""}{taken.has(p.id)?" · 已在名单中":""}</span></label>)}<div className="card"><label>临时参赛者姓名 / 昵称<input maxLength={40} value={newName} onChange={e=>setNewName(e.target.value)} placeholder="录入一位临时参赛者"/></label><button className="secondary full" disabled={busy||!newName.trim()} onClick={add}>录入临时参赛者</button></div></>:<><h3>参赛身份</h3>{selfPlayer?<div className="card row"><Avatar path={selfPlayer.avatar_url} name={selfPlayer.name} size={40}/><div><strong>{selfPlayer.name}（我）</strong><p className="muted small">本次报名固定由你本人参加</p></div></div>:<div className="error">没有找到你的参赛身份，请先完善个人资料。</div>}{count===2&&<><div className="section-heading"><h3>选择搭档</h3><button className="text-button" onClick={()=>setPartnerInviteOpen(true)}>邀请球搭子</button></div>{acceptedPartners.length>0&&<p className="muted small">已接受组队邀请</p>}{acceptedPartners.map(i=><button type="button" className={"card row full "+(partnerId===i.self_player_id?"selected":"")} key={i.id} disabled={!i.self_player_id||taken.has(i.self_player_id)} onClick={()=>i.self_player_id&&choosePartner(i.self_player_id)}><Avatar path={i.avatar_url} name={i.nickname||"球搭子"} size={40}/><span className="grow">{i.nickname||"球搭子"}</span><span className="muted small">{taken.has(i.self_player_id!)?"已在名单中":partnerId===i.self_player_id?"已选择":"选择"}</span></button>)}<p className="muted small">搭档还没使用球搭子？可以作为临时搭档录入。</p>{manualPlayers.map(p=><button type="button" className={"card row full "+(partnerId===p.id?"selected":"")} key={p.id} disabled={taken.has(p.id)} onClick={()=>choosePartner(p.id)}><Avatar path={p.avatar_url} name={p.name} size={40}/><span className="grow">{p.name}</span><span className="muted small">临时搭档{taken.has(p.id)?" · 已在名单中":partnerId===p.id?" · 已选择":""}</span></button>)}<div className="card"><label>新临时搭档姓名 / 昵称<input maxLength={40} value={newName} onChange={e=>setNewName(e.target.value)} placeholder="例如：Alex"/></label><button className="secondary full" disabled={busy||!newName.trim()} onClick={add}>添加临时搭档</button></div></>}</>}
+    {hasProxyPlayer&&<label className="check"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/><span>我已获得临时参赛者同意，代其提交本次赛事报名信息。</span></label>}
+    <p className="muted small">名额以提交时数据库为准。正式名额已满将按顺序加入候补，最多候补2{unit(s.event)}。</p><ErrorNotice message={error||partnerInvites.error}/><button className="full" disabled={busy||(!selfPlayer&&!manual)||selected.length!==count||(hasProxyPlayer&&!consent)||selected.some(id=>taken.has(id))} onClick={save}>{busy?"正在提交…":manual?"确认添加":"确认报名"}</button>
+  </Sheet>{count===2&&!manual&&<EventInviteSheet eventId={s.event.id} open={partnerInviteOpen} onClose={()=>{setPartnerInviteOpen(false);partnerInvites.refresh()}} onChanged={partnerInvites.refresh}/>}</>;
+}
+'''
+p.write_text(head+new)
+Path('.github/workflows/patch-participant-organizer-ia.yml').unlink(missing_ok=True)
+Path('scripts/patch_participant_ia.py').unlink(missing_ok=True)
