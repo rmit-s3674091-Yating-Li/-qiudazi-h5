@@ -23,6 +23,7 @@ import { MyTennisProfilePage } from "./pages/MyTennisProfilePage";
 import {
   ConnectionInvitePage,
   ConnectionsPage,
+  PlayerClaimInvitePage,
 } from "./pages/ConnectionsPage";
 import { EventPage } from "./pages/EventPage";
 import { MatchPage } from "./pages/MatchPage";
@@ -30,10 +31,19 @@ import { EventInvitesPage } from "./components/EventInviteUI";
 import "./styles.css";
 import "./polish.css";
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function HomeRedirect() {
-  const inviterId = new URLSearchParams(window.location.search).get("connect");
-  const validInvite = inviterId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(inviterId);
-  return <Navigate to={validInvite ? `/connect/${inviterId}` : "/events"} replace />;
+  const params = new URLSearchParams(window.location.search);
+  const claimToken = params.get("claim");
+  if (claimToken && uuidPattern.test(claimToken)) {
+    return <Navigate to={`/claim-player/${claimToken}`} replace />;
+  }
+  const inviterId = params.get("connect");
+  if (inviterId && uuidPattern.test(inviterId)) {
+    return <Navigate to={`/connect/${inviterId}`} replace />;
+  }
+  return <Navigate to="/events" replace />;
 }
 
 function App() {
@@ -64,6 +74,7 @@ function App() {
         <Route path="/my-results" element={<IdentityGate><MyResultsPage /></IdentityGate>} />
         <Route path="/players" element={<IdentityGate><ConnectionsPage /></IdentityGate>} />
         <Route path="/connect/:inviterId" element={<IdentityGate><ConnectionInvitePage /></IdentityGate>} />
+        <Route path="/claim-player/:token" element={<IdentityGate><PlayerClaimInvitePage /></IdentityGate>} />
         <Route path="/players/new" element={<IdentityGate><PlayerForm /></IdentityGate>} />
         <Route path="/players/:id/edit" element={<IdentityGate><PlayerForm /></IdentityGate>} />
         <Route path="/my-tennis-profile" element={<IdentityGate><MyTennisProfilePage /></IdentityGate>} />
