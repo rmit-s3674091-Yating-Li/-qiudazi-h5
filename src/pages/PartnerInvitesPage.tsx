@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Header, Loading, Empty, ErrorNotice } from "../components/UI";
-import { useAuth } from "../hooks/Auth";
 import { rpc, explainError } from "../repositories/supabase";
 import { useQuery } from "../hooks/useQuery";
 
@@ -31,7 +30,6 @@ const statusLabel: Record<ClaimInviteRow["status"], string> = {
 };
 
 export function PartnerInvitesPage() {
-  const { profile } = useAuth();
   const [feedback, setFeedback] = useState("");
   const [busyId, setBusyId] = useState("");
   const q = useQuery(
@@ -39,22 +37,6 @@ export function PartnerInvitesPage() {
     () => rpc<ClaimInviteRow[]>("list_my_player_claim_invites"),
     15000,
   );
-
-  async function shareConnectionInvite() {
-    if (!profile?.id) return;
-    const url = `${window.location.origin}${window.location.pathname}?connect=${encodeURIComponent(profile.id)}`;
-    try {
-      setFeedback(
-        await shareUrl(
-          "球搭子邀请",
-          `${profile.nickname || "你的朋友"} 邀请你加入球搭子，一起打球。`,
-          url,
-        ),
-      );
-    } catch (e) {
-      if ((e as Error).name !== "AbortError") setFeedback("分享失败，请重试");
-    }
-  }
 
   async function reshare(invite: ClaimInviteRow) {
     const url = `${window.location.origin}${window.location.pathname}?claim=${encodeURIComponent(invite.token)}`;
@@ -92,19 +74,7 @@ export function PartnerInvitesPage() {
         <span className="eyebrow">INVITE ACTIVITY</span>
         <h1>邀请记录</h1>
         <p className="muted">
-          这里看邀请和历史记录关联的进度；已经存在的人和关系，仍然只在“球搭子们”里管理。
-        </p>
-
-        <button className="action-row" onClick={shareConnectionInvite}>
-          <span className="action-copy">
-            <strong>发一个球搭子邀请</strong>
-            <small>分享给真实朋友；TA 打开后会直接和你建立球搭子关系</small>
-          </span>
-          <span aria-hidden="true">›</span>
-        </button>
-
-        <p className="muted small">
-          普通球搭子邀请不需要审批，完成后不会留成待处理事项；这里主要保留需要持续跟踪的历史记录关联邀请。
+          这里看需要持续跟踪的邀请状态。邀请新的球搭子、添加或管理临时球搭子，都回到“球搭子们”操作。
         </p>
 
         {feedback && <div className="notice">{feedback}</div>}
