@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { ArrowRight, Pencil } from "lucide-react";
 import { Avatar, Empty, ErrorNotice, Header, Loading } from "../components/UI";
 import { explainError, rpc } from "../repositories/supabase";
-import { useQuery } from "../hooks/useQuery";
+import { invalidateQuery, useQuery } from "../hooks/useQuery";
 
 type Detail={profile:{player_id:string;name:string;avatar_url:string|null;level:string|null;city:string|null;play_times:string[];play_preference:"singles"|"doubles"|"both"|null};summary:{played:number;wins:number;losses:number};recent_matches:{match_id:string;event_id:string;event_name:string;event_date:string|null;match_type:"singles"|"doubles";won:boolean;opponents:{name:string}[]}[]}|null;
 type CreatedClaimInvite={token:string;player_id:string;player_name:string};
@@ -13,7 +13,7 @@ async function shareUrl(title:string,text:string,url:string){if(navigator.share)
 export function TemporaryPartnerDetailPage(){
   const{playerId}=useParams();const[busy,setBusy]=useState(false),[feedback,setFeedback]=useState("");
   const q=useQuery(`temporary-partner-${playerId}`,()=>rpc<Detail>("get_managed_player_profile",{p_player_id:playerId}));
-  async function invite(){if(!playerId||busy)return;setBusy(true);setFeedback("");try{const rows=await rpc<CreatedClaimInvite[]>("create_player_claim_invite",{p_player_id:playerId});const i=rows[0];if(!i)throw new Error("邀请创建失败，请重试");const url=`${window.location.origin}${window.location.pathname}?claim=${encodeURIComponent(i.token)}`;setFeedback(await shareUrl(`邀请 ${i.player_name} 加入球搭子`,"我之前已经在球搭子里帮你记录过比赛。加入后，这些记录可以关联到你的打球档案。",url));}catch(e){if((e as Error).name!=="AbortError")setFeedback(explainError(e));}finally{setBusy(false);}}
+  async function invite(){if(!playerId||busy)return;setBusy(true);setFeedback("");try{const rows=await rpc<CreatedClaimInvite[]>("create_player_claim_invite",{p_player_id:playerId});const i=rows[0];if(!i)throw new Error("邀请创建失败，请重试");invalidateQuery("my-player-claim-invites");const url=`${window.location.origin}${window.location.pathname}?claim=${encodeURIComponent(i.token)}`;setFeedback(await shareUrl(`邀请 ${i.player_name} 加入球搭子`,"我之前已经在球搭子里帮你记录过比赛。加入后，这些记录可以关联到你的打球档案。",url));}catch(e){if((e as Error).name!=="AbortError")setFeedback(explainError(e));}finally{setBusy(false);}}
   if(q.loading&&!q.data)return <><Header title="临时球搭子档案"/><main className="page"><Loading/></main></>;
   if(!q.data)return <><Header title="临时球搭子档案"/><main className="page"><ErrorNotice message={q.error} retry={q.refresh}/>{!q.error&&<Empty title="没有找到这份临时球搭子档案"><p>这份档案可能已经关联到真实用户，或不再由你管理。</p></Empty>}</main></>;
   const{profile,summary,recent_matches}=q.data;const winRate=summary.played?Math.round(summary.wins/summary.played*100):0;
