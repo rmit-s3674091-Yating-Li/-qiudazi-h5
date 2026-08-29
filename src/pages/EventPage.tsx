@@ -180,10 +180,10 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
           <div className="section-heading"><h2>{rosterStatus === "confirmed" ? "正式名单" : "候补名单"} · {rosterStatus === "confirmed" ? active.length : waiting.length} {unit(e)}</h2></div>
           {(rosterStatus === "confirmed" ? active : waiting).map((entry) => <div className="card" key={entry.id}><strong>{entryName(entry)}</strong></div>)}
         </>}
-        {tab === "draw" && <DrawPanel snapshot={s} owner={owner} refresh={q.refresh} />}
-        {tab === "ranking" && <RankingPanel snapshot={s} />}
-        {tab === "photo" && <PhotoPanel snapshot={s} owner={owner} refresh={q.refresh} />}
-        {signup && <Sheet title="报名" onClose={() => setSignup(null)}><p>请继续完成报名。</p></Sheet>}
+        {tab === "draw" && <DrawPanel s={s} />}
+        {tab === "ranking" && <RankingPanel s={s} />}
+        {tab === "photo" && <PhotoPanel s={s} owner={owner} onDone={q.refresh} />}
+        {signup && <Sheet open title="报名" onClose={() => setSignup(null)}><p>请继续完成报名。</p></Sheet>}
         {confirm && <Confirm title={confirm.title} description={confirm.description} busy={busy} onCancel={() => setConfirm(null)} onConfirm={() => run(confirm.run)} />}
       </main>
     </>
