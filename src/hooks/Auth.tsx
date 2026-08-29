@@ -15,7 +15,7 @@ interface AuthState {
   refresh: () => Promise<void>;
 }
 
-const PROFILE_CACHE_KEY = "qiudazi_profile_cache_v1";
+const PROFILE_CACHE_KEY = "qiudazi_profile_cache_v2";
 const AuthContext = createContext<AuthState>(null!);
 export const useAuth = () => useContext(AuthContext);
 
@@ -85,8 +85,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const cached = readCachedProfile(data.session.user.id);
         if (cached && active) {
+          // Cached identity may be used as a visual placeholder, but must never make
+          // identity-sensitive routes ready before the server resolves the canonical Profile.
           setProfile(cached);
-          setReady(true);
         }
 
         const fresh = await repository.profile();
@@ -204,7 +205,7 @@ export function IdentityGate({ children }: { children: ReactNode }) {
       })
       .catch(() => {});
   }, [auth.ready, auth.profile?.id, location.pathname]);
-  if (auth.profile?.profile_status === "completed") return <>{children}</>;
+  if (auth.ready && auth.profile?.profile_status === "completed") return <>{children}</>;
   return (
     <section className="empty">
       <h2>正在恢复你的球搭子身份</h2>
