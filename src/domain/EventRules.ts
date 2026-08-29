@@ -19,7 +19,7 @@ export function validateEvent(config: EventConfig): EventConfig {
   for (const n of [e.venue_fee_total,e.ball_fee_total,e.other_fee_total,e.fixed_fee_per_entry]) if (n !== null) ensure(Number.isFinite(n) && n >= 0 && Math.abs(n * 100 - Math.round(n * 100)) < 1e-6,"FEE","费用须为非负金额，最多两位小数");
   if (e.fee_type === "aa") ensure((e.venue_fee_total || 0) + (e.ball_fee_total || 0) + (e.other_fee_total || 0) > 0,"FEE","AA总费用须大于0");
   if (e.fee_type === "fixed") ensure(e.fixed_fee_per_entry !== null && e.fixed_fee_per_entry > 0,"FEE","固定费用须大于0");
-  e.link_signup_enabled = e.visibility === "public";
+  e.link_signup_enabled = true;
   if (e.format !== "group_knockout") { e.group_count = null; e.qualifiers_per_group = null; }
   if (e.scoring_type !== "custom_games") e.custom_games_target = null;
   if (!["games_4", "games_6"].includes(e.scoring_type)) e.tiebreak_trigger = null;
