@@ -11,7 +11,6 @@ import {
   isPointSet,
 } from "../domain/ScoringEngine";
 import { command, repository, explainError } from "../repositories/supabase";
-import { useAuth } from "../hooks/Auth";
 import { useQuery } from "../hooks/useQuery";
 import {
   Header,
@@ -28,7 +27,6 @@ export function MatchPage({
   mode?: "detail" | "direct" | "live";
 }) {
   const { id, matchId } = useParams(),
-    auth = useAuth(),
     navigate = useNavigate();
   const q = useQuery(
     "match-" + id + "-" + matchId,
@@ -126,7 +124,7 @@ export function MatchPage({
       </>
     );
   const e = s.event,
-    owner = auth.profile?.id === e.owner_user_id,
+    owner = s.viewer_role === "owner",
     canScore =
       owner &&
       e.status === "ongoing" &&
@@ -186,7 +184,7 @@ export function MatchPage({
     try {
       const next = applyCommand(
         s!,
-        auth.profile!.id,
+        e.owner_user_id,
         {
           type: "score",
           event_version: e.version,
