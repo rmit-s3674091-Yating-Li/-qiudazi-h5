@@ -30,6 +30,12 @@ export const labels: Record<string, string> = {
   points_15: "抢15",
   custom_games: "自定义局数",
 };
+export function levelLabel(value?: string | null) {
+  if (!value) return "";
+  if (value === "≤2.0") return "2.0及以下";
+  if (value === "≥4.5") return "4.5及以上";
+  return value;
+}
 export function unit(e: Event) {
   return e.match_type === "doubles" ? "队" : "人";
 }
@@ -71,7 +77,7 @@ export function Confirm({ title, description, onConfirm, onCancel, busy = false 
 export function EventCard({ event:e, manage=false }: { event:Event; manage?:boolean }) {
   return <Link className="event-card" to={"/events/"+e.id+(manage?"/manage":"")}>
     <div className="event-card-stripe"/>
-    <div className="row between"><span className={"badge "+e.status}>{labels[e.status]}</span><small>{labels[e.match_type]}{e.level?` · ${e.level}级`:""}</small></div>
+    <div className="row between"><span className={"badge "+e.status}>{labels[e.status]}</span><small>{labels[e.match_type]}{e.level?` · ${levelLabel(e.level)}级`:""}</small></div>
     <h3>{e.name}</h3>
     <div className="row organizer-line"><Avatar path={e.owner_avatar_url} name={e.owner_nickname||"组织者"} size={24}/><span className="muted small"><b>{e.owner_nickname||"球搭子"}</b> · 组织者</span></div>
     <p className="muted">{labels[e.format]} · {e.best_of===1?"一盘决胜":e.best_of===3?"三盘两胜":"五盘三胜"}</p>
