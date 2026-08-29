@@ -210,7 +210,7 @@
 
 ### 已落地并独立验证
 - `AUD-20260829-008` VERIFIED：`20260829181400_v6_joined_event_participant_sync.sql` 将“我参与的”统一为 active Entry → entry_players → linked Player 的实际参与事实，覆盖双打两名真实搭档；live `list_events` 定义已核对。
-- `AUD-20260829-009` VERIFIED：`MatchPage.tsx` 使用服务端 `viewer_role === 'owner'` 判断组织者记分能力；比分级联预演 actor 使用赛事快照 canonical `event.owner_user_id`。
+- `AUD-20260829-009` VERIFIED：`MatchPage.tsx` 使用服务端 `viewer_role === 'owner'` 判断组织者记分能力；比分级联预演 actor 使用赛事快照 canonical `owner_user_id`。
 - `AUD-20260829-012` VERIFIED：`20260829181500_v6_event_participant_role_sync.sql` 让 snapshot/private preview 按 active Entry/Player membership 识别 participant，并让 participant 优先于历史 invited；live function definition 已核对。
 
 ### 已修复待独立验证
