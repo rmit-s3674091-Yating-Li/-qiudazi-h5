@@ -101,13 +101,21 @@ export function Hall({ mine = false }: { mine?: boolean }) {
         {mine && <EventInviteInboxLink />}
         <div className="section-heading">
           <h2>{mine ? "我的赛场" : "最近的比赛"}</h2>
-          <button
-            className="text-button"
-            onClick={q.refresh}
-            aria-label="刷新赛事"
-          >
-            <RefreshCw size={16} />
-          </button>
+          <div className="row">
+            {mine && scope === "created" && (
+              <Link className="text-button" to="/events/new">
+                <Plus size={16} />
+                创建赛事
+              </Link>
+            )}
+            <button
+              className="text-button"
+              onClick={q.refresh}
+              aria-label="刷新赛事"
+            >
+              <RefreshCw size={16} />
+            </button>
+          </div>
         </div>
         {mine && (
           <div className="chips">
