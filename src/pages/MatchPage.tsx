@@ -120,11 +120,25 @@ export function MatchPage({
   const e = s.event,
     owner = s.viewer_role === "owner",
     canScore = owner && e.status === "ongoing" && !m.is_bye && !!m.entry_a_id && !!m.entry_b_id,
-    a = entryName(s.entries.find((x) => x.id === m.entry_a_id)),
-    b = entryName(s.entries.find((x) => x.id === m.entry_b_id));
+    aEntry = s.entries.find((x) => x.id === m.entry_a_id),
+    bEntry = s.entries.find((x) => x.id === m.entry_b_id),
+    a = aEntry ? entryName(aEntry) : (en ? "TBD" : "待晋级"),
+    b = bEntry ? entryName(bEntry) : (en ? "TBD" : "待晋级");
   const logs = s.point_logs.filter((l) => l.match_id === m.id),
     live = replay(e, logs),
     display = displayPoints(e, live),
+    scoringContext = contextFor(e, live),
+    liveLabel = !en
+      ? display.label
+      : live.winner
+        ? t("matchEnded")
+        : scoringContext === "tiebreak"
+          ? t("tiebreak")
+          : scoringContext === "point_set"
+            ? "Point race"
+            : live.points[0] >= 3 && live.points[1] >= 3
+              ? (live.points[0] === live.points[1] ? "Deuce" : "Advantage")
+              : "Current point",
     sets = s.set_scores.filter((x) => x.match_id === m.id).sort((a, b) => a.set_no - b.set_no),
     base = "/events/" + id + "/matches/" + matchId;
   const scores: ScoreInput[] = inputs
@@ -235,7 +249,7 @@ export function MatchPage({
         {formVersion !== undefined && mode === "direct" && m.version !== formVersion && <div className="error">{t("formStale")}</div>}
         {mode === "live" && (
           <>
-            <div className="score-state">{m.status === "finished" ? t("matchEnded") : display.label}</div>
+            <div className="score-state">{liveLabel}</div>
             <div className="score-court">
               <div className="score-head"><span>{a}</span><span>{b}</span></div>
               <div className="points"><span>{display.a}</span><span>{display.b}</span></div>
@@ -253,7 +267,7 @@ export function MatchPage({
             </div>
             <button className="secondary full" disabled={!canScore || busy || !logs.some((l) => !l.voided_at) || m.scoring_mode === "direct"} onClick={() => send("undo")}>{t("undoLastPoint")}</button>
             <p className="small muted">
-              {busy ? t("saving") : t("liveSaved")} {contextFor(e, live) === "normal_game" ? t("traditionalAdvantage") : t("winByTwo")}. {t("recordedPoints").replace("{count}", String(logs.filter((l) => !l.voided_at).length))}
+              {busy ? t("saving") : t("liveSaved")} {scoringContext === "normal_game" ? t("traditionalAdvantage") : t("winByTwo")}. {t("recordedPoints").replace("{count}", String(logs.filter((l) => !l.voided_at).length))}
             </p>
           </>
         )}
