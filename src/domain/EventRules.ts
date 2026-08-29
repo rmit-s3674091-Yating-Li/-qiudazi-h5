@@ -3,12 +3,12 @@ import { ensure } from "./types.js";
 export function validateEvent(config: EventConfig): EventConfig {
   const e = { ...config, name: config.name.trim(), city: config.city?.trim() || null, venue: config.venue?.trim() || null };
   ensure(e.name.length > 0 && e.name.length <= 80,"NAME_REQUIRED","请填写赛事名称（80字以内）");
-  ensure(["public", "link_only"].includes(e.visibility),"VISIBILITY","请选择可见性");
+  ensure(["public", "private"].includes(e.visibility),"VISIBILITY","请选择公开赛事或私有赛事");
   ensure(["singles", "doubles"].includes(e.match_type),"MATCH_TYPE","请选择单打或双打");
   ensure(["round_robin", "knockout", "group_knockout"].includes(e.format),"FORMAT","请选择赛制");
   ensure([1, 3, 5].includes(e.best_of), "BEST_OF", "盘数必须为1、3或5");
   ensure(["games_4","games_6","tiebreak_7","points_11","points_15","custom_games"].includes(e.scoring_type),"SCORING","请选择计分方式");
-  if (e.city) ensure(e.city.length <= 30, "CITY", "城市请控制在30字以内");
+  ensure(!!e.city && e.city.length <= 30, "CITY_REQUIRED", "请填写城市（30字以内）");
   if (e.venue) ensure(e.venue.length <= 120, "VENUE", "比赛场地请控制在120字以内");
   if (e.scoring_type === "games_4") ensure([3, 4].includes(e.tiebreak_trigger!),"TIEBREAK","4局制请选择3:3或4:4抢七");
   if (e.scoring_type === "games_6") ensure([5, 6].includes(e.tiebreak_trigger!),"TIEBREAK","6局制请选择5:5或6:6抢七");
@@ -19,7 +19,7 @@ export function validateEvent(config: EventConfig): EventConfig {
   for (const n of [e.venue_fee_total,e.ball_fee_total,e.other_fee_total,e.fixed_fee_per_entry]) if (n !== null) ensure(Number.isFinite(n) && n >= 0 && Math.abs(n * 100 - Math.round(n * 100)) < 1e-6,"FEE","费用须为非负金额，最多两位小数");
   if (e.fee_type === "aa") ensure((e.venue_fee_total || 0) + (e.ball_fee_total || 0) + (e.other_fee_total || 0) > 0,"FEE","AA总费用须大于0");
   if (e.fee_type === "fixed") ensure(e.fixed_fee_per_entry !== null && e.fixed_fee_per_entry > 0,"FEE","固定费用须大于0");
-  if (e.visibility === "public") e.link_signup_enabled = true;
+  e.link_signup_enabled = e.visibility === "public";
   if (e.format !== "group_knockout") { e.group_count = null; e.qualifiers_per_group = null; }
   if (e.scoring_type !== "custom_games") e.custom_games_target = null;
   if (!["games_4", "games_6"].includes(e.scoring_type)) e.tiebreak_trigger = null;
