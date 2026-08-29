@@ -153,7 +153,7 @@ export function InviteAwareProfilePage() {
         </form>
         <p className="identity-note">
           <ShieldCheck size={16} />
-          临时账号保存在当前浏览器。清除数据或换设备会建立新账号，原赛事管理权不会自动迁移。
+          当前仅为受控测试版：昵称直接作为测试身份识别。输入已有昵称会进入对应测试档案，请不要用于真实身份验证。
         </p>
       </main>
     </>
