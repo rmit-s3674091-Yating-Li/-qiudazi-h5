@@ -1,4 +1,4 @@
-import { Link, Navigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Avatar, Header, Loading, ErrorNotice } from "../components/UI";
 import { useAuth } from "../hooks/Auth";
@@ -12,10 +12,7 @@ export function MyProfileHome() {
   return <>
     <Header title="我的" back={false} />
     <main className="page">
-      <div className="profile-banner">
-        <Avatar path={profile?.avatar_url} name={profile?.nickname || ""} size={64}/>
-        <div><span className="eyebrow">OFF THE COURT</span><h1>{profile?.nickname}</h1><p>每一场球，都值得认真对待。</p></div>
-      </div>
+      <div className="profile-banner"><Avatar path={profile?.avatar_url} name={profile?.nickname || ""} size={64}/><div><span className="eyebrow">OFF THE COURT</span><h1>{profile?.nickname}</h1><p>每一场球，都值得认真对待。</p></div></div>
       <ErrorNotice message={q.error} retry={q.refresh}/>
       {q.loading && !q.data ? <Loading/> : self ? <Link className="card row between" to={`/players/${self.id}/edit`}><span>我的打球档案</span><ArrowRight size={18}/></Link> : <div className="card row between"><span>我的打球档案</span><span className="badge">待创建</span></div>}
       <Link className="card row between" to="/my-results">我的战绩 <ArrowRight size={18}/></Link>
