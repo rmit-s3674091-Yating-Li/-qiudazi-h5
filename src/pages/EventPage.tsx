@@ -26,6 +26,7 @@ import {
   Sheet,
   Confirm,
   unit,
+  levelLabel,
 } from "../components/UI";
 import {
   DrawPanel,
@@ -139,7 +140,7 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
           <span className={"badge " + e.status}>{labels[e.status]}</span>
           <h1>{e.name}</h1>
           <p>
-            {e.level && e.level + " · "}
+            {e.level && levelLabel(e.level) + "级 · "}
             {labels[e.match_type]} · {labels[e.format]}
           </p>
         </div>
@@ -223,14 +224,6 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
               <div className="notice">
                 {e.group_count} 个小组 · 每组前 {e.qualifiers_per_group}{" "}
                 晋级淘汰赛
-              </div>
-            )}
-            {e.visibility === "link_only" && (
-              <div className="notice">
-                仅链接赛事 ·{" "}
-                {e.link_signup_enabled
-                  ? "允许报名"
-                  : "仅供查看，不开放自主报名"}
               </div>
             )}
             {owner && e.status === "signup" && (
