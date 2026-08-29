@@ -10,3 +10,4 @@ new2='''        {mine && (\n          <div className="chips">\n            <butt
 if old2 not in s: raise SystemExit('scope chips pattern not found')
 s=s.replace(old2,new2,1)
 p.write_text(s)
+# invitations belong to the participant context, not organizer context
