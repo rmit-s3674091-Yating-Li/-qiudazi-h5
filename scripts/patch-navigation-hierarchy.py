@@ -6,3 +6,4 @@ new='''        action={\n          !mine ? (\n            <button\n             
 if old not in s: raise SystemExit('header action pattern not found')
 s=s.replace(old,new,1)
 p.write_text(s)
+# trigger
