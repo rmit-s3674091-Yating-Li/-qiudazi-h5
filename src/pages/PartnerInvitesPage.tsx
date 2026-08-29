@@ -91,22 +91,30 @@ export function PartnerInvitesPage() {
       <main className="page">
         <span className="eyebrow">PARTNER INVITES</span>
         <h1>搭子邀请</h1>
-        <p className="muted">邀请新的球搭子，或查看临时球搭子的加入进度。</p>
+        <p className="muted">
+          这里管理关系建立中的邀请。已经成为球搭子的人，仍然只在“球搭子们”里管理。
+        </p>
 
         <button className="action-row" onClick={shareConnectionInvite}>
           <span className="action-copy">
             <strong>邀请球搭子</strong>
-            <small>把链接分享给已经或准备开始使用球搭子的朋友</small>
+            <small>分享给真实朋友；TA 打开后会直接建立球搭子关系</small>
           </span>
           <span aria-hidden="true">›</span>
         </button>
+
+        <p className="muted small">
+          普通邀请不需要审批，也不会长期留在邀请列表里；打开完成后，双方会直接进入“我的球搭子”。
+        </p>
 
         {feedback && <div className="notice">{feedback}</div>}
 
         <div className="section-heading">
           <div>
-            <h2>临时球搭子邀请</h2>
-            <p className="muted small">从临时球搭子发出的“邀请 TA 加入球搭子”会记录在这里。</p>
+            <h2>临时球搭子加入进度</h2>
+            <p className="muted small">
+              只有“邀请 TA 加入球搭子并关联以前记录”需要持续跟踪状态。
+            </p>
           </div>
         </div>
         <ErrorNotice message={q.error} retry={q.refresh} />
@@ -119,16 +127,32 @@ export function PartnerInvitesPage() {
                 <div className="row between">
                   <div>
                     <strong>{invite.player_name}</strong>
-                    <div className="muted small">{new Date(invite.created_at).toLocaleDateString("zh-CN")} 发出</div>
+                    <div className="muted small">
+                      {new Date(invite.created_at).toLocaleDateString("zh-CN")} 发出
+                    </div>
                   </div>
-                  <span className={`badge ${invite.status === "accepted" ? "success" : invite.status === "pending" ? "" : "finished"}`}>
+                  <span
+                    className={`badge ${
+                      invite.status === "accepted"
+                        ? "success"
+                        : invite.status === "pending"
+                          ? ""
+                          : "finished"
+                    }`}
+                  >
                     {statusLabel[invite.status]}
                   </span>
                 </div>
                 {invite.status === "pending" && (
                   <div className="partner-card-action invite-actions">
-                    <button className="text-button" onClick={() => reshare(invite)}>重新分享</button>
-                    <button className="text-button muted-action" disabled={busyId === invite.id} onClick={() => cancel(invite)}>
+                    <button className="text-button" onClick={() => reshare(invite)}>
+                      重新分享
+                    </button>
+                    <button
+                      className="text-button muted-action"
+                      disabled={busyId === invite.id}
+                      onClick={() => cancel(invite)}
+                    >
                       {busyId === invite.id ? "正在取消…" : "取消邀请"}
                     </button>
                   </div>
@@ -137,8 +161,10 @@ export function PartnerInvitesPage() {
             ))}
           </div>
         ) : (
-          <Empty title="还没有需要管理的邀请">
-            <p>普通球搭子邀请不需要等待审批；临时球搭子的加入邀请发出后，会出现在这里。</p>
+          <Empty title="还没有需要跟踪的邀请">
+            <p>
+              从某个临时球搭子卡片发出“邀请 TA 加入球搭子”后，会在这里看到等待加入、已关联或已取消状态。
+            </p>
           </Empty>
         )}
       </main>
