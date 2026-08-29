@@ -19,7 +19,7 @@ function scoreText(scores: Score[], mySide: "a"|"b") {
 }
 
 export function MyResultsPage() {
-  const q = useQuery("my-match-history", () => rpc<History>("get_my_match_history"), 15000);
+  const q = useQuery("my-match-history", () => rpc<History>("get_my_match_history"));
   const h = q.data;
   return <>
     <Header title="我的战绩" />
