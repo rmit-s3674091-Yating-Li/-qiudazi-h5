@@ -3,8 +3,6 @@ on:
   push:
     branches:
       - fix/organizer-participant-ia
-    paths:
-      - scripts/patch-organizer-participant.py
 permissions:
   contents: write
 jobs:
