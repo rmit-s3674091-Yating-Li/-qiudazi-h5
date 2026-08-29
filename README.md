@@ -46,6 +46,18 @@
 - 用户可见错误必须产品化。
 - 大版本部署前做一次综合审计；每小时 routine 只判断是否出现新的尚未审计大改。
 
+## Vercel quota conservation policy
+
+Vercel Preview 属于稀缺测试资源，不作为日常每次代码/文档修改后的默认验证环境。开发阶段默认优先使用 GitHub feature branch、本地构建/静态检查、GitHub CI 与 Supabase 侧验证，把多个相关修改收口为阶段性候选版本后，再使用 Vercel Preview 做真实页面黑盒测试、Visual QA 和 English QA。
+
+- 不因为单个小改动、纯文档修改、格式调整、审计记录更新或非部署必要 commit 主动触发 Vercel 部署。
+- 能合并验证的连续修改尽量批量收口，避免“改一点 → push → Preview → 再改一点 → 再 Preview”的高频消耗。
+- Vercel 优先用于：阶段性完整候选版本、必须依赖真实部署环境复现的问题、完整黑盒/移动端 Visual QA/English QA，以及 Release Gate 前的最终候选。
+- 自动化整改、代码巡检、安全审计和文档同步不得为了获得 Preview 而主动部署 Vercel；能够通过源码、CI、本地或 Supabase 验证的事项先在这些环境完成。
+- 形成 Vercel 测试候选前，应尽量先完成同批 P0/P1 修复、build/CI、migration clean replay 与静态审计，减少因低级错误浪费 Preview 配额。
+- Vercel Preview 失败时先区分代码/配置错误与平台 build/deployment quota 限制；额度限制不能被登记成产品代码 Bug。
+- Vercel Preview 通过后仍不等于 Release Gate 通过；中国区 CloudBase 继续按独立部署前审计与手动部署流程执行。
+
 ## Scheduled audit and remediation roles
 
 当前自动化体系固定为 5 个定时任务。它们共享 canonical 文档和 GitHub Issue #21《球搭子审计问题追踪台账》作为协作与去重基础，但职责必须分离，避免同一问题被重复发现、重复修复或自行验收。
