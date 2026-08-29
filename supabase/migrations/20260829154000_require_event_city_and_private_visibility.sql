@@ -3,7 +3,7 @@
 update public.events set city='北京' where city is null;
 
 alter table public.events drop constraint if exists events_visibility_check;
-update public.events set visibility='private', link_signup_enabled=false where visibility='link_only';
+update public.events set visibility='private', link_signup_enabled=true where visibility='link_only';
 alter table public.events add constraint events_visibility_check check (visibility = any(array['public'::text,'private'::text]));
 alter table public.events alter column city set not null;
 
@@ -45,7 +45,7 @@ begin
  e.city:=nullif(trim(e.city),''); e.venue:=nullif(trim(e.venue),'');
  if e.city is null then raise exception 'CITY_REQUIRED'; end if;
  if e.visibility not in ('public','private') then raise exception 'VISIBILITY'; end if;
- e.link_signup_enabled:=e.visibility='public';
+ e.link_signup_enabled:=true;
  if p_id is not null then
   select * into old from public.events where id=p_id for update;
   if old.id is null or old.owner_user_id!=me then raise exception 'FORBIDDEN'; end if;
