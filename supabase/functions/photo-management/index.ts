@@ -19,14 +19,21 @@ Deno.serve(async(req)=>{
   if(typeof body.version==="number" && (existing?.version??0)!==body.version) return json({error:"VERSION_CONFLICT"},409);
 
   if(body.action==="delete"){
-    if(!existing) return json({ok:true});
-    const paths=[existing.original_url,existing.watermarked_url];
+    const requestedVersion=body.version??0;
+    const {data:deletedData,error:deleteError}=await userClient.rpc("delete_event_photo_metadata",{p_event_id:body.event_id,p_version:requestedVersion});
+    if(deleteError){
+      const message=deleteError.message||"";
+      if(message.includes("VERSION_CONFLICT")) return json({error:"VERSION_CONFLICT"},409);
+      if(message.includes("FORBIDDEN")) return json({error:"FORBIDDEN"},403);
+      return json({error:"PHOTO_METADATA_DELETE_FAILED"},500);
+    }
+    const deleted=deletedData as Photo|null;
+    if(!deleted) return json({ok:true});
+    const paths=[deleted.original_url,deleted.watermarked_url];
     for(const path of paths){ if(typeof path!=="string" || !path.includes(`/${body.event_id}/`)) return json({error:"INVALID_PHOTO"},400); }
-    const {error:dbError}=await admin.from("event_photos").delete().eq("id",existing.id).eq("version",existing.version);
-    if(dbError) return json({error:"PHOTO_METADATA_DELETE_FAILED"},500);
     const {error:removeError}=await admin.storage.from("event-photos").remove(paths);
     if(removeError){
-      const {error:restoreError}=await admin.from("event_photos").insert(existing);
+      const {error:restoreError}=await admin.from("event_photos").insert(deleted);
       if(restoreError) return json({error:"PHOTO_DELETE_ROLLBACK_FAILED"},500);
       return json({error:"PHOTO_DELETE_FAILED"},500);
     }
