@@ -8,11 +8,12 @@
 - canonical visibility：**Private**。运行时 `visibility` 必须为 `private`；H5 Build Check 会校验 `github.event.repository.private=true`，若意外变回 public 直接失败。
 - 默认分支：`main`
 - 当前大版本开发分支：`feature/20260829-event-lifecycle-privacy-i18n`
+- 发布候选分支：`release-candidate`。该分支不是长期开发分支，只在 candidate freeze 后由总控移动到已经通过 exact-head CI 的 PR head，用于触发一份可追溯 Vercel Preview。
 - 当前开发 PR：`#20`
 - PR #20 在开发与收口阶段保持 Draft；未通过 Release Gate 不 merge main。
 - GitHub Actions：`.github/workflows/build.yml` 的 `H5 Build Check` 是当前基础 CI。
 - 当前 GitHub 账号方案下，仓库转为 Private 后 repository ruleset API 返回“Upgrade to GitHub Pro or make this repository public to enable this feature”；因此**不得再声称 main 当前由 GitHub ruleset 平台强制保护**。
-- 当前 main 保护采用流程治理：所有开发只写 feature branch → PR #20 → exact-head CI → Release Gate → 人工 merge 决策；所有自动化均禁止直接 merge/push main。若未来升级 GitHub Pro 并重新启用 private-repo ruleset，必须运行时验证后再把“平台强制保护”写回本文。
+- 当前 main 保护采用流程治理：所有开发只写 feature branch → PR #20 → exact-head CI → `release-candidate` exact-head Preview → Release Gate → 人工 merge 决策；所有自动化均禁止直接 merge/push main。若未来升级 GitHub Pro 并重新启用 private-repo ruleset，必须运行时验证后再把“平台强制保护”写回本文。
 - Private 转换后已确认：ChatGPT GitHub connector 仍有 admin/push/pull 权限，PR #20 可正常读取；Vercel Git link 仍指向同一 repository。
 
 > 分支 head SHA、PR merge SHA、workflow run id 属于动态运行事实，不写成长期固定值；每轮工作必须实时读取。
@@ -54,8 +55,10 @@
 - 角色：公网 Preview / 候选黑盒验证，不是 Supabase 数据真源。
 - 当前项目名：`qiudazi-h5`；运行时已确认 Git link：`rmit-s3674091-Yating-Li/-qiudazi-h5`。project id 属于平台事实，使用时仍应从 Vercel 当前项目列表重新读取。
 - `vercel.json`：framework=`vite`、build=`npm run build`、output=`dist`。
-- Git 自动部署当前关闭：`git.deploymentEnabled=false`。
-- 普通 commit 不触发 Preview；完成发布相关 P0/P1、build、migration preflight + clean replay、repo/live 一致性后，再由总控受控创建一次 exact-head Preview。
+- Git deployment 采用**候选分支白名单**：`git.deploymentEnabled` 中 `* = false`，仅 `main = true` 与 `release-candidate = true`。普通 feature/docs/fix push 不产生 Vercel deployment，从而控制 Hobby 配额。
+- `release-candidate` 是 Preview 触发器，不承载独立开发。总控只有在发布相关 P0/P1 收口、PR exact head CI green、repo/live 一致性满足候选条件后，才允许把 `release-candidate` 移动到该 exact head；移动后必须读取 Vercel deployment metadata，确认 `githubCommitSha` 与 PR exact head 完全一致，才视为正式 candidate。
+- 若 `release-candidate` 产生的 deployment SHA 与 PR exact head 不一致，不得用于黑盒/Gate；应停止后续测试并调查 Git/Vercel integration，不得用旧 Preview 顶替。
+- `main` 保留 Git deployment 是为了 Gate 通过、人工 merge 决策后产生正式部署；未通过 Gate 时自动化仍禁止 merge/push main。
 - repository 改 Private 后，必须保持 Vercel 对 private GitHub repo 的授权；若后续无法列出项目或部署，应先检查 GitHub App repository access，而不是立即重连/重建项目。
 - deployment id、Preview URL 属于运行时平台事实，不凭历史值长期硬编码；使用前从 Vercel 当前项目/部署列表重新读取。
 
