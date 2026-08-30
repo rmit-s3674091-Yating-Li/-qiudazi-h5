@@ -20,6 +20,7 @@
 
 ## Environment identity
 基础环境与配置的完整真源统一见 `docs/ENVIRONMENT_BASELINE.md`。README 只保留必要摘要，避免多处重复维护后漂移：
+- GitHub repository `rmit-s3674091-Yating-Li/-qiudazi-h5` 的 canonical visibility 是 **Private**；CI 会校验 private 状态，意外变回 public 视为环境漂移。
 - 当前球搭子共享测试 Supabase 项目名固定为 `qiudazi-test`。
 - 当前 canonical Supabase project ref / project_id 为 **`rtmjzmgrhifjzxaliltm`**，前端 API host 对应 `https://rtmjzmgrhifjzxaliltm.supabase.co`。
 - 任何自动化、总控或人工脚本在执行 Supabase SQL、migration、Storage、Edge Function 或审计 backlog 操作前，都必须先通过运行时 project list / detail 校验该映射；不得从旧聊天、旧日志、snapshot 或历史上下文复用其它 project_id。
@@ -70,7 +71,8 @@
 详细规则见 `docs/PHOTO_ALBUM_BASELINE.md`。
 
 ## Development hygiene
-- 基础配置、环境身份、env var 与部署平台角色统一服从 `docs/ENVIRONMENT_BASELINE.md`；不得在不同文档/任务中各维护一份互相独立的真值。
+- 基础配置、环境身份、repository visibility、env var 与部署平台角色统一服从 `docs/ENVIRONMENT_BASELINE.md`；不得在不同文档/任务中各维护一份互相独立的真值。
+- H5 Build Check 会校验 repository 仍为 Private，并扫描 tracked files 的典型服务器级秘密；publishable/anon browser key 不视为服务器秘密。
 - migration 文件统一使用 `YYYYMMDDHHMMSS_snake_case.sql`；14 位 version 在 repo 内必须全局唯一。
 - live 通过 `apply_migration` 生成版本后，repo 对应文件必须使用**同一个 version 与同一 SQL 语义**，禁止 live/repo 使用“相近但不同”的时间戳。
 - 新增 migration 前同时重读 repo migration 目录与 live migration list；并发 writer 不得凭历史目录快照自行分配版本。
@@ -97,8 +99,9 @@
 详细治理见 `docs/AUDIT_AUTOMATION_GOVERNANCE.md`。
 
 ## Deployment policy
-- `main` 受 ruleset 保护：禁止删除/force push，必须 PR、linear history、分支最新且通过 H5 Build Check，无自动 bypass。
-- Vercel Git 自动部署保持关闭；日常开发优先 GitHub CI + Supabase 验证，避免浪费 Preview 配额。
+- Repository 必须保持 **Private**。当前账号方案下 private repo 的 GitHub repository ruleset 不可用，因此不能再把“平台 ruleset 已强制保护 main”作为事实或 Gate 证据。
+- 当前 main 治理由流程强制：所有开发只写 feature branch，经 PR、exact-head H5 Build Check、Release Gate 后再由用户/总控做 merge 决策；所有自动化禁止直接 merge/push main。若未来升级 GitHub Pro 并重新启用 ruleset，需运行时验证后再恢复平台级保护描述。
+- Vercel Git 自动部署保持关闭；日常开发优先 GitHub CI + Supabase 验证，避免浪费 Preview 配额。Private 转换后已确认 Vercel Git link 仍指向同一仓库。
 - 完整候选完成发布相关 P0/P1 修复、build、migration preflight + clean replay、repo/live version/SQL 语义一致性与权限审计后，才由总控受控触发一次 Vercel Preview 做真实黑盒 / Visual / English QA。
 - Quick Start 是 P1，不因“不是 P0”机械阻塞；但若它已进入当前候选并造成四导航/P0 页面回归、权限扩大或标准赛事生命周期回归，Release Gate 必须阻塞。
 - Preview 通过不等于 Release Gate；Gate 通过后再进入中国区 CloudBase 手动部署。
