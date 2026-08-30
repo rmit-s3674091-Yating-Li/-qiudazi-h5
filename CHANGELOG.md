@@ -4,6 +4,19 @@
 
 ---
 
+## 2026-08-30 — 环境身份 / Migration 一致性治理加固
+
+- 复盘确认此前 Supabase `You do not have permission to perform this action` 的主要成因并非数据库 ACL，而是历史上下文混入了当前连接器不可见的旧 project_id；当前 canonical 测试环境固定为 `qiudazi-test → rtmjzmgrhifjzxaliltm`。
+- 任何自动化、总控或人工流程在执行 SQL、migration、Storage、Edge Function、Advisor 或正式 backlog 操作前，必须通过 project list / project detail 运行时确认 canonical project mapping；禁止复用旧聊天、旧日志、历史 snapshot 或模型上下文中的 project_id。
+- 权限错误诊断顺序固定为：project ref 可见性 → ChatGPT 插件权限 → Supabase 项目角色 → 数据库 grant/RPC/RLS，禁止跳步直接归因于 PostgreSQL ACL。
+- clean replay 失败复盘确认：repo 曾同时存在两个 `20260830032000_*` migration，导致 Supabase CLI 在 start 阶段应用 migration 时触发 `schema_migrations_pkey` / SQLSTATE `23505`；失败 step 名称为 `supabase start` 并不代表 Docker/CLI 启动故障，必须读取实际 SQLSTATE/statement。
+- Quick Start migration 已从临时 repo version `20260830032000` 对齐到 live `20260830031620_quick_start_event_mode.sql`；readonly audit view 已对齐到 live `20260830032055_add_readonly_audit_issue_registry_view.sql`；照片 RPC 修复已从 repo `20260830041000` 对齐到 live `20260830041107_fix_list_event_photos_ambiguous_id.sql`。
+- `.github/workflows/build.yml` 新增 migration preflight：在启动本地 Supabase 前验证 `YYYYMMDDHHMMSS_snake_case.sql` 命名与 14 位 version 全局唯一；重复 version / 非法命名直接 fail-fast。
+- 新治理规则要求 live `apply_migration` 与 repo migration 使用同一 version、同一 SQL 语义；新增 migration 前必须同时重读 live migration list 与 repo migration 目录，并发 writer 不得依据旧目录快照自行分配版本。
+- `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 与 README 已同步 environment identity、migration version、clean replay 根因判定与 Release Gate 阻塞规则；整改自动化也已增加 live/repo migration preflight。
+
+---
+
 ## 2026-08-30 — 审计自动化连接器容错 / Snapshot 降级机制
 
 - 手工复现确认：自动化/当前会话可能在 Supabase Connector 层收到 `You do not have permission to perform this action`，该事件可能发生在数据库 view/RPC 本身仍正常的情况下；因此“无法直连 Supabase = 数据库故障”这一假设不成立。
