@@ -11,6 +11,28 @@
 - GitHub Issue #21 正文只是人类可读镜像，不得替代正式 backlog；Issue 评论只记录已存在 AUD 的 append-only 过程证据。
 - 「球搭子问题整改」是唯一自动修复者，但不是全局唯一 writer。代码变更巡检、全功能测试、部署前审计、周安全审计均可按本文件规则创建 backlog row 和追加已有 AUD 评论。
 
+### 1.1 环境身份与 migration 一致性前置校验
+
+本项目的共享测试 Supabase 环境身份不是“聊天记忆”，而是每次数据库操作前必须重新确认的运行时事实：
+
+- canonical 项目名：`qiudazi-test`。
+- canonical Supabase project ref / project_id：`rtmjzmgrhifjzxaliltm`。
+- 任何自动化、总控、审计或修复流程在执行 SQL、migration、Storage、Edge Function、Advisor 或正式 backlog 操作前，必须先通过 Supabase project list / project detail 确认 `qiudazi-test → rtmjzmgrhifjzxaliltm`。
+- 不得从旧聊天、旧日志、历史 snapshot、历史工具结果或模型上下文复用其它 project_id。若 project list 中不存在 canonical 映射，停止数据库写操作并标记环境异常；不得猜测 ID。
+- `You do not have permission to perform this action` 首先要区分：① project ref 错误/当前连接器看不到该项目；② ChatGPT 插件权限；③ Supabase 组织/项目角色；④ 数据库 grant/RPC/RLS。禁止直接把连接器层错误归因于 PostgreSQL ACL。
+
+Migration 治理采用以下硬规则：
+
+- repo `supabase/migrations/*.sql` 文件必须使用 `YYYYMMDDHHMMSS_snake_case.sql`，14 位 version 在整个目录内**全局唯一**。
+- live 已通过 `apply_migration` 产生版本时，repo 对应 migration 必须复用该 live version；不得另造一个“接近的时间戳”再补仓库。
+- 同一轮变更的正确顺序是：确认 canonical project → 取得/确定唯一 migration version → apply live migration → 以**同一 version、同一 SQL 语义**写回 repo → clean replay → repo/live 对比。
+- 多个并发 writer 在新增 migration 前必须重新读取当前 migration 目录和 live migration list；不能根据几分钟前的目录快照自行分配版本。
+- `.github/workflows/build.yml` 必须在启动本地 Supabase 前做 migration filename + version uniqueness preflight；重复 version 或非法命名直接 fail-fast。
+- clean replay 失败时必须先读实际失败 statement。`supabase start` 步骤显示 failure 不代表 Docker/CLI 启动失败；Supabase CLI 会在 start 阶段自动应用 migration，因此要以日志最后一个 SQLSTATE/statement 为根因。
+- repository ↔ live migration 名称时间戳不一致、同 version 多文件、live 有 migration 而 repo 缺失，均属于 Release Gate 一致性阻塞。
+
+本规则来自 2026-08-30 两个已复现成因：历史上下文混入不可见 project ref 导致连接器 `permission` 假象；两个 repo migration 临时共用 `20260830032000` 导致 clean replay `schema_migrations_pkey` 冲突。以后均由 preflight + CI 自动阻断，而不是依赖人工记忆。
+
 ## 2. 正式 backlog 的三路径读取与快照降级
 
 `audit_ops.issue_registry` / `audit_ops.issue_counters` 属于内部工程治理数据，不是 H5 产品数据，不向客户端开放表级读取。
@@ -89,19 +111,20 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 - 修复完成最多到 `FIXED_PENDING_VERIFY`，**不得自行 VERIFIED**。
 - 若 live backlog 不可达，允许继续已经明确认领的 `IN_PROGRESS` 本地代码工作，但不得从 snapshot 认领新的 OPEN，也不得依据 snapshot 改正式状态。
 - 修改代码/migration/canonical 文档前必须重新 fetch 最新文件 + 最新 blob SHA，在最新内容上合并；stale conflict 必须重读重合并。
+- 涉及 Supabase DDL 时必须执行 §1.1 环境身份与 migration 前置校验；live 与 repo 必须使用同一 migration version。
 - 每次成功读取正式 backlog 后，应同步刷新 `docs/AUDIT_BACKLOG_SNAPSHOT.json`，只写审计元数据，不写敏感信息。
 
 ### 球搭子代码变更巡检
-白盒发现与独立静态验证；不修产品代码/数据库/长期文档。已有 AUD 追加证据，新问题正式建单；DB 不可达时只记录 `UNFILED_PENDING_DB_ACCESS`，不得伪造 AUD。
+白盒发现与独立静态验证；不修产品代码/数据库/长期文档。已有 AUD 追加证据，新问题正式建单；DB 不可达时只记录 `UNFILED_PENDING_DB_ACCESS`，不得伪造 AUD。涉及 Supabase 证据时先执行 §1.1 环境身份校验。
 
 ### 球搭子全功能测试
 真实黑盒 + Visual/UX + English QA；不得用源码、CI、HTTP 200 或旧 Preview 代替页面交互证据。已有 AUD 追加证据，新问题正式建单；DB 不可达时只记录待建单证据。
 
 ### 球搭子周安全审计
-独立安全发现与验证；结合真实 grants、exposure、function ACL、业务身份校验判断，不因 Advisor INFO/WARN 机械升 P0。DB 不可达不应阻止其继续做静态/配置安全检查，但不能因此给正式状态结论。
+独立安全发现与验证；结合真实 grants、exposure、function ACL、业务身份校验判断，不因 Advisor INFO/WARN 机械升 P0。DB 不可达不应阻止其继续做静态/配置安全检查，但不能因此给正式状态结论。数据库安全结论前先执行 §1.1 环境身份校验。
 
 ### 球搭子部署前审计
-独立 Release Gate；不修代码/DB/长期文档。必须核对 exact head、CI build + clean replay、repo/live 一致性、真实黑盒/Visual/English 与发布相关 backlog。live backlog 不可达时可以继续其它 Gate 检查，但最终只能 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，不能 PASS。
+独立 Release Gate；不修代码/DB/长期文档。必须核对 exact head、CI build + clean replay、repo/live migration version 与 SQL 语义一致性、真实黑盒/Visual/English 与发布相关 backlog。live backlog 不可达时可以继续其它 Gate 检查，但最终只能 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，不能 PASS。
 
 ## 6. Issue #21、Snapshot 与共享写入
 
@@ -128,9 +151,10 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 ## 8. 发布规则
 
 - CI green 不等于功能/Visual/权限/Gate 通过。
+- H5 Build Check 的 migration preflight、Supabase clean replay、后端结构断言均属于 Release Gate 必要证据；任何一项失败都必须读实际日志根因，禁止仅按 step 名称推断。
 - 普通 commit 不主动触发 Vercel；完整候选后才受控创建 Preview。
 - Release Gate 只对**发布相关** P0 与核心 P1 阻塞；P1 新能力不能仅因“不是 P0”被机械判失败，但进入候选后的真实回归/不可用属于阻塞。
-- repository ↔ live Supabase migration/RPC/RLS/Storage/Edge Function 不一致时阻塞发布。
+- repository ↔ live Supabase migration/RPC/RLS/Storage/Edge Function 不一致时阻塞发布；migration version 对不上也属于不一致。
 - live backlog 暂不可达时 Gate 不得 PASS；先保留 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，待正式路径恢复后复核。
 - 未通过 Gate 不进入 CloudBase 正式候选，不自动 merge `main`。
 - `main` 继续由 GitHub ruleset 保护：PR、linear history、H5 Build Check、up-to-date、禁 force push/删除、无 bypass。
@@ -140,7 +164,9 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 - `20260829161024_audit_backlog_source_of_truth.sql`：正式 backlog。
 - `20260829200350_audit_create_issue_concurrency.sql`：semantic key 并发去重。
 - `20260830005513_audit_backlog_read_rpc.sql`：`public.audit_list_issues()`。
-- `20260830032055_add_readonly_audit_issue_registry_view.sql`：新增 backend-only 只读投影。
+- `20260830031620_quick_start_event_mode.sql`：Quick Start event mode；repo version 与 live `20260830031620` 对齐。
+- `20260830032055_add_readonly_audit_issue_registry_view.sql`：新增 backend-only 只读投影；repo version 与 live `20260830032055` 对齐。
 - `20260830032103_restrict_readonly_audit_issue_registry_view.sql` 与 `20260830032403_restrict_audit_readonly_view_to_select_only.sql`：收紧为后台必要 SELECT；客户端不可读。
+- `20260830041000_fix_list_event_photos_ambiguous_id.sql` 对应 live migration `20260830041107_fix_list_event_photos_ambiguous_id` 的 SQL 语义已应用；在发布 Gate 前仍须完成 repo/live migration version 命名一致性复核，避免只比 SQL 不比 version。
 
 以上读取 view/RPC 都只是 `audit_ops.issue_registry` 的受控读取路径，不改变唯一事实源定义。Snapshot 同样不是第二事实源，只是连接器波动时的只读工程缓存。
