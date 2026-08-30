@@ -5,14 +5,24 @@ import { useLanguage } from "../i18n";
 
 type Prefs={avatar_visible:boolean;level_visible:boolean;city_visible:boolean;play_times_visible:boolean;play_preference_visible:boolean;allow_event_invites:boolean;allow_doubles_invites:boolean;participant_album_visibility:"private"|"partners"};
 const defaults:Prefs={avatar_visible:true,level_visible:true,city_visible:true,play_times_visible:true,play_preference_visible:true,allow_event_invites:true,allow_doubles_invites:true,participant_album_visibility:"private"};
+function normalizePrefs(value:Partial<Prefs>|null|undefined):Prefs{return{
+  avatar_visible:value?.avatar_visible??defaults.avatar_visible,
+  level_visible:value?.level_visible??defaults.level_visible,
+  city_visible:value?.city_visible??defaults.city_visible,
+  play_times_visible:value?.play_times_visible??defaults.play_times_visible,
+  play_preference_visible:value?.play_preference_visible??defaults.play_preference_visible,
+  allow_event_invites:value?.allow_event_invites??defaults.allow_event_invites,
+  allow_doubles_invites:value?.allow_doubles_invites??defaults.allow_doubles_invites,
+  participant_album_visibility:value?.participant_album_visibility??defaults.participant_album_visibility,
+};}
 
 export function PrivacyPage(){
   const{language,setLanguage,t}=useLanguage();const en=language==="en";
   const[prefs,setPrefs]=useState<Prefs|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(""),[saved,setSaved]=useState(false);
-  useEffect(()=>{rpc<Prefs>("get_my_preferences").then(p=>setPrefs({...defaults,...p})).catch(e=>setError(explainError(e)));},[]);
+  useEffect(()=>{rpc<Partial<Prefs>>("get_my_preferences").then(p=>setPrefs(normalizePrefs(p))).catch(e=>setError(explainError(e)));},[]);
   function toggle(k:keyof Prefs){setPrefs(p=>p?{...p,[k]:!p[k]} as Prefs:p);setSaved(false);}
   function setAlbumVisibility(value:"private"|"partners"){setPrefs(p=>p?{...p,participant_album_visibility:value}:p);setSaved(false);}
-  async function save(){if(!prefs)return;setBusy(true);setError("");try{const p=await rpc<Prefs>("save_my_preferences",{p_settings:prefs});setPrefs({...defaults,...p});setSaved(true);}catch(e){setError(explainError(e));}finally{setBusy(false);}}
+  async function save(){if(!prefs)return;setBusy(true);setError("");try{const payload=normalizePrefs(prefs);const p=await rpc<Partial<Prefs>>("save_my_preferences",{p_settings:payload});setPrefs(normalizePrefs(p));setSaved(true);}catch(e){setError(explainError(e));}finally{setBusy(false);}}
   return <><Header title={t("settings")}/><main className="page">
     <span className="eyebrow">{t("privacy")}</span><h1>{t("settings")}</h1>
     <section className="settings-section"><h2>{t("language")}</h2><div className="segmented"><button className={language==="zh-CN"?"active":""} onClick={()=>setLanguage("zh-CN")}>简体中文</button><button className={language==="en"?"active":""} onClick={()=>setLanguage("en")}>English</button></div></section>
