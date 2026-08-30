@@ -10,34 +10,31 @@ Deno.serve(async(req)=>{
   const userClient=createClient(url,anon,{global:{headers:{Authorization:auth}}});
   const admin=createClient(url,service);
   const {data:{user}}=await userClient.auth.getUser(); if(!user) return json({error:"AUTH_REQUIRED"},401);
-  const body=await req.json().catch(()=>null) as {action?:"delete"|"finalize_upload";event_id?:string;version?:number;original_path?:string;preview_path?:string}|null;
-  if(!body?.event_id || !body.action) return json({error:"INVALID_REQUEST"},400);
+  const body=await req.json().catch(()=>null) as {action?:"delete"|"finalize_upload"|"partner_preview";event_id?:string;version?:number;original_path?:string;preview_path?:string;asset_id?:string;target_profile_id?:string}|null;
+  if(!body?.action) return json({error:"INVALID_REQUEST"},400);
   const {data:profile,error:profileError}=await userClient.rpc("ensure_profile"); if(profileError||!profile?.id) return json({error:"AUTH_REQUIRED"},401);
+
+  if(body.action==="partner_preview"){
+    if(!body.asset_id||!body.target_profile_id) return json({error:"INVALID_REQUEST"},400);
+    const {data:allowed,error:allowedError}=await userClient.rpc("list_partner_visible_event_albums",{p_profile_id:body.target_profile_id});
+    if(allowedError) return json({error:"FORBIDDEN"},403);
+    const row=(allowed as Array<{asset_id:string;watermarked_url:string}>|null)?.find(x=>x.asset_id===body.asset_id);
+    if(!row) return json({error:"FORBIDDEN"},403);
+    const {data:signed,error:signError}=await admin.storage.from("event-photos").createSignedUrl(row.watermarked_url,300);
+    if(signError||!signed?.signedUrl) return json({error:"PHOTO_PREVIEW_FAILED"},500);
+    return json({url:signed.signedUrl,expires_in:300});
+  }
+
+  if(!body.event_id) return json({error:"INVALID_REQUEST"},400);
   const {data:event}=await admin.from("events").select("id,owner_user_id,status").eq("id",body.event_id).maybeSingle();
   if(!event || event.owner_user_id!==profile.id) return json({error:"FORBIDDEN"},403);
   const {data:existing}=await admin.from("event_photos").select("id,event_id,original_url,watermarked_url,uploaded_at,version").eq("event_id",body.event_id).maybeSingle<Photo>();
   if(typeof body.version==="number" && (existing?.version??0)!==body.version) return json({error:"VERSION_CONFLICT"},409);
 
   if(body.action==="delete"){
-    const requestedVersion=body.version??0;
-    const {data:deletedData,error:deleteError}=await userClient.rpc("delete_event_photo_metadata",{p_event_id:body.event_id,p_version:requestedVersion});
-    if(deleteError){
-      const message=deleteError.message||"";
-      if(message.includes("VERSION_CONFLICT")) return json({error:"VERSION_CONFLICT"},409);
-      if(message.includes("FORBIDDEN")) return json({error:"FORBIDDEN"},403);
-      return json({error:"PHOTO_METADATA_DELETE_FAILED"},500);
-    }
-    const deleted=deletedData as Photo|null;
-    if(!deleted) return json({ok:true});
-    const paths=[deleted.original_url,deleted.watermarked_url];
-    for(const path of paths){ if(typeof path!=="string" || !path.includes(`/${body.event_id}/`)) return json({error:"INVALID_PHOTO"},400); }
-    const {error:removeError}=await admin.storage.from("event-photos").remove(paths);
-    if(removeError){
-      const {error:restoreError}=await admin.from("event_photos").insert(deleted);
-      if(restoreError) return json({error:"PHOTO_DELETE_ROLLBACK_FAILED"},500);
-      return json({error:"PHOTO_DELETE_FAILED"},500);
-    }
-    return json({ok:true});
+    const {data:removed,error:removeError}=await userClient.rpc("remove_event_photo_from_event",{p_event_id:body.event_id,p_version:body.version??0});
+    if(removeError){const m=removeError.message||"";if(m.includes("VERSION_CONFLICT"))return json({error:"VERSION_CONFLICT"},409);if(m.includes("FORBIDDEN"))return json({error:"FORBIDDEN"},403);return json({error:"PHOTO_REMOVE_FAILED"},500);}
+    return json({ok:true,archived:!!removed});
   }
 
   if(body.action==="finalize_upload"){
@@ -47,19 +44,9 @@ Deno.serve(async(req)=>{
     if(!original||!preview||!original.startsWith(expectedPrefix)||!preview.startsWith(expectedPrefix)||original===preview) return json({error:"INVALID_PHOTO"},400);
     const cleanupNew=async()=>{ await admin.storage.from("event-photos").remove([original,preview]); };
     const {data:saved,error:saveError}=await userClient.rpc("save_event_photo",{p_event_id:body.event_id,p_original:original,p_watermarked:preview,p_version:body.version??0});
-    if(saveError){ await cleanupNew(); return json({error:saveError.message||"PHOTO_SAVE_FAILED"},400); }
-    if(existing){
-      const oldPaths=[existing.original_url,existing.watermarked_url];
-      const {error:removeError}=await admin.storage.from("event-photos").remove(oldPaths);
-      if(removeError){
-        const {error:rollbackError}=await admin.from("event_photos").update({original_url:existing.original_url,watermarked_url:existing.watermarked_url,uploaded_at:existing.uploaded_at,version:existing.version}).eq("event_id",body.event_id).eq("version",saved.version);
-        await cleanupNew();
-        if(rollbackError) return json({error:"PHOTO_REPLACE_ROLLBACK_FAILED"},500);
-        return json({error:"PHOTO_REPLACE_CLEANUP_FAILED"},500);
-      }
-    }
+    if(saveError){await cleanupNew();return json({error:saveError.message||"PHOTO_SAVE_FAILED"},400);}
+    if(existing){const oldPaths=[existing.original_url,existing.watermarked_url];const {error:removeError}=await admin.storage.from("event-photos").remove(oldPaths);if(removeError)return json({error:"PHOTO_REPLACE_CLEANUP_FAILED"},500);}
     return json({ok:true,photo:saved});
   }
-
   return json({error:"INVALID_REQUEST"},400);
 });
