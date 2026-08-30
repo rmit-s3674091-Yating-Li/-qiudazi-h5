@@ -7,7 +7,10 @@ const expectedSha = process.env.EXPECTED_SHA;
 const oidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN || '';
 if (!baseUrl || !expectedSha) throw new Error('BASE_URL and EXPECTED_SHA are required');
 
-const protectionHeaders = oidcToken
+// OIDC is valid only for direct Vercel protection checks. Never inject it into
+// a browser context: extraHTTPHeaders are also sent to cross-origin Supabase
+// requests and would cause CORS preflight failures.
+const vercelProtectionHeaders = oidcToken
   ? { 'x-vercel-trusted-oidc-idp-token': oidcToken }
   : {};
 
@@ -16,7 +19,7 @@ fs.mkdirSync(outDir, { recursive: true });
 const results = {
   baseUrl,
   expectedSha,
-  authMode: oidcToken ? 'github-oidc' : 'none',
+  authMode: oidcToken ? 'github-oidc-preflight-only' : 'public-preview',
   startedAt: new Date().toISOString(),
   checks: [],
   diagnostics: [],
@@ -35,7 +38,7 @@ async function waitForExactDeployment() {
     try {
       const r = await fetch(new URL('/build-meta.json', baseUrl), {
         cache: 'no-store',
-        headers: protectionHeaders,
+        headers: vercelProtectionHeaders,
         redirect: 'follow',
       });
       const contentType = r.headers.get('content-type') || '';
@@ -61,7 +64,6 @@ function contextOptions(viewport, language = 'zh') {
   return {
     viewport,
     locale: language === 'en' ? 'en-US' : 'zh-CN',
-    extraHTTPHeaders: protectionHeaders,
   };
 }
 
