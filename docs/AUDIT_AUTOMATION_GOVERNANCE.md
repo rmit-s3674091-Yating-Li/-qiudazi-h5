@@ -31,7 +31,7 @@ Migration 治理采用以下硬规则：
 - clean replay 失败时必须先读实际失败 statement。`supabase start` 步骤显示 failure 不代表 Docker/CLI 启动失败；Supabase CLI 会在 start 阶段自动应用 migration，因此要以日志最后一个 SQLSTATE/statement 为根因。
 - repository ↔ live migration 名称时间戳不一致、同 version 多文件、live 有 migration 而 repo 缺失，均属于 Release Gate 一致性阻塞。
 
-本规则来自 2026-08-30 两个已复现成因：历史上下文混入不可见 project ref 导致连接器 `permission` 假象；两个 repo migration 临时共用 `20260830032000` 导致 clean replay `schema_migrations_pkey` 冲突。以后均由 preflight + CI 自动阻断，而不是依赖人工记忆。
+本规则来自 2026-08-30 两个已复现成因：历史上下文混入不可见 project ref 导致连接器 `permission` 假象；两个 repo migration 临时共用 `20260830032000` 导致 clean replay `schema_migrations_pkey` 冲突。后续又发现照片修复曾出现 live `20260830041107` 与 repo `20260830041000` 的同语义异版本情况，已统一到 live version。以后这些问题均由 preflight + CI + repo/live version 对比自动阻断，而不是依赖人工记忆。
 
 ## 2. 正式 backlog 的三路径读取与快照降级
 
@@ -164,9 +164,9 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 - `20260829161024_audit_backlog_source_of_truth.sql`：正式 backlog。
 - `20260829200350_audit_create_issue_concurrency.sql`：semantic key 并发去重。
 - `20260830005513_audit_backlog_read_rpc.sql`：`public.audit_list_issues()`。
-- `20260830031620_quick_start_event_mode.sql`：Quick Start event mode；repo version 与 live `20260830031620` 对齐。
-- `20260830032055_add_readonly_audit_issue_registry_view.sql`：新增 backend-only 只读投影；repo version 与 live `20260830032055` 对齐。
+- `20260830031620_quick_start_event_mode.sql`：Quick Start event mode；repo/live version 已对齐。
+- `20260830032055_add_readonly_audit_issue_registry_view.sql`：backend-only 只读投影；repo/live version 已对齐。
 - `20260830032103_restrict_readonly_audit_issue_registry_view.sql` 与 `20260830032403_restrict_audit_readonly_view_to_select_only.sql`：收紧为后台必要 SELECT；客户端不可读。
-- `20260830041000_fix_list_event_photos_ambiguous_id.sql` 对应 live migration `20260830041107_fix_list_event_photos_ambiguous_id` 的 SQL 语义已应用；在发布 Gate 前仍须完成 repo/live migration version 命名一致性复核，避免只比 SQL 不比 version。
+- `20260830041107_fix_list_event_photos_ambiguous_id.sql`：修复 `list_event_photos` 未限定 `id` 导致的 SQLSTATE 42702；repo/live version 已对齐。
 
 以上读取 view/RPC 都只是 `audit_ops.issue_registry` 的受控读取路径，不改变唯一事实源定义。Snapshot 同样不是第二事实源，只是连接器波动时的只读工程缓存。
