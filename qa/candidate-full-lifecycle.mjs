@@ -13,7 +13,7 @@ const vercelProtectionHeaders = oidcToken ? { 'x-vercel-trusted-oidc-idp-token':
 const outDir = path.join(process.cwd(), 'qa-artifacts');
 fs.mkdirSync(outDir, { recursive: true });
 const resultPath = path.join(outDir, 'full-lifecycle-result.json');
-const results = { baseUrl, expectedSha, authMode: oidcToken ? 'github-oidc-preflight-only' : 'public-preview', startedAt: new Date().toISOString(), checks: [], evidence: {} };
+const results = { baseUrl, expectedSha, authMode: oidcToken ? 'github-oidc-preflight-only' : 'public-preview', previewRuntimeIsolation: 'vercel-toolbar-blocked', startedAt: new Date().toISOString(), checks: [], evidence: {} };
 const tinyPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZlSMAAAAASUVORK5CYII=', 'base64');
 const rawLeak = /(column reference|sqlstate|postgres|relation .* does not exist|violates .* constraint|jwt|rls|rpc\b|ambiguous)/i;
 
@@ -44,6 +44,7 @@ async function exactHead() {
 
 async function englishContext(browser, traceName) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-US' });
+  await context.route(/^https:\/\/vercel\.live\//, route => route.abort('blockedbyclient'));
   await context.addInitScript(() => localStorage.setItem('qiudazi-language', 'en'));
   await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
   context.__traceName = traceName;
@@ -51,25 +52,46 @@ async function englishContext(browser, traceName) {
 }
 async function closeContext(context) { await context.tracing.stop({ path: path.join(outDir, `${context.__traceName}.zip`) }); await context.close(); }
 
+async function shellReady(page, timeout = 8000) {
+  try {
+    await page.locator('a[href="#/quick-start"]').first().waitFor({ state: 'visible', timeout });
+    const body = await page.locator('body').innerText();
+    return !/online database is not configured|当前没有配置在线数据库|Restoring your Qiu Dazi identity|正在恢复你的球搭子身份/i.test(body);
+  } catch {
+    return false;
+  }
+}
+
 async function identity(page, nickname) {
   await page.goto(`${baseUrl}/#/events`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(800);
-  if (page.url().includes('/profile')) {
-    const input = page.locator('input[autocomplete="nickname"]');
-    await input.waitFor({ state: 'visible', timeout: 20000 });
-    await input.fill(nickname);
-    const consent = page.locator('input[type=checkbox]').first(); if (await consent.count()) await consent.check();
-    await page.locator('button[type=submit], button.full').filter({ hasText: /Start playing|Continue|开始打球|继续/ }).first().click();
-    await page.waitForURL(/#\/events(?:$|\?)/, { timeout: 30000 });
+  let lastBody = '';
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    await page.waitForTimeout(900);
+    if (page.url().includes('/profile')) {
+      const input = page.locator('input[autocomplete="nickname"]');
+      await input.waitFor({ state: 'visible', timeout: 20000 });
+      await input.fill(nickname);
+      const consent = page.locator('input[type=checkbox]').first(); if (await consent.count()) await consent.check();
+      await page.locator('button[type=submit], button.full').filter({ hasText: /Start playing|Continue|开始打球|继续/ }).first().click();
+      try { await page.waitForURL(/#\/events(?:$|\?)/, { timeout: 30000 }); } catch {}
+    }
+
+    if (await shellReady(page, 8000)) {
+      const body = await page.locator('body').innerText();
+      record(`real browser identity ready: ${nickname}`, true, `attempt=${attempt}; ${body.slice(0, 160)}`);
+      return;
+    }
+
+    lastBody = await page.locator('body').innerText().catch(() => '');
+    const restore = page.getByRole('button', { name: /Retry connection|重试连接/i });
+    if (await restore.count()) {
+      await restore.first().click();
+      await page.waitForTimeout(1500);
+    } else if (attempt < 3) {
+      await page.reload({ waitUntil: 'domcontentloaded' });
+    }
   }
-  const restore = page.getByRole('button', { name: /Retry connection|重试连接/i });
-  if (await restore.count()) {
-    await restore.first().click();
-    await page.waitForTimeout(1200);
-  }
-  await page.locator('a[href="#/quick-start"]').first().waitFor({ state: 'visible', timeout: 30000 });
-  const body = await page.locator('body').innerText();
-  record(`real browser identity ready: ${nickname}`, !/online database is not configured|当前没有配置在线数据库|Restoring your Qiu Dazi identity|正在恢复你的球搭子身份/i.test(body), body.slice(0, 160));
+  record(`real browser identity ready: ${nickname}`, false, lastBody.slice(0, 240));
 }
 
 async function deadlineAutoCustom(browser) {
