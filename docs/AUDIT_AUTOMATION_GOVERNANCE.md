@@ -10,6 +10,7 @@
 - `docs/AUDIT_BACKLOG_SNAPSHOT.json` 是**只读、带时间戳的自动化降级快照**。它不是正式 backlog，也不能用于写状态、分配 AUD 或声称数据库已同步。
 - GitHub Issue #21 正文只是人类可读镜像，不得替代正式 backlog；Issue 评论只记录已存在 AUD 的 append-only 过程证据。
 - 「球搭子问题整改」是唯一自动修复者，但不是全局唯一 writer。代码变更巡检、全功能测试、部署前审计、周安全审计均可按本文件规则创建 backlog row 和追加已有 AUD 评论。
+- GitHub repository 的 canonical visibility 为 **Private**；完整环境身份与 GitHub 方案能力边界以 `docs/ENVIRONMENT_BASELINE.md` 为准。
 
 ### 1.1 环境身份与 migration 一致性前置校验
 
@@ -20,6 +21,8 @@
 - 任何自动化、总控、审计或修复流程在执行 SQL、migration、Storage、Edge Function、Advisor 或正式 backlog 操作前，必须先通过 Supabase project list / project detail 确认 `qiudazi-test → rtmjzmgrhifjzxaliltm`。
 - 不得从旧聊天、旧日志、历史 snapshot、历史工具结果或模型上下文复用其它 project_id。若 project list 中不存在 canonical 映射，停止数据库写操作并标记环境异常；不得猜测 ID。
 - `You do not have permission to perform this action` 首先要区分：① project ref 错误/当前连接器看不到该项目；② ChatGPT 插件权限；③ Supabase 组织/项目角色；④ 数据库 grant/RPC/RLS。禁止直接把连接器层错误归因于 PostgreSQL ACL。
+- GitHub 相关审计同时必须确认 repository visibility 仍为 private。若意外变回 public，属于基础环境漂移并阻塞候选。
+- 当前账号方案下 private repository 的 GitHub repository ruleset 不可用；不得把“ruleset/platform branch protection 存在”作为当前 Gate 证据。所有自动化继续禁止直接 push/merge main，实际治理依赖 feature branch → PR → exact-head CI → Release Gate → 人工 merge 决策。
 
 Migration 治理采用以下硬规则：
 
@@ -151,13 +154,14 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 ## 8. 发布规则
 
 - CI green 不等于功能/Visual/权限/Gate 通过。
-- H5 Build Check 的 migration preflight、Supabase clean replay、后端结构断言均属于 Release Gate 必要证据；任何一项失败都必须读实际日志根因，禁止仅按 step 名称推断。
+- H5 Build Check 的 repository visibility、server-secret、migration preflight、Supabase clean replay、后端结构断言均属于 Release Gate 必要证据；任何一项失败都必须读实际日志根因，禁止仅按 step 名称推断。
+- Repository 必须保持 Private；意外变回 public 直接阻塞发布。
 - 普通 commit 不主动触发 Vercel；完整候选后才受控创建 Preview。
 - Release Gate 只对**发布相关** P0 与核心 P1 阻塞；P1 新能力不能仅因“不是 P0”被机械判失败，但进入候选后的真实回归/不可用属于阻塞。
 - repository ↔ live Supabase migration/RPC/RLS/Storage/Edge Function 不一致时阻塞发布；migration version 对不上也属于不一致。
 - live backlog 暂不可达时 Gate 不得 PASS；先保留 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，待正式路径恢复后复核。
 - 未通过 Gate 不进入 CloudBase 正式候选，不自动 merge `main`。
-- `main` 继续由 GitHub ruleset 保护：PR、linear history、H5 Build Check、up-to-date、禁 force push/删除、无 bypass。
+- 当前 private repository 在现有 GitHub 方案下无法使用 repository ruleset；main 保护采用 feature branch → PR → exact-head H5 Build Check → Release Gate → 人工 merge 的流程治理。所有自动化禁止直接 push/merge main。若未来升级 GitHub Pro 并恢复 ruleset，必须运行时验证后再把平台保护作为 Gate 证据。
 
 ## 9. 当前迁移事实（2026-08-30）
 
