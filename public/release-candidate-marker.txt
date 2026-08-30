@@ -1,3 +1,4 @@
 Release candidate deployment marker.
-Purpose: force Vite/Vercel to treat QA-only release-head changes as application build input so exact-head Preview evidence can be generated.
-Updated: 2026-08-30T16:00Z
+Purpose: force Vite/Vercel to treat QA-only or backend-only release-head changes as application build input so exact-head Preview evidence can be generated.
+Updated: 2026-08-30T16:18Z
+Reason: verify AUD-20260830-009 deeper Quick Start Retry fix.
