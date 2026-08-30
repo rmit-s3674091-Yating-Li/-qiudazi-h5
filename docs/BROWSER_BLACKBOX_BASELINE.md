@@ -35,20 +35,35 @@
 
 任一 SHA 不一致，本轮证据无效。旧 Preview、旧 workflow run、旧 screenshot 或“内容看起来一样”均不能继承。
 
-## 3. Vercel Protection 与访问能力
+## 3. Vercel Preview 可访问性
 
-候选 Preview 可以保持 Vercel Protection。Browser Blackbox workflow 使用 GitHub Actions OIDC `id-token: write` 获取短时 token，并通过 `x-vercel-trusted-oidc-idp-token` 访问受保护候选。
+当前测试阶段的 `release-candidate` Preview 必须能够被真实浏览器执行器直接访问。项目目标本身就是公网 H5 测试，因此不在 Preview 外层依赖 Vercel Authentication 登录墙作为产品安全边界；真正的数据访问控制由 Supabase Auth / RPC / RLS / Storage Policy 负责。
 
 规则：
 
+- `release-candidate` exact deployment 必须能直接返回 `/build-meta.json`；
+- workflow 仍可携带短时 GitHub OIDC token，兼容未来重新启用 Vercel Protection 的场景，但当前黑盒不能依赖人工 Vercel 登录；
 - 不把长期 Vercel bypass secret 写入仓库；
-- OIDC token 只在单次 workflow 内短时使用并由 GitHub mask；
-- 如果 OIDC / Preview protection / DNS / runner 网络导致浏览器无法访问，属于 **Browser Infrastructure Failure**，不是产品 AUD；
+- 如果 DNS / runner 网络 / Vercel 平台故障导致浏览器无法访问，属于 **Browser Infrastructure Failure**，不是产品 AUD；
 - 只有浏览器实际进入产品页面后发现业务/视觉/权限问题，才按产品缺陷语义去重并登记 AUD。
 
 ## 4. 最低真实浏览器覆盖
 
-一份可供 Release Gate 使用的 Browser Blackbox 至少包含以下真实交互：
+一份可供 Release Gate 使用的 Browser Blackbox 至少包含以下真实交互。
+
+### 4.0 身份恢复必须真实成功
+
+黑盒不能只因为底部导航或 Quick Start 壳层已经渲染，就认为“用户已经进入产品”。每个 BrowserContext 在执行业务检查前必须证明身份恢复完成：
+
+- 不再停留在“正在恢复你的球搭子身份 / Restoring your Qiu Dazi identity”；
+- 不出现“操作没有完成，请稍后重试 / Retry connection”之类身份失败状态；
+- 新测试身份需要时完成 profile 初始化；
+- 最终真正进入 `/events` 业务态后，才能执行 viewport、导航、赛事、隐私、照片等检查；
+- 身份恢复失败时允许有限次数真实 Retry connection / reload 重试；
+- 仍失败时必须保存截图，并记录 page error、console error、Supabase Auth / Edge Function HTTP error 或 request failure；
+- 身份失败若来自 runner/网络/测试执行器本身，分类为 `BROWSER_INFRA_FAILURE`；若真实页面稳定复现产品身份恢复失败，则分类为 `PRODUCT_BLACKBOX_FAILURE`。
+
+浏览器脚本不得在第一项失败时立即丢弃后续证据。应尽可能继续独立 viewport / browser context 采证，最终统一判定该 exact-head workflow 是否通过。
 
 ### 4.1 Mobile / Visual / English
 
@@ -128,6 +143,7 @@ workflow 无论成功/失败均上传：
 - `qa-artifacts/result.json`：mobile / English / dual-session 结果；
 - `qa-artifacts/full-lifecycle-result.json`：主生命周期 / deadline / privacy / Quick Start / photo 结果；
 - 关键页面 PNG screenshot；
+- 身份恢复失败时的 retry / failed screenshot 与网络诊断；
 - 复杂流程 Playwright trace `.zip`；
 - artifact 名：`candidate-browser-evidence-${github.sha}`；
 - 默认保留 14 天。
@@ -147,10 +163,9 @@ Release Gate 不能仅凭 workflow 绿色图标。至少应核对：run SHA、ar
 例如：
 
 - GitHub runner 无法安装/启动 Playwright；
-- Vercel OIDC trusted access 失败；
-- runner DNS/网络无法访问 Preview；
+- Vercel Preview / DNS / runner 网络无法访问；
 - artifact 上传机制自身失败；
-- 测试代码语法/selector 基础设施错误，且没有证据证明是产品行为问题。
+- 测试代码语法/selector/时序基础设施错误，且没有证据证明是产品行为问题。
 
 此类问题必须修复测试基础设施并重新跑 exact-head browser workflow，不得登记成产品 AUD，也不得用伪黑盒绕过。
 
@@ -158,6 +173,7 @@ Release Gate 不能仅凭 workflow 绿色图标。至少应核对：run SHA、ar
 
 真实浏览器已进入产品并实际操作后，复现：
 
+- 身份恢复稳定失败；
 - 业务流程错误；
 - 权限越权/缺失；
 - 数据未持久化/双用户不一致；
@@ -173,6 +189,7 @@ Release Gate 不能仅凭 workflow 绿色图标。至少应核对：run SHA、ar
 
 - `Candidate Browser Blackbox` exact-head workflow 未成功 → Gate 不得 PASS；
 - artifact 不存在或 SHA 对不上 → Gate 不得 PASS；
+- 身份恢复未真实成功 → 后续壳层/viewport 结果不得冒充完整业务黑盒；
 - 只完成 shell/viewport 而 `full-lifecycle-result.json` 不成功 → Gate 不得 PASS；
 - HTTP fetch、源码、CI、Supabase SQL、Vercel metadata 只能作为补充证据，不能替代 Browser Blackbox；
 - 黑盒真实浏览器发现新的 P0/P1 → candidate 作废，进入整改 / 新 exact head / 新 Preview / 新 Browser Blackbox；
@@ -188,4 +205,4 @@ Release Gate 不能仅凭 workflow 绿色图标。至少应核对：run SHA、ar
 4. 检查「球搭子全功能测试」和 Release Gate automation prompt；
 5. 重新在新的 exact-head candidate 上跑通真实浏览器 workflow。
 
-禁止出现“文档要求真实黑盒，但自动化实际只能 HTTP fetch”的能力漂移。
+禁止出现“文档要求真实黑盒，但自动化实际只能 HTTP fetch”或“页面壳已渲染就被误判为身份/业务已就绪”的能力漂移。
