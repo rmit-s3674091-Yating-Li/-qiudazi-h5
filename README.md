@@ -17,6 +17,13 @@
 
 若早期 PRD、Demo、旧 bundle 或历史评论与上述当前基线冲突，以当前基线和用户最近明确决定为准。
 
+## Environment identity
+- 当前球搭子共享测试 Supabase 项目名固定为 `qiudazi-test`。
+- 当前 canonical Supabase project ref / project_id 为 **`rtmjzmgrhifjzxaliltm`**，前端 API host 也必须对应 `https://rtmjzmgrhifjzxaliltm.supabase.co`。
+- 任何自动化、总控或人工脚本在执行 Supabase SQL、migration、Storage、Edge Function 或审计 backlog 操作前，都必须先通过 Supabase project list / project detail 校验 `qiudazi-test → rtmjzmgrhifjzxaliltm`，不得从旧聊天、旧日志、snapshot 或历史上下文复用其它 project_id。
+- 若 project list 中看不到该映射，先视为连接器/账号环境异常；不得用猜测的 project_id 重试写操作。
+- `You do not have permission to perform this action` 必须先区分“错误/不可见 project_id”与数据库 grant/RPC 权限问题，不得直接归因于数据库 ACL。
+
 ## Stable product principles
 - Profile/User、Player、Connection 分离；昵称不是关联键。
 - 双打一个 Entry 两个 Player；“我参与的”按有效 Entry→Player 事实判断。
