@@ -4,7 +4,11 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "git": {
-    "deploymentEnabled": false
+    "deploymentEnabled": {
+      "*": false,
+      "main": true,
+      "release-candidate": true
+    }
   },
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
