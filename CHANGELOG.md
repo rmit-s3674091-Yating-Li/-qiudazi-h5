@@ -1,6 +1,30 @@
 # 球搭子 H5 — CHANGELOG
 
-本文件记录影响产品行为、数据模型、权限、技术架构和发布状态的主要变化。更早的逐提交历史仍可从 Git history 与 Issue #21 append-only 工作日志追溯；当前产品规则以 PRD / PRODUCT / INTERACTION / PHOTO_ALBUM / P0 为准。
+本文件记录影响产品行为、数据模型、权限、技术架构和发布状态的主要变化。更早的逐提交历史仍可从 Git history 与 Issue #21 append-only 工作日志追溯；当前产品规则以 PRD / PRODUCT / INTERACTION / VISUAL / PHOTO_ALBUM / P0 / AUDIT_AUTOMATION_GOVERNANCE 为准。
+
+---
+
+## 2026-08-30 — 快速开赛 P1 / 导航主动作
+
+- 在现有四个底部一级导航 **赛事大厅 / 我的赛事 / 球搭子们 / 我的** 的基础上增加中央凸起圆形“快速开赛”主动作；它不是第五个 Tab，不改变现有 IA，“我的战绩”继续属于“我的”。
+- 新增 `event_mode = standard | quick`。quick mode 用于人已经在其他渠道约好、希望直接编排/记分/沉淀战绩与照片的场景。
+- 快速流程：单打/双打 → 选择已有或新增临时 Player → 城市/可选场地/赛制/计分 → 确认并生成对阵。
+- quick event 跳过标准赛事报名截止、候补、普通赛事邀请流程，原子创建 locked Event/Entry/EntryPlayer，并自动生成首次对阵；之后复用现有 viewer_role、Match、记分、排名、完赛、战绩和照片模型。
+- quick mode 不得放宽标准赛事 deadline / waitlist / invite / Player / Storage 权限。
+- 快速开赛属于 P1，不重定义原 P0；但若进入当前候选后造成四导航遮挡、既有 P0 页面不可用、权限扩大或标准赛事生命周期回归，则按发布回归处理。
+- live migration `20260830031620_quick_start_event_mode` 已应用并同步到 repo；真实页面仍需后续 exact-head Preview 黑盒/Visual 验证。
+
+---
+
+## 2026-08-30 — 审计 backlog 读取治理三路径收口
+
+- Supabase `audit_ops.issue_registry` 继续是正式 backlog **唯一事实源**。
+- 新增 `public.audit_issue_registry_readonly` 作为 backend-only 只读投影，只解决自动化连接器对 SECURITY DEFINER RPC 调用兼容性，不形成第二份 backlog。
+- 正式读取协议统一为：① backend-only readonly view；② `public.audit_list_issues()` RPC；③ 受信任 SQL `select * from public.audit_list_issues();`；只有三条都失败才 `BLOCKED`。
+- `public.audit_list_issues()` 实际 `RETURNS jsonb`，fallback 返回一列 JSON 数组；自动化不得把它误当 `RETURNS TABLE` 使用。
+- 已实际验证：readonly view 可读取当前 OPEN/IN_PROGRESS backlog；`anon/authenticated` 无 SELECT，后台角色仅保留必要 SELECT；RPC/SQL function fallback 也可取得正式 JSON backlog。
+- migrations：`20260830032055_add_readonly_audit_issue_registry_view`、`20260830032103_restrict_readonly_audit_issue_registry_view`、`20260830032403_restrict_audit_readonly_view_to_select_only`。
+- `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 已升级为三路径真源；README、P0 与定时任务需服从该治理基线。Issue #21 仍只是镜像，禁止替代正式 backlog。
 
 ---
 
@@ -8,7 +32,7 @@
 
 **分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
 **关联**：`AUD-20260829-017`  
-**状态**：`FIXED_PENDING_VERIFY`。最终实现与数据库/权限硬化已完成；实现/CI head `e52e60b7d7caece8187cc0641ee8840d96d6755b` 的 H5 Build Check run `33287779608` 中 build 与 Supabase clean replay 均成功。仍须等待独立黑盒、安全、并发竞态与 Visual/English 验证后才能 `VERIFIED`。该 head 仅是当时实现/CI 证据锚点；任何后续文档或代码提交都会产生新的 PR exact head，发布判断必须重新读取当前 head 并核对对应 CI，不能继承旧 head 的 exact-head 通过结论。
+**状态**：`FIXED_PENDING_VERIFY`。最终实现与数据库/权限硬化已完成；实现/CI head `e52e60b7d7caece8187cc0641ee8840d96d6755b` 的 H5 Build Check run `33287779608` 中 build 与 Supabase clean replay 均成功。仍须等待独立黑盒、安全、并发竞态与 Visual/English 验证后才能 `VERIFIED`。该 head 仅是当时实现/CI 证据锚点；任何后续文档或代码提交都会产生新的 PR exact head，发布判断必须重新读取当前 head并核对对应 CI，不能继承旧 head 的 exact-head 通过结论。
 
 ### 产品最终决策
 - 赛事相册是 source album，一场赛事允许多张照片。
@@ -48,12 +72,12 @@
 
 ---
 
-## 2026-08-30 — 审计 backlog 并发与读取治理
+## 2026-08-30 — 审计 backlog 并发基础治理
 - Supabase `audit_ops.issue_registry` 成为正式待整改 backlog 唯一事实源。
 - 新问题通过 `audit_ops.create_issue(...)` 原子语义去重 + 编号；同 semantic key 并发通过事务 advisory lock 收敛。
-- 新增受控只读 `public.audit_list_issues()`；自动化首选 RPC，连接器安全层拦截时可用受信任只读 SQL 调用同一函数，不能拿 Issue #21 镜像替代真源。
 - Issue #21 正文仅是镜像，评论为已有 AUD 的 append-only 工作日志。
 - 不存在全局唯一 writer；整改师只是唯一自动修复者。
+- 读取协议的当前最终版本以本文件上方“三路径收口”与 `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 为准。
 
 ---
 
@@ -72,7 +96,8 @@
 
 ## 发布原则
 - `main` 受 GitHub ruleset 保护：禁止删除/force push、必须 PR、linear history、分支最新、H5 Build Check 通过、无 bypass。
-- 功能变化必须同步 PRD / PRODUCT / INTERACTION / 专项基线 / P0 / CHANGELOG。
+- 功能变化必须同步 PRD / PRODUCT / INTERACTION / VISUAL / 专项基线 / P0 / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG。
 - 修复者只能把正式 AUD 推到 `FIXED_PENDING_VERIFY`；独立测试/审计通过后才能 `VERIFIED`。
 - 发布相关 P0 或核心 P1 未独立验证时，Release Gate 必须 BLOCKED。
+- P1 新能力不因“不是 P0”机械失败，但进入候选后若造成既有 P0 回归、权限扩大或核心流程不可用，仍是 Release Gate 阻塞项。
 - 未通过 Gate 不自动 merge main，不进入中国区正式候选部署。
