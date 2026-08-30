@@ -1,6 +1,6 @@
 # 球搭子 H5 MVP｜P0 验收基线（Current）
 
-> 当前长期验收基线。照片专项以 `docs/PHOTO_ALBUM_BASELINE.md` 为准。快速开赛为 P1 新能力，不替代原 P0 标准赛事链路；其对既有 P0 能力造成的回归仍属于发布阻塞问题。
+> 当前长期验收基线。照片专项以 `docs/PHOTO_ALBUM_BASELINE.md` 为准。发布与候选部署顺序以 `docs/RELEASE_GOVERNANCE.md` 为准。快速开赛为 P1 新能力，不替代原 P0 标准赛事链路；其对既有 P0 能力造成的回归仍属于发布阻塞问题。
 
 ## A. 身份与档案
 - [ ] 首次访问可建立测试登录态并完成昵称资料；返回用户可恢复状态。
@@ -109,12 +109,17 @@
 - [ ] 若当前候选包含快速开赛中央按钮，375 / 390 / 430px 与 iPhone safe-area 下必须不遮挡四个既有导航；中文/English 文案不挤压导航。
 
 ## N. Release Gate
-- [ ] H5 Build Check 全绿，包括 build 与 Supabase clean replay。
-- [ ] PRD / PRODUCT / INTERACTION / VISUAL / PHOTO_ALBUM / P0 / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG 同步。
-- [ ] 发布相关 P0/P1 已独立验证。
-- [ ] 完整候选后才受控触发一次 Vercel Preview；真实黑盒、Visual/UX、English QA 通过后才进入 CloudBase。
+- [ ] H5 Build Check 对**当前 PR exact head**全绿，包括 build、migration preflight 与 Supabase clean replay；不得沿用旧 SHA 的 green 结论。
+- [ ] PRD / PRODUCT / INTERACTION / VISUAL / PHOTO_ALBUM / P0 / ENVIRONMENT_BASELINE / RELEASE_GOVERNANCE / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG 同步。
+- [ ] 发布相关 P0/P1 已独立验证；明确延期且非 Gate 阻塞的 P2 可保留，但不得被误标为已修复。
+- [ ] Candidate Freeze 后 `release-candidate` 精确指向当前 PR exact head，且该分支不包含独立开发 commit。
+- [ ] Vercel 正式 candidate 必须 `READY`，并同时满足 `githubCommitRef=release-candidate`、`githubCommitSha=当前 PR exact head`；旧 Preview、feature 相近 SHA、HTTP 200 或 CI 不能替代。
+- [ ] 黑盒 / Visual/UX / English QA 只针对该唯一 deployment id / URL / SHA 取证；测试过程中不得切换 Preview。
+- [ ] Candidate Freeze 后若又提交代码、migration 或 canonical 文档，旧 candidate 自动失效：必须暂停黑盒/Gate → 新 head CI → 重新移动 `release-candidate` → 测新 Preview。
+- [ ] 不得为了触发 Vercel 而提前 merge/push main；main Production 不能替代 Preview 验证。
+- [ ] 真实黑盒、Visual/UX、English QA 通过后才进入最终 Gate / CloudBase；Preview 通过本身不等于 Gate PASS。
 - [ ] 快速开赛作为 P1 不因“尚未成为 P0”被机械判失败；但若它已进入候选且造成既有导航/P0 页面回归、权限扩大或标准赛事生命周期回归，则 Gate 必须阻塞。
-- [ ] 未通过 Gate 不自动 merge main。
+- [ ] 未通过 Gate 不自动 merge main；Gate PASS 也仍需用户/总控做最终 merge 决策。
 
 ## O. 快速开赛 P1 独立验收（不重定义 P0）
 
