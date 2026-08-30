@@ -4,6 +4,16 @@
 
 ---
 
+## 2026-08-30 — 总控 / 整改师 CONTROL_NOTE 协作机制
+
+- 正式确定 owner 边界：`OPEN + owner=null` 可由总控或整改师认领；已有 owner 的 AUD 不抢占、不并发修改同一整改项。
+- 总控仍可审阅已有 owner 的整改实现，并在正式 `audit_ops.issue_registry.evidence` 追加 `[CONTROL_NOTE ...]`，用于实现建议、风险提示、边界澄清与验收提醒；CONTROL_NOTE 不改变 owner/status，也不代表整改或验证完成。
+- 整改 owner 每轮处理 AUD 时必须同步读取 `details + evidence`；CONTROL_NOTE 与 canonical 产品基线冲突时必须显式报告，由总控/用户决策，不得静默忽略。
+- 普通单项建议优先写正式 AUD，不反复膨胀 automation prompt；跨多个 AUD 的长期规则才同步 automation/canonical governance。
+- `AUD-20260829-016` 已写入首条正式 CONTROL_NOTE：singles 批量临时 Player 代报名应使用 `join_event_manual_batch()`，在 confirmed 剩余容量内一次服务端请求原子创建多个独立 singles Entry，不前端循环 `join_event`，不自动跨 confirmed→waitlist；doubles 保持一次一队。
+
+---
+
 ## 2026-08-30 — 标准赛事锁定后自动首次编排（AUD-20260830-007）
 
 - 总控一致性审计发现：当前 `EventPage` 与 live `lock_event_roster()` 仍沿用旧两步交互——锁定只改变 `status=locked`，页面随后要求组织者再点击一次“生成对阵”；与已确认的标准赛事生命周期“锁定名单 → 自动生成首次对阵 → 查看/复核 → 开始赛事”不一致。
