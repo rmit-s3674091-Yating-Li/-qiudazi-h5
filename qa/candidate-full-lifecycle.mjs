@@ -6,11 +6,14 @@ const baseUrl = process.env.BASE_URL;
 const expectedSha = process.env.EXPECTED_SHA;
 const oidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN || '';
 if (!baseUrl || !expectedSha) throw new Error('BASE_URL and EXPECTED_SHA are required');
-const protectionHeaders = oidcToken ? { 'x-vercel-trusted-oidc-idp-token': oidcToken } : {};
+// Vercel OIDC is used only for the direct exact-head preflight. Do not inject
+// this header into Playwright contexts because browser cross-origin Supabase
+// requests would inherit it and fail CORS preflight.
+const vercelProtectionHeaders = oidcToken ? { 'x-vercel-trusted-oidc-idp-token': oidcToken } : {};
 const outDir = path.join(process.cwd(), 'qa-artifacts');
 fs.mkdirSync(outDir, { recursive: true });
 const resultPath = path.join(outDir, 'full-lifecycle-result.json');
-const results = { baseUrl, expectedSha, authMode: oidcToken ? 'github-oidc' : 'none', startedAt: new Date().toISOString(), checks: [], evidence: {} };
+const results = { baseUrl, expectedSha, authMode: oidcToken ? 'github-oidc-preflight-only' : 'public-preview', startedAt: new Date().toISOString(), checks: [], evidence: {} };
 const tinyPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZlSMAAAAASUVORK5CYII=', 'base64');
 const rawLeak = /(column reference|sqlstate|postgres|relation .* does not exist|violates .* constraint|jwt|rls|rpc\b|ambiguous)/i;
 
@@ -28,7 +31,7 @@ async function exactHead() {
   let last = '';
   while (Date.now() < deadline) {
     try {
-      const r = await fetch(new URL('/build-meta.json', baseUrl), { cache: 'no-store', headers: protectionHeaders, redirect: 'follow' });
+      const r = await fetch(new URL('/build-meta.json', baseUrl), { cache: 'no-store', headers: vercelProtectionHeaders, redirect: 'follow' });
       if (r.ok && (r.headers.get('content-type') || '').includes('application/json')) {
         const meta = await r.json(); last = JSON.stringify(meta);
         if (meta.sha === expectedSha && meta.ref === 'release-candidate') { results.evidence.buildMeta = meta; record('full-lifecycle exact-head deployment reached', true, last); return; }
@@ -40,7 +43,7 @@ async function exactHead() {
 }
 
 async function englishContext(browser, traceName) {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-US', extraHTTPHeaders: protectionHeaders });
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'en-US' });
   await context.addInitScript(() => localStorage.setItem('qiudazi-language', 'en'));
   await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
   context.__traceName = traceName;
@@ -59,8 +62,14 @@ async function identity(page, nickname) {
     await page.locator('button[type=submit], button.full').filter({ hasText: /Start playing|Continue|开始打球|继续/ }).first().click();
     await page.waitForURL(/#\/events(?:$|\?)/, { timeout: 30000 });
   }
+  const restore = page.getByRole('button', { name: /Retry connection|重试连接/i });
+  if (await restore.count()) {
+    await restore.first().click();
+    await page.waitForTimeout(1200);
+  }
+  await page.locator('a[href="#/quick-start"]').first().waitFor({ state: 'visible', timeout: 30000 });
   const body = await page.locator('body').innerText();
-  record(`real browser identity ready: ${nickname}`, !/online database is not configured|当前没有配置在线数据库/i.test(body), body.slice(0, 120));
+  record(`real browser identity ready: ${nickname}`, !/online database is not configured|当前没有配置在线数据库|Restoring your Qiu Dazi identity|正在恢复你的球搭子身份/i.test(body), body.slice(0, 160));
 }
 
 async function deadlineAutoCustom(browser) {
