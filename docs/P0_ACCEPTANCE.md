@@ -123,5 +123,7 @@
 - [ ] 单打至少 2 人；双打至少 4 人且偶数；当前双打按选择顺序两两成队。
 - [ ] `event_mode=quick` 直接形成 locked Event/Entry/EntryPlayer，不走报名截止、候补、普通赛事邀请。
 - [ ] 首次对阵自动生成；用户不需要再寻找“生成对阵”才能进入下一步。
+- [ ] 若 create_quick_event 已成功但首次 draw 因网络/Edge 失败，页面保存该 event id/version 并进入恢复状态；刷新后仍可继续；“继续生成对阵”只重试已有 event 的 draw，不得再次创建赛事。
+- [ ] pending draw 状态下允许进入已创建赛事管理，但不能无提示创建第二个 quick event；恢复成功后清除 pending 状态。
 - [ ] quick event 后续继续复用 viewer_role、Match、记分、排名、完赛、战绩与照片模型。
 - [ ] quick mode 不得改变标准赛事 deadline / waitlist / invite / Player / Storage 权限。
