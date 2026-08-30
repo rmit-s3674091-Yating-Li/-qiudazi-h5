@@ -8,7 +8,7 @@
 
 **分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
 **关联**：`AUD-20260829-017`  
-**状态**：`FIXED_PENDING_VERIFY`。最终实现与数据库/权限硬化已完成；实现/CI head `e52e60b7d7caece8187cc0641ee8840d96d6755b` 的 H5 Build Check run `33287779608` 中 build 与 Supabase clean replay 均成功。仍须等待独立黑盒、安全、并发竞态与 Visual/English 验证后才能 `VERIFIED`。
+**状态**：`FIXED_PENDING_VERIFY`。最终实现与数据库/权限硬化已完成；实现/CI head `e52e60b7d7caece8187cc0641ee8840d96d6755b` 的 H5 Build Check run `33287779608` 中 build 与 Supabase clean replay 均成功。仍须等待独立黑盒、安全、并发竞态与 Visual/English 验证后才能 `VERIFIED`。该 head 仅是当时实现/CI 证据锚点；任何后续文档或代码提交都会产生新的 PR exact head，发布判断必须重新读取当前 head 并核对对应 CI，不能继承旧 head 的 exact-head 通过结论。
 
 ### 产品最终决策
 - 赛事相册是 source album，一场赛事允许多张照片。
@@ -19,6 +19,7 @@
 - organizer 之后删除源照片，只让赛事页源照片消失并阻止未来新导入；**此前已经成功导入的 participant 个人副本继续存在，不受源删除影响**。
 - participant “移出我的相册”只删除本人个人副本，不影响赛事源或其他用户。
 - 参与赛事相册整体默认“仅自己可见”，可在设置与隐私切换为“搭子可见”；只有 accepted Connection 能看，并且只得到短时水印预览，无高清、Storage path 或管理权。
+- 当前 P0 已明确：赛事上下文中的 organizer / actual participant 可显式查看短时高清；**本人在“我的参与赛事相册”查看高清原图不是当前 P0 必需能力**。若现有代码已提供本人个人高清，只能视为受控附加能力，仍须服务端重校验 + 短时 URL，不能因此成为黑盒/Gate 的额外发布阻塞项。
 
 ### 数据与后端
 - `20260830020252_participant_album_independent_assets.sql`：`event_photos` 取消单赛事唯一约束，支持一场多图；新增 `participant_album_photos` 独立个人资产表，包含 owner Profile、赛事上下文快照、nullable `source_event_photo_id`、个人 original / watermarked path、import time。
@@ -35,13 +36,14 @@
 ### 前端
 - Event PhotoPanel 改为多图：organizer 多选上传、逐张真删除；participant 逐张加入个人参与赛事相册。
 - “我的”入口统一命名“参与赛事相册”；这里只展示本人主动导入的独立个人照片资产。
-- 本人个人相册支持受保护预览、短时高清与“移出我的相册”。
+- 本人个人相册支持受保护预览、短时高清与“移出我的相册”；其中短时高清是现有实现能力，不构成当前 P0 必需项。
 - PrivacyPage 删除全部 organizer photo management，仅保留参与赛事相册 private / partners 设置。
 - Partner album 继续只展示服务端短时水印预览。
 
 ### 文档
 - `docs/PHOTO_ALBUM_BASELINE.md` 成为照片专项真源。
 - PRD V6 §5.1、PRODUCT_BASELINE、INTERACTION_BASELINE、VISUAL_DESIGN_BASELINE、P0_ACCEPTANCE、README 已同步最终规则。
+- 2026-08-30 再次完成基线一致性收口：明确“个人参与赛事相册本人高清”不是当前 P0，避免 INTERACTION / P0 与 PHOTO_ALBUM 专项真源产生不同 Gate 结论；`docs/CHANGELOG_20260829_V6.md` 已标记为历史快照，禁止用于当前状态判断。
 - 废弃以下旧规则：单图主合影、设置页删除赛事照片、自动给所有参赛者归档、organizer “移除但后台保留给 participant”、源删除级联个人收藏失效。
 
 ---
