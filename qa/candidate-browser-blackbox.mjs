@@ -173,7 +173,9 @@ async function assertMobileShell(browserType, viewport, label, language = 'zh') 
       return;
     }
 
-    await page.goto(`${baseUrl}/#/events`, { waitUntil: 'domcontentloaded' });
+    // completeIdentity already leaves the page on the normal events shell.
+    // A second goto here cancels in-flight Supabase requests on WebKit and
+    // creates a test-only navigation race, so validate the settled page.
     const shellReady = await businessShellReady(page, 20_000);
     record(`${label} business shell reached`, shellReady, `url=${page.url()}`);
     if (!shellReady) {
