@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - release-candidate
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,7 +17,7 @@ concurrency:
 jobs:
   browser-blackbox:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     env:
       BASE_URL: https://qiudazi-h5-git-release-candidate-graceharuka233-6548.vercel.app
       EXPECTED_SHA: ${{ github.sha }}
@@ -49,10 +50,15 @@ jobs:
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium webkit
 
-      - name: Run exact-head browser blackbox
+      - name: Run exact-head browser shell, mobile, English and dual-session checks
         env:
           VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: node qa/candidate-browser-blackbox.mjs
+
+      - name: Run exact-head full lifecycle browser blackbox
+        env:
+          VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: node qa/candidate-full-lifecycle.mjs
 
       - name: Publish QA summary
         if: always()
@@ -60,12 +66,16 @@ jobs:
           echo "## Candidate Browser Blackbox" >> "$GITHUB_STEP_SUMMARY"
           echo "- expected SHA: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- base URL: ${BASE_URL}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- browser executor: GitHub-hosted Playwright (Chromium + WebKit)" >> "$GITHUB_STEP_SUMMARY"
           echo "- auth: GitHub OIDC trusted-source token" >> "$GITHUB_STEP_SUMMARY"
-          if [ -f qa-artifacts/result.json ]; then
-            echo '```json' >> "$GITHUB_STEP_SUMMARY"
-            cat qa-artifacts/result.json >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-          fi
+          for report in qa-artifacts/result.json qa-artifacts/full-lifecycle-result.json; do
+            if [ -f "$report" ]; then
+              echo "### ${report}" >> "$GITHUB_STEP_SUMMARY"
+              echo '```json' >> "$GITHUB_STEP_SUMMARY"
+              cat "$report" >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
 
       - name: Upload browser evidence
         if: always()
@@ -73,5 +83,5 @@ jobs:
         with:
           name: candidate-browser-evidence-${{ github.sha }}
           path: qa-artifacts/
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
