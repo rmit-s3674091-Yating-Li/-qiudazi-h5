@@ -10,6 +10,7 @@
 - `docs/AUDIT_BACKLOG_SNAPSHOT.json` 是只读、带时间戳的自动化降级快照。它不是正式 backlog，也不能用于写状态、分配 AUD 或声称数据库已同步。
 - GitHub Issue #21 正文只是人类可读镜像，不得替代正式 backlog；Issue 评论只记录已存在 AUD 的 append-only 过程证据。
 - 「球搭子问题整改」是唯一自动修复者，但不是全局唯一 writer。代码变更巡检、全功能测试、部署前审计、周安全审计均可按本文件规则创建 backlog row 和追加已有 AUD 评论。
+- 总控是项目指挥与可直接整改角色：可以认领 `OPEN + owner=null` 的问题并直接修复；已有 owner 的整改项不得抢占或并发修改，但总控可以通过正式 AUD 的 `[CONTROL_NOTE ...]` 提供实现建议、风险提示和验收边界。
 - GitHub repository 的 canonical visibility 为 Private；完整环境身份与 GitHub 方案能力边界以 `docs/ENVIRONMENT_BASELINE.md` 为准。
 
 ### 1.1 环境身份与 migration 一致性前置校验
@@ -97,12 +98,29 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 
 `FAILED`、`BLOCKED`、`NEEDS_DECISION`、`DEGRADED_LIVE_BACKLOG_UNAVAILABLE`、`UNFILED_PENDING_DB_ACCESS`、`WAITING_FOR_CANDIDATE` 属于运行上下文/证据，不新增正式状态枚举；必要时由负责归并的流程把正式状态退回 `OPEN` 或保持 `IN_PROGRESS`。
 
+### 4.1 Owner 与 CONTROL_NOTE 协作规则
+
+- `owner=null` 且状态为 `OPEN`：总控或整改师可以按优先级认领；认领后立即写入正式 owner，避免并发。
+- 已存在 owner：其他修复者不得抢 owner、不得并发修改该 AUD 对应的产品代码/DB/canonical 内容。
+- 总控对已有 owner 的整改项仍可做产品/技术审阅，并在正式 `audit_ops.issue_registry.evidence` 中追加 `[CONTROL_NOTE YYYY-MM-DD] ...`。
+- `CONTROL_NOTE` 只用于实现建议、风险提示、边界澄清和验收提醒；不得借此修改 owner/status，不得把 note 视为“已经修完”或“已经验证”。
+- 整改 owner 每轮处理该 AUD 时必须同时读取 `details + evidence`。若存在 CONTROL_NOTE，在不与 PRD / PRODUCT / INTERACTION / P0 / 专项 canonical 基线冲突的前提下，应纳入实现；若存在冲突，应保留 owner 并明确报告冲突，由总控/用户决策，不得静默忽略。
+- CONTROL_NOTE 不替代独立白盒、黑盒或 Release Gate；写 note 的总控不得据此自行把相关 AUD 推到 VERIFIED。
+- 普通单项建议优先写正式 AUD CONTROL_NOTE，不为此反复扩写 automation prompt；只有跨多个 AUD 的长期协作规则才同步 automation/canonical 治理文档。
+
 ## 5. 修复与验证职责
+
+### 球搭子项目总控
+- 负责动态读取 PR exact head、正式 backlog、CI、部署候选和自动化状态，协调优先级与 candidate freeze。
+- 可以直接认领并整改 `OPEN + owner=null` 的问题，也可以修代码、DB、migration 与 canonical 文档。
+- 已有 owner 的问题不抢、不并发修改；需要纠偏时使用 §4.1 CONTROL_NOTE。
+- 总控亲自修复的问题最多推进到 `FIXED_PENDING_VERIFY`，必须交由独立白盒/黑盒/Gate 验证。
 
 ### 球搭子问题整改
 - 唯一自动修复者。
 - 每轮读取动态 PR #20 head，不缓存旧 head。
 - 原则上只认领 `OPEN` 且未被占用的问题；已由本任务认领的 `IN_PROGRESS` 可继续。
+- 每轮处理已认领 AUD 时同时读取 `details/evidence`，按 §4.1 执行 CONTROL_NOTE 协作规则。
 - 优先级 `P0 → P1 → P2`。
 - 修复完成最多到 `FIXED_PENDING_VERIFY`，不得自行 VERIFIED。
 - 若 live backlog 不可达，允许继续已经明确认领的 `IN_PROGRESS` 本地代码工作，但不得从 snapshot 认领新的 OPEN，也不得依据 snapshot 改正式状态。
