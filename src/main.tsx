@@ -1,3 +1,4 @@
+import "./storageCompat";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { HashRouter, Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
