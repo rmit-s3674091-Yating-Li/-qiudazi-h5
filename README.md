@@ -13,9 +13,10 @@
 6. `docs/P0_ACCEPTANCE.md`
 7. `docs/ENVIRONMENT_BASELINE.md` — 环境身份、仓库、Supabase、部署与基础配置真源
 8. `docs/RELEASE_GOVERNANCE.md` — feature / release-candidate / main 三层发布与 exact-head Preview 真源
-9. `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
-10. `CHANGELOG.md`
-11. 当前源码、migration、Edge Functions 与 GitHub CI
+9. `docs/BROWSER_BLACKBOX_BASELINE.md` — GitHub Actions + Playwright 真实浏览器黑盒、exact-SHA artifact/trace 与失败分类真源
+10. `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
+11. `CHANGELOG.md`
+12. 当前源码、migration、Edge Functions 与 GitHub CI / Candidate Browser Blackbox
 
 若早期 PRD、Demo、旧 bundle、历史评论或历史运行配置与上述当前基线冲突，以当前基线和运行时重新验证结果为准。
 
@@ -72,8 +73,11 @@
 详细规则见 `docs/PHOTO_ALBUM_BASELINE.md`。
 
 ## Development hygiene
-- 基础配置、环境身份、repository visibility、env var 与部署平台角色统一服从 `docs/ENVIRONMENT_BASELINE.md`；发布分支、Candidate Freeze、Preview 与 Gate 顺序统一服从 `docs/RELEASE_GOVERNANCE.md`，不得在不同文档/任务中各维护一份互相独立的真值。
+- 基础配置、环境身份、repository visibility、env var 与部署平台角色统一服从 `docs/ENVIRONMENT_BASELINE.md`；发布分支、Candidate Freeze、Preview 与 Gate 顺序统一服从 `docs/RELEASE_GOVERNANCE.md`；真实浏览器黑盒能力统一服从 `docs/BROWSER_BLACKBOX_BASELINE.md`。不得在不同文档/任务中各维护一份互相独立的真值。
 - H5 Build Check 会校验 repository 仍为 Private，并扫描 tracked files 的典型服务器级秘密；publishable/anon browser key 不视为服务器秘密。
+- `npm run build` 会生成 `/build-meta.json`；Candidate Browser Blackbox 必须用它二次确认 Preview 内实际构建 SHA/ref 与 expected exact head 一致。
+- `.github/workflows/candidate-browser-blackbox.yml` 是正式真实浏览器执行器：GitHub-hosted Playwright 启动 Chromium/WebKit，真实执行 viewport、点击、输入、双会话、网络故障注入和文件上传，并上传 exact-SHA JSON/screenshot/trace artifact。
+- ChatGPT「球搭子全功能测试」只做 Browser Blackbox 证据复核，不再假定自身连接器运行环境可以替代真实浏览器。
 - migration 文件统一使用 `YYYYMMDDHHMMSS_snake_case.sql`；14 位 version 在 repo 内必须全局唯一。
 - live 通过 `apply_migration` 生成版本后，repo 对应文件必须使用**同一个 version 与同一 SQL 语义**，禁止 live/repo 使用“相近但不同”的时间戳。
 - 新增 migration 前同时重读 repo migration 目录与 live migration list；并发 writer 不得凭历史目录快照自行分配版本。
@@ -94,19 +98,22 @@
 - snapshot 只能用于继续检查、识别已知 AUD 和辅助去重；**不得**据此创建 AUD、修改正式 status/owner、把 `FIXED_PENDING_VERIFY` 推成 `VERIFIED` 或声称 live backlog 已同步。
 - 发现新问题但 DB 不可达时，记录 `UNFILED_PENDING_DB_ACCESS` 和完整证据，恢复后再正式 `create_issue`；禁止手工编号。
 - Release Gate 无法读取 live backlog 时可以继续其它审计，但最终只能 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，不能 PASS；snapshot 超过 2 小时只作历史参考。
+- Browser Blackbox 尚未完成时使用 `WAITING_FOR_BROWSER_EVIDENCE`；GitHub runner/OIDC/DNS/Playwright/artifact 自身失败使用 `BROWSER_INFRA_FAILURE`，均不是产品 AUD。
 - 「球搭子问题整改」是唯一自动修复者，不是唯一 writer；DB 不可达时只能继续此前已明确认领的 IN_PROGRESS 工作，不能从 snapshot 新认领 OPEN。
 - `public.audit_list_issues()` 返回 `jsonb` 数组，不得误当 table-valued function 使用。
 
 详细治理见 `docs/AUDIT_AUTOMATION_GOVERNANCE.md`。
 
 ## Deployment policy
-- 详细发布规则以 `docs/RELEASE_GOVERNANCE.md` 为唯一长期真源；README 只保留摘要。
+- 详细发布规则以 `docs/RELEASE_GOVERNANCE.md` 为唯一长期真源；真实浏览器证据以 `docs/BROWSER_BLACKBOX_BASELINE.md` 为真源；README 只保留摘要。
 - Repository 必须保持 **Private**。当前账号方案下 private repo 的 GitHub repository ruleset 不可用，因此不能再把“平台 ruleset 已强制保护 main”作为事实或 Gate 证据。
-- 当前 main 治理由流程强制：所有开发只写 feature branch，经 PR、exact-head H5 Build Check、`release-candidate` exact-head Preview、Release Gate 后再由用户/总控做 merge 决策；所有自动化禁止直接 merge/push main。若未来升级 GitHub Pro 并重新启用 ruleset，需运行时验证后再恢复平台级保护描述。
+- 当前 main 治理由流程强制：所有开发只写 feature branch，经 PR、exact-head H5 Build Check、`release-candidate` exact-head Preview + Candidate Browser Blackbox、Release Gate 后再由用户/总控做 merge 决策；所有自动化禁止直接 merge/push main。若未来升级 GitHub Pro 并重新启用 ruleset，需运行时验证后再恢复平台级保护描述。
 - Vercel Git deployment 不是全开：`vercel.json` 默认 `** = false`（globstar 覆盖 `feature/...` 等带斜杠分支），仅 `release-candidate = true` 与 `main = true`。日常 feature/docs/fix push 不产生 Preview，避免浪费 Hobby 配额。
-- 标准发布模型固定为：`feature/* → PR → exact-head CI → Candidate Freeze → release-candidate → exact-head READY Preview → 黑盒/Visual/English → Release Gate → main merge 决策 → CloudBase/正式发布`。
-- Candidate Freeze 后任何代码、migration 或 canonical 文档提交都会使旧 Preview 失去 exact-head 资格；必须暂停黑盒/Gate，对新 head 重新跑 CI，并重新移动 `release-candidate`。禁止为了省一次 Preview 继续测试旧 SHA。
-- 完整候选完成发布相关 P0/P1 修复、build、migration preflight + clean replay、repo/live version/SQL 语义一致性与权限审计后，总控才允许把 `release-candidate` 移动到 PR exact head。Vercel 自动生成 Preview 后必须核对 `state=READY`、`githubCommitRef=release-candidate`、deployment `githubCommitSha` 与 PR exact head 完全一致，才进入真实黑盒 / Visual / English QA。
+- 标准发布模型固定为：`feature/* → PR → exact-head CI → Candidate Freeze → release-candidate → exact-head READY Preview + Candidate Browser Blackbox → 黑盒证据复核 → Release Gate → main merge 决策 → CloudBase/正式发布`。
+- Candidate Freeze 后任何代码、migration、测试基础设施或 canonical 文档提交都会使旧 Preview 和旧 Browser Blackbox 失去 exact-head 资格；必须暂停黑盒/Gate，对新 head 重新跑 CI，并重新移动 `release-candidate`。禁止为了省一次 Preview 继续测试旧 SHA。
+- 完整候选完成发布相关 P0/P1 修复、build、migration preflight + clean replay、repo/live version/SQL 语义一致性与权限审计后，总控才允许把 `release-candidate` 移动到 PR exact head。Vercel 自动生成 Preview 后必须核对 `state=READY`、`githubCommitRef=release-candidate`、deployment `githubCommitSha` 与 PR exact head 完全一致；Browser Blackbox 还必须从 `/build-meta.json` 确认同一 SHA/ref。
+- `Candidate Browser Blackbox` 必须对同一 exact SHA `completed/success`，并上传 `candidate-browser-evidence-<same SHA>`；`result.json.ok=true` 和 `full-lifecycle-result.json.ok=true` 后，ChatGPT 黑盒总控才可据此推进独立验证。
+- HTTP fetch、源码、CI、Supabase SQL 或 Vercel connector 内容不能替代真实 Playwright 浏览器交互。
 - `release-candidate` 只作为触发器，不承载独立开发；若 Preview SHA 不匹配，不得用旧 Preview 顶替。
 - 不得为了触发部署而提前 merge/push main，也不得用 main Production 替代候选 Preview 验证。
 - Quick Start 是 P1，不因“不是 P0”机械阻塞；但若它已进入当前候选并造成四导航/P0 页面回归、权限扩大或标准赛事生命周期回归，Release Gate 必须阻塞。
@@ -114,4 +121,4 @@
 - live backlog 暂不可达时 Gate 不得 PASS；待正式 Supabase 路径恢复并重新核对后才能解除 degraded 状态。
 - 未通过 Gate 不自动 merge main。
 
-> 发布治理补充：2026-08-30 已完成 `release-candidate` → exact-head READY Preview 的真实闭环验证；具体 SHA/deployment id 属运行时证据，不在 README 固化。
+> 发布治理补充：2026-08-30 已完成 `release-candidate` → exact-head READY Preview 的真实闭环验证；同日又将真实浏览器执行能力从 ChatGPT 运行环境中解耦到 GitHub Actions + Playwright，避免未来再次出现“有 candidate 但测试任务没有浏览器能力”的伪黑盒状态。具体 SHA/deployment id 属运行时证据，不在 README 固化。
