@@ -4,10 +4,14 @@ on:
   push:
     branches:
       - release-candidate
+  repository_dispatch:
+    types:
+      - vercel.deployment.success
   workflow_dispatch:
 
 permissions:
   contents: read
+  deployments: read
   id-token: write
 
 concurrency:
@@ -17,21 +21,92 @@ concurrency:
 jobs:
   browser-blackbox:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      BASE_URL: https://qiudazi-h5-git-release-candidate-graceharuka233-6548.vercel.app
-      EXPECTED_SHA: ${{ github.sha }}
+    timeout-minutes: 35
     steps:
-      - name: Checkout exact candidate
+      - name: Checkout current release candidate
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: release-candidate
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Capture exact candidate SHA
+        id: candidate
+        shell: bash
+        run: |
+          SHA="$(git rev-parse HEAD)"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "Candidate SHA: ${SHA}"
+
+      - name: Resolve exact Vercel deployment URL
+        id: deployment
+        uses: actions/github-script@v7
+        env:
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
         with:
-          node-version: 22.12.0
-          cache: npm
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const expectedSha = process.env.EXPECTED_SHA;
+            const normalize = (value) => {
+              if (!value) return null;
+              return value.startsWith('http://') || value.startsWith('https://')
+                ? value
+                : `https://${value}`;
+            };
+
+            // Once this workflow is present on main, Vercel's recommended
+            // repository_dispatch event supplies the exact deployment URL.
+            if (context.eventName === 'repository_dispatch') {
+              const dispatched = normalize(context.payload.client_payload?.url);
+              if (dispatched) {
+                core.setOutput('url', dispatched);
+                core.info(`Using Vercel repository_dispatch URL: ${dispatched}`);
+                return;
+              }
+            }
+
+            // Before merge (and as a fallback afterwards), release-candidate
+            // push starts this workflow. Wait for Vercel's GitHub Deployment
+            // status for the SAME SHA, then use its immutable deployment URL.
+            const deadline = Date.now() + 10 * 60_000;
+            let last = 'no deployment status yet';
+            while (Date.now() < deadline) {
+              const deployments = await github.rest.repos.listDeployments({
+                owner,
+                repo,
+                sha: expectedSha,
+                per_page: 100,
+              });
+
+              const matching = deployments.data.filter((deployment) =>
+                !deployment.ref ||
+                deployment.ref === 'release-candidate' ||
+                deployment.ref === expectedSha
+              );
+
+              for (const deployment of matching) {
+                const statuses = await github.rest.repos.listDeploymentStatuses({
+                  owner,
+                  repo,
+                  deployment_id: deployment.id,
+                  per_page: 100,
+                });
+
+                for (const status of statuses.data) {
+                  const url = normalize(status.environment_url || status.target_url);
+                  last = `deployment=${deployment.id} state=${status.state} url=${url || 'none'}`;
+                  if (status.state === 'success' && url && url.includes('vercel.app')) {
+                    core.setOutput('url', url);
+                    core.info(`Resolved exact Vercel deployment: ${url}`);
+                    return;
+                  }
+                }
+              }
+
+              core.info(`Waiting for exact Vercel deployment (${last})`);
+              await new Promise((resolve) => setTimeout(resolve, 5000));
+            }
+
+            core.setFailed(`Timed out resolving exact Vercel deployment for ${expectedSha}; last=${last}`);
 
       - name: Obtain short-lived GitHub OIDC token
         id: oidc
@@ -41,6 +116,36 @@ jobs:
             const token = await core.getIDToken();
             core.setSecret(token);
             core.setOutput('token', token);
+
+      - name: Verify protected exact-head build metadata
+        env:
+          BASE_URL: ${{ steps.deployment.outputs.url }}
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
+          VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            -H "x-vercel-trusted-oidc-idp-token: ${VERCEL_TRUSTED_OIDC_TOKEN}" \
+            "${BASE_URL}/build-meta.json" > /tmp/build-meta.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const meta = JSON.parse(fs.readFileSync('/tmp/build-meta.json', 'utf8'));
+          const expected = process.env.EXPECTED_SHA;
+          if (meta.sha !== expected) {
+            throw new Error(`Preview SHA mismatch: expected ${expected}, got ${meta.sha}`);
+          }
+          if (meta.ref !== 'release-candidate') {
+            throw new Error(`Preview ref mismatch: expected release-candidate, got ${meta.ref}`);
+          }
+          console.log(`Exact protected candidate verified: ${meta.sha} (${meta.ref})`);
+          NODE
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
 
       - name: Install app dependencies
         run: npm ci
@@ -52,20 +157,27 @@ jobs:
 
       - name: Run exact-head browser shell, mobile, English and dual-session checks
         env:
+          BASE_URL: ${{ steps.deployment.outputs.url }}
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
           VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: node qa/candidate-browser-blackbox.mjs
 
       - name: Run exact-head full lifecycle browser blackbox
         env:
+          BASE_URL: ${{ steps.deployment.outputs.url }}
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
           VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: node qa/candidate-full-lifecycle.mjs
 
       - name: Publish QA summary
         if: always()
+        env:
+          BASE_URL: ${{ steps.deployment.outputs.url }}
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
         run: |
           echo "## Candidate Browser Blackbox" >> "$GITHUB_STEP_SUMMARY"
-          echo "- expected SHA: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- base URL: ${BASE_URL}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- expected SHA: \`${EXPECTED_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- exact deployment URL: ${BASE_URL}" >> "$GITHUB_STEP_SUMMARY"
           echo "- browser executor: GitHub-hosted Playwright (Chromium + WebKit)" >> "$GITHUB_STEP_SUMMARY"
           echo "- auth: GitHub OIDC trusted-source token" >> "$GITHUB_STEP_SUMMARY"
           for report in qa-artifacts/result.json qa-artifacts/full-lifecycle-result.json; do
@@ -78,10 +190,10 @@ jobs:
           done
 
       - name: Upload browser evidence
-        if: always()
+        if: always() && steps.candidate.outputs.sha != ''
         uses: actions/upload-artifact@v4
         with:
-          name: candidate-browser-evidence-${{ github.sha }}
+          name: candidate-browser-evidence-${{ steps.candidate.outputs.sha }}
           path: qa-artifacts/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
