@@ -84,7 +84,16 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
   }
 
   async function lockRosterAndDraw() {
-    const locked = await rpc<Snapshot["event"]>("lock_event_roster", { p_event_id: id, p_version: q.data!.event.version });
+    const latest = await q.refresh();
+    if (latest.viewer_role !== "owner" || latest.event.status !== "signup") {
+      throw new Error(en
+        ? "The event changed before the roster could be locked. Review the latest state and try again."
+        : "赛事状态刚刚发生变化，请确认最新状态后再重试锁定名单。");
+    }
+    const locked = await rpc<Snapshot["event"]>("lock_event_roster", {
+      p_event_id: id,
+      p_version: latest.event.version,
+    });
     try {
       await command(locked.id, { type: "draw", event_version: locked.version, confirmed: true });
       setTab("draw");
