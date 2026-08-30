@@ -27,6 +27,39 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: Validate migration filenames and unique versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No migration files found"
+            exit 1
+          fi
+
+          bad=0
+          for file in "${files[@]}"; do
+            if [[ ! "$file" =~ ^[0-9]{14}_[a-z0-9_]+\.sql$ ]]; then
+              echo "Invalid migration filename: $file"
+              bad=1
+            fi
+          done
+          if [ "$bad" -ne 0 ]; then
+            exit 1
+          fi
+
+          duplicates=$(printf '%s\n' "${files[@]}" | cut -c1-14 | sort | uniq -d)
+          if [ -n "$duplicates" ]; then
+            echo "Duplicate Supabase migration version(s) detected:"
+            while read -r version; do
+              [ -z "$version" ] && continue
+              echo "  version $version"
+              printf '%s\n' "${files[@]}" | grep "^${version}_" | sed 's/^/    - /'
+            done <<< "$duplicates"
+            exit 1
+          fi
+
+          echo "Migration preflight passed: ${#files[@]} unique versioned files."
       - uses: supabase/setup-cli@v1
         with:
           version: latest
