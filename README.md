@@ -22,7 +22,7 @@
 - 当前 canonical Supabase project ref / project_id 为 **`rtmjzmgrhifjzxaliltm`**，前端 API host 也必须对应 `https://rtmjzmgrhifjzxaliltm.supabase.co`。
 - 任何自动化、总控或人工脚本在执行 Supabase SQL、migration、Storage、Edge Function 或审计 backlog 操作前，都必须先通过 Supabase project list / project detail 校验 `qiudazi-test → rtmjzmgrhifjzxaliltm`，不得从旧聊天、旧日志、snapshot 或历史上下文复用其它 project_id。
 - 若 project list 中看不到该映射，先视为连接器/账号环境异常；不得用猜测的 project_id 重试写操作。
-- `You do not have permission to perform this action` 必须先区分“错误/不可见 project_id”与数据库 grant/RPC 权限问题，不得直接归因于数据库 ACL。
+- `You do not have permission to perform this action` 必须先区分“错误/不可见 project_id”与 ChatGPT 插件权限、Supabase 项目角色、数据库 grant/RPC/RLS，不能直接归因于数据库 ACL。
 
 ## Stable product principles
 - Profile/User、Player、Connection 分离；昵称不是关联键。
@@ -68,7 +68,12 @@
 详细规则见 `docs/PHOTO_ALBUM_BASELINE.md`。
 
 ## Development hygiene
-- migration 版本唯一、顺序清晰、可 fresh replay；schema/RPC/Edge/Type/UI/权限/P0 必须全链路一致。
+- migration 文件统一使用 `YYYYMMDDHHMMSS_snake_case.sql`；14 位 version 在 repo 内必须全局唯一。
+- live 通过 `apply_migration` 生成版本后，repo 对应文件必须使用**同一个 version 与同一 SQL 语义**，禁止 live/repo 使用“相近但不同”的时间戳。
+- 新增 migration 前同时重读 repo migration 目录与 live migration list；并发 writer 不得凭历史目录快照自行分配版本。
+- H5 Build Check 在启动本地 Supabase 前会先做 migration filename + version uniqueness preflight；重复 version / 非法命名必须 fail-fast，再进入 clean replay。
+- clean replay 失败必须读实际 SQLSTATE 和 statement；不能因为 UI 显示失败在 `supabase start` 就推断为 Docker/CLI 启动故障。
+- schema/RPC/Edge/Type/UI/权限/P0 必须全链路一致；repo/live migration version 不一致也属于 Release Gate 阻塞。
 - private Storage、RLS/RPC/SECURITY DEFINER ACL 与业务身份校验必须进入 Release Gate。
 - 共享 repo/canonical/CHANGELOG 文件采用最新 blob SHA + optimistic concurrency；stale 时重新读取合并，禁止旧内容覆盖。
 - 不保留已经被新流程替代的可达旧页面/旧权限路径。
@@ -91,7 +96,7 @@
 ## Deployment policy
 - `main` 受 ruleset 保护：禁止删除/force push，必须 PR、linear history、分支最新且通过 H5 Build Check，无自动 bypass。
 - Vercel Git 自动部署保持关闭；日常开发优先 GitHub CI + Supabase 验证，避免浪费 Preview 配额。
-- 完整候选完成发布相关 P0/P1 修复、build、migration clean replay、权限审计后，才由总控受控触发一次 Vercel Preview 做真实黑盒 / Visual / English QA。
+- 完整候选完成发布相关 P0/P1 修复、build、migration preflight + clean replay、repo/live version/SQL 语义一致性与权限审计后，才由总控受控触发一次 Vercel Preview 做真实黑盒 / Visual / English QA。
 - Quick Start 是 P1，不因“不是 P0”机械阻塞；但若它已进入当前候选并造成四导航/P0 页面回归、权限扩大或标准赛事生命周期回归，Release Gate 必须阻塞。
 - Preview 通过不等于 Release Gate；Gate 通过后再进入中国区 CloudBase 手动部署。
 - live backlog 暂不可达时 Gate 不得 PASS；待正式 Supabase 路径恢复并重新核对后才能解除 degraded 状态。
