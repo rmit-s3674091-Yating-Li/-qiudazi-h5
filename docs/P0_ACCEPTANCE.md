@@ -1,6 +1,6 @@
 # 球搭子 H5 MVP｜P0 验收基线（Current）
 
-> 当前长期验收基线。照片专项以 `docs/PHOTO_ALBUM_BASELINE.md` 为准。发布与候选部署顺序以 `docs/RELEASE_GOVERNANCE.md` 为准。快速开赛为 P1 新能力，不替代原 P0 标准赛事链路；其对既有 P0 能力造成的回归仍属于发布阻塞问题。
+> 当前长期验收基线。照片专项以 `docs/PHOTO_ALBUM_BASELINE.md` 为准。发布与候选部署顺序以 `docs/RELEASE_GOVERNANCE.md` 为准；真实浏览器黑盒证据以 `docs/BROWSER_BLACKBOX_BASELINE.md` 为准。快速开赛为 P1 新能力，不替代原 P0 标准赛事链路；其对既有 P0 能力造成的回归仍属于发布阻塞问题。
 
 ## A. 身份与档案
 - [ ] 首次访问可建立测试登录态并完成昵称资料；返回用户可恢复状态。
@@ -110,12 +110,14 @@
 
 ## N. Release Gate
 - [ ] H5 Build Check 对**当前 PR exact head**全绿，包括 build、migration preflight 与 Supabase clean replay；不得沿用旧 SHA 的 green 结论。
-- [ ] PRD / PRODUCT / INTERACTION / VISUAL / PHOTO_ALBUM / P0 / ENVIRONMENT_BASELINE / RELEASE_GOVERNANCE / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG 同步。
+- [ ] PRD / PRODUCT / INTERACTION / VISUAL / PHOTO_ALBUM / P0 / ENVIRONMENT_BASELINE / RELEASE_GOVERNANCE / BROWSER_BLACKBOX_BASELINE / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG 同步。
 - [ ] 发布相关 P0/P1 已独立验证；明确延期且非 Gate 阻塞的 P2 可保留，但不得被误标为已修复。
 - [ ] Candidate Freeze 后 `release-candidate` 精确指向当前 PR exact head，且该分支不包含独立开发 commit。
-- [ ] Vercel 正式 candidate 必须 `READY`，并同时满足 `githubCommitRef=release-candidate`、`githubCommitSha=当前 PR exact head`；旧 Preview、feature 相近 SHA、HTTP 200 或 CI 不能替代。
-- [ ] 黑盒 / Visual/UX / English QA 只针对该唯一 deployment id / URL / SHA 取证；测试过程中不得切换 Preview。
-- [ ] Candidate Freeze 后若又提交代码、migration 或 canonical 文档，旧 candidate 自动失效：必须暂停黑盒/Gate → 新 head CI → 重新移动 `release-candidate` → 测新 Preview。
+- [ ] Vercel 正式 candidate 必须 `READY`，并同时满足 `githubCommitRef=release-candidate`、`githubCommitSha=当前 PR exact head`；Preview `/build-meta.json` 还必须返回相同 SHA 且 ref=`release-candidate`。旧 Preview、feature 相近 SHA、HTTP 200 或 CI 不能替代。
+- [ ] 同一 exact head 的 GitHub Actions `Candidate Browser Blackbox` 必须 `completed/success`；workflow 未完成时只等待 `WAITING_FOR_BROWSER_EVIDENCE`，runner/OIDC/DNS/Playwright 自身失败按 `BROWSER_INFRA_FAILURE` 处理，不登记产品 AUD。
+- [ ] artifact `candidate-browser-evidence-<same SHA>` 必须存在；`result.json.ok=true` 且 `full-lifecycle-result.json.ok=true`，并包含 mobile/English/双会话、标准赛事 create→signup→lock→auto draw→start→score→finish、deadline auto/custom、Settings/Privacy 持久化、Quick Start draw 故障恢复、赛事照片上传→participant 导入→源删除后个人副本保留的真实浏览器证据。
+- [ ] 黑盒 / Visual/UX / English QA 只针对该唯一 deployment id / URL / SHA 取证；测试过程中不得切换 Preview。HTTP fetch、源码、CI、Supabase SQL、Vercel metadata 仅作补充，不能替代 Playwright 页面交互。
+- [ ] Candidate Freeze 后若又提交代码、migration、测试基础设施或 canonical 文档，旧 candidate 与旧 Browser Blackbox 自动失效：必须暂停黑盒/Gate → 新 head CI → 重新移动 `release-candidate` → 测新 Preview → 新 browser artifact。
 - [ ] 不得为了触发 Vercel 而提前 merge/push main；main Production 不能替代 Preview 验证。
 - [ ] 真实黑盒、Visual/UX、English QA 通过后才进入最终 Gate / CloudBase；Preview 通过本身不等于 Gate PASS。
 - [ ] 快速开赛作为 P1 不因“尚未成为 P0”被机械判失败；但若它已进入候选且造成既有导航/P0 页面回归、权限扩大或标准赛事生命周期回归，则 Gate 必须阻塞。
