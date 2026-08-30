@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-08-30 — 标准赛事锁定后自动首次编排（AUD-20260830-007）
+
+- 总控一致性审计发现：当前 `EventPage` 与 live `lock_event_roster()` 仍沿用旧两步交互——锁定只改变 `status=locked`，页面随后要求组织者再点击一次“生成对阵”；与已确认的标准赛事生命周期“锁定名单 → 自动生成首次对阵 → 查看/复核 → 开始赛事”不一致。
+- 前端已改为组织者确认锁定后先调用权威 `lock_event_roster`，成功后立即自动调用现有 `tournament-command` draw engine；正常成功路径只需一次“锁定名单”确认，不再额外寻找首次“生成对阵”按钮。
+- 若 lock 已成功而首次 draw 因网络/Edge 临时失败，页面刷新为真实 locked 状态并显示“继续生成对阵 / Retry draw”；恢复只重试当前赛事 draw，不重复 lock、不修改 roster、不创建新赛事。
+- 首次对阵已生成后，组织者主要动作调整为“查看对阵 / 开始赛事”；“重新生成对阵”和“解锁名单”为次级受保护动作。
+- 开赛前人员变化继续走“解锁 → 清空签表 → 调整名单/候补 → 重新锁定并自动生成”；已有真实比赛开始或结束后仍禁止解锁或无保护重建签表。
+- PRD V6、PRODUCT、INTERACTION、P0 同步固定上述标准赛事 lifecycle；该修复不改变 Quick Start 的 `create_quick_event → draw` 独立恢复机制。
+
+---
+
 ## 2026-08-30 — Quick Event Mode 全链路一致性补漏
 
 - 一致性复查发现：后端已经存在 `events.event_mode` 与 `create_quick_event`，但 TypeScript `Event` 类型和 `list_events()` 返回链路未显式保留 `event_mode`，属于 DB schema → RPC → TypeScript 链路漏同步。
