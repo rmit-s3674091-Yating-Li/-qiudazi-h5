@@ -1,6 +1,18 @@
 # 球搭子 H5 — CHANGELOG
 
-本文件记录影响产品行为、数据模型、权限、技术架构和发布状态的主要变化。更早的逐提交历史仍可从 Git history 与 Issue #21 append-only 工作日志追溯；当前产品规则以 PRD / PRODUCT / INTERACTION / VISUAL / PHOTO_ALBUM / P0 / ENVIRONMENT_BASELINE / AUDIT_AUTOMATION_GOVERNANCE 为准。
+本文件记录影响产品行为、数据模型、权限、技术架构和发布状态的主要变化。更早的逐提交历史仍可从 Git history 与 Issue #21 append-only 工作日志追溯；当前产品规则以 PRD / PRODUCT / INTERACTION / VISUAL / PHOTO_ALBUM / P0 / ENVIRONMENT_BASELINE / RELEASE_GOVERNANCE / AUDIT_AUTOMATION_GOVERNANCE 为准。
+
+---
+
+## 2026-08-30 — 三层发布模型正式 canonical 化并完成首次实证
+
+- 新增 `docs/RELEASE_GOVERNANCE.md`，把发布流程从聊天/任务约定提升为长期 canonical source。
+- 长期固定三层模型：feature/docs/fix 只跑 GitHub CI、不自动烧 Vercel；`release-candidate` 只作为候选 Preview 触发器；`main` 只承担 Release Gate 通过后的正式发布语义。
+- 标准链路固定为：`feature/* → PR → exact-head H5 Build Check → Candidate Freeze → release-candidate → exact-head READY Preview → 黑盒/Visual/English → Release Gate → main merge 决策 → CloudBase/正式发布`。
+- Candidate Freeze 后任何代码、migration 或 canonical 文档提交都会让旧 Preview 自动失去 exact-head 资格；必须暂停黑盒/Gate，对新 head 重新跑 CI并再次移动 `release-candidate`，禁止为了节省 Preview 配额继续测试旧 SHA。
+- 正式 candidate 必须同时满足：`state=READY`、`githubCommitRef=release-candidate`、`githubCommitSha=当前 PR exact head`。旧 Preview、feature 相近 SHA、HTTP 200、本地 build 或单独 CI green 均不能替代。
+- 2026-08-30 已真实跑通一次：总控把 `release-candidate` 精确移动到当时 PR exact head，Vercel Git Integration 自动产生 READY Preview，metadata 中 branch 与 SHA 均正确匹配，证明该机制可同时满足 Hobby 配额控制和 exact-head 可追溯性。
+- README、`docs/ENVIRONMENT_BASELINE.md`、`docs/P0_ACCEPTANCE.md`、`docs/AUDIT_AUTOMATION_GOVERNANCE.md` 与相关自动化规则同步更新；后续任何发布模型变化必须整套同步，禁止只改 `vercel.json` 或只在聊天中约定。
 
 ---
 
@@ -188,10 +200,11 @@
 ---
 
 ## 发布原则
-- Repository 必须保持 Private。当前 GitHub 方案下 private repo 无 repository ruleset 平台强制保护，main 采用 feature branch → PR → exact-head H5 Build Check → Release Gate → 人工 merge 的流程治理；所有自动化禁止直接 push/merge main。
-- 功能变化必须同步 PRD / PRODUCT / INTERACTION / VISUAL / 专项基线 / P0 / ENVIRONMENT_BASELINE / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG。
+- Repository 必须保持 Private。当前 GitHub 方案下 private repo 无 repository ruleset 平台强制保护，main 采用 feature branch → PR → exact-head H5 Build Check → Candidate Freeze → `release-candidate` exact-head Preview → 黑盒/Visual/English → Release Gate → 人工 merge 的流程治理；所有自动化禁止直接 push/merge main。
+- 功能变化必须同步 PRD / PRODUCT / INTERACTION / VISUAL / 专项基线 / P0 / ENVIRONMENT_BASELINE / RELEASE_GOVERNANCE / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG。
 - 修复者只能把正式 AUD 推到 `FIXED_PENDING_VERIFY`；独立测试/审计通过后才能 `VERIFIED`。
-- 黑盒测试只消费 exact-head READY Preview；没有可测候选时静默等待，不把旧 Preview 当成当前候选。
+- 黑盒测试只消费 `READY + githubCommitRef=release-candidate + githubCommitSha=当前 PR exact head` 的 Preview；没有可测候选时静默等待，不把旧 Preview 当成当前候选。
+- Candidate Freeze 后若 PR head 因代码/migration/canonical 文档更新而变化，旧 Preview 自动作废并必须重新生成候选。
 - 发布相关 P0 或核心 P1 未独立验证时，Release Gate 必须 BLOCKED。
 - live backlog 不可达时 Release Gate 只能降级为 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，不得 PASS；待正式路径恢复后重新核对。
 - P1 新能力不因“不是 P0”机械失败，但进入候选后若造成既有 P0 回归、权限扩大或核心流程不可用，仍是 Release Gate 阻塞项。
