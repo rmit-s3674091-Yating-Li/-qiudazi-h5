@@ -99,7 +99,7 @@ async function deadlineAutoCustom(browser) {
   await identity(p, `QA-Deadline-${expectedSha.slice(0,6)}`);
   await p.goto(`${baseUrl}/#/events/new`, { waitUntil: 'domcontentloaded' });
   await p.getByRole('button', { name: /Time & venue/i }).click();
-  const date = labelInput(p, 'Match date'), time = labelInput(p, 'Start time'), deadline = labelInput(p, 'Latest registration');
+  const date = labelInput(p, 'Match date'), time = labelInput(p, 'Start time'), deadline = labelInput(p, 'Registration deadline');
   const day = futureDate(9); await date.fill(day); await time.fill('20:00'); await p.waitForTimeout(150);
   const a = await deadline.inputValue(); record('AUD-005 automatic deadline initializes T-2h', a.endsWith('18:00'), a);
   await time.fill('21:00'); await p.waitForTimeout(150); const b = await deadline.inputValue();
