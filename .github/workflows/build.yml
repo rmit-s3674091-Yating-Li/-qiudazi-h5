@@ -49,6 +49,7 @@ jobs:
           event_single_photo_unique=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from pg_constraint con join pg_class c on c.oid=con.conrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname='event_photos' and con.conname='event_photos_event_id_key';")
           album_visibility_default=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select column_default from information_schema.columns where table_schema='public' and table_name='profile_preferences' and column_name='participant_album_visibility';")
           snapshot_photo_compat=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select (position('''photo'',null' in pg_get_functiondef(p.oid))>0)::int from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='get_event_snapshot' limit 1;")
+          printf 'bucket_count=%s\npolicy_count=%s\nphoto_function_count=%s\nlegacy_function_count=%s\npersonal_table_rls=%s\nsource_fk_set_null=%s\nevent_single_photo_unique=%s\nalbum_visibility_default=%s\nsnapshot_photo_compat=%s\n' "$bucket_count" "$policy_count" "$photo_function_count" "$legacy_function_count" "$personal_table_rls" "$source_fk_set_null" "$event_single_photo_unique" "$album_visibility_default" "$snapshot_photo_compat"
           test "$bucket_count" = "2"
           test "$policy_count" = "6"
           test "$photo_function_count" = "11"
