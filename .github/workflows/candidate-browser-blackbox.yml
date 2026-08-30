@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 concurrency:
   group: candidate-browser-blackbox
@@ -31,6 +32,15 @@ jobs:
           node-version: 22.12.0
           cache: npm
 
+      - name: Obtain short-lived GitHub OIDC token
+        id: oidc
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = await core.getIDToken();
+            core.setSecret(token);
+            core.setOutput('token', token);
+
       - name: Install app dependencies
         run: npm ci
 
@@ -40,6 +50,8 @@ jobs:
           npx playwright install --with-deps chromium webkit
 
       - name: Run exact-head browser blackbox
+        env:
+          VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: node qa/candidate-browser-blackbox.mjs
 
       - name: Publish QA summary
@@ -48,6 +60,7 @@ jobs:
           echo "## Candidate Browser Blackbox" >> "$GITHUB_STEP_SUMMARY"
           echo "- expected SHA: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- base URL: ${BASE_URL}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- auth: GitHub OIDC trusted-source token" >> "$GITHUB_STEP_SUMMARY"
           if [ -f qa-artifacts/result.json ]; then
             echo '```json' >> "$GITHUB_STEP_SUMMARY"
             cat qa-artifacts/result.json >> "$GITHUB_STEP_SUMMARY"
