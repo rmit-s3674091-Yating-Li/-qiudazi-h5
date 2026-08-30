@@ -4,7 +4,7 @@ import { Empty, ErrorNotice, Header, Loading } from "../components/UI";
 import { explainError, rpc, supabase } from "../repositories/supabase";
 import { useLanguage } from "../i18n";
 
-type AlbumPhoto={asset_id:string;event_id:string;event_name:string;event_date:string|null;watermarked_url:string;uploaded_at:string};
+type AlbumPhoto={asset_id:string;event_id:string;event_name:string;event_date:string|null;uploaded_at:string};
 
 export function PartnerAlbumsPage(){
   const{profileId}=useParams();const{language}=useLanguage();const en=language==="en";
