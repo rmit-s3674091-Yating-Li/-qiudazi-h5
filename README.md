@@ -14,11 +14,12 @@
 7. `docs/ENVIRONMENT_BASELINE.md` — 环境身份、仓库、Supabase、部署与基础配置真源
 8. `docs/RELEASE_GOVERNANCE.md` — feature / release-candidate / main 三层发布与 exact-head Preview 真源
 9. `docs/BROWSER_BLACKBOX_BASELINE.md` — GitHub Actions + Playwright 真实浏览器黑盒、exact-SHA artifact/trace 与失败分类真源
-10. `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
-11. `CHANGELOG.md`
-12. 当前源码、migration、Edge Functions 与 GitHub CI / Candidate Browser Blackbox
+10. `docs/DOCUMENT_GOVERNANCE.md` — canonical / runtime truth / evidence / historical snapshot 的层级、冲突与联动真源
+11. `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
+12. `CHANGELOG.md`
+13. 当前源码、migration、Edge Functions 与 GitHub CI / Candidate Browser Blackbox
 
-若早期 PRD、Demo、旧 bundle、历史评论或历史运行配置与上述当前基线冲突，以当前基线和运行时重新验证结果为准。
+若早期 PRD、Demo、旧 bundle、历史评论或历史运行配置与上述当前基线冲突，以 `docs/DOCUMENT_GOVERNANCE.md` 定义的层级、当前专项基线和运行时重新验证结果为准。
 
 ## Environment identity
 基础环境与配置的完整真源统一见 `docs/ENVIRONMENT_BASELINE.md`。README 只保留必要摘要，避免多处重复维护后漂移：
@@ -73,6 +74,7 @@
 详细规则见 `docs/PHOTO_ALBUM_BASELINE.md`。
 
 ## Development hygiene
+- 文档层级、动态事实、证据、历史 snapshot、冲突解释与变更联动统一服从 `docs/DOCUMENT_GOVERNANCE.md`；不得从聊天记忆或历史快照覆盖当前 canonical/runtime truth。
 - 基础配置、环境身份、repository visibility、env var 与部署平台角色统一服从 `docs/ENVIRONMENT_BASELINE.md`；发布分支、Candidate Freeze、Preview 与 Gate 顺序统一服从 `docs/RELEASE_GOVERNANCE.md`；真实浏览器黑盒能力统一服从 `docs/BROWSER_BLACKBOX_BASELINE.md`。不得在不同文档/任务中各维护一份互相独立的真值。
 - H5 Build Check 会校验 repository 仍为 Private，并扫描 tracked files 的典型服务器级秘密；publishable/anon browser key 不视为服务器秘密。
 - `npm run build` 会生成 `/build-meta.json`；Candidate Browser Blackbox 必须用它二次确认 Preview 内实际构建 SHA/ref 与 expected exact head 一致。
@@ -91,9 +93,10 @@
 ## Audit backlog and automation
 - Supabase `audit_ops.issue_registry` 是正式 backlog 唯一事实源。
 - `public.audit_issue_registry_readonly` 只是 backend-only 只读投影，不是第二事实源；H5 `anon/authenticated` 无 SELECT。
-- 新问题通过 `audit_ops.create_issue(...)` 原子创建并语义去重。
+- 新问题通过 `audit_ops.create_issue(...)` 原子创建并语义去重；禁止手工编号。创建器必须以 registry 已存在最大 sequence 为下界处理 counter 漂移，不能因 allocator counter 落后而撞号。
 - GitHub Issue #21 正文只是人类可读镜像；评论用于已有 AUD 的 append-only 工作日志。
 - `docs/AUDIT_BACKLOG_SNAPSHOT.json` 是连接器波动时使用的只读工程快照，不是第二事实源；必须带 `generated_at / source_path / source_head`。
+- 五个定时任务每轮先读 `docs/DOCUMENT_GOVERNANCE.md` 与 `docs/AUDIT_AUTOMATION_GOVERNANCE.md`，再按任务主题读取专项 canonical 与 live truth；prompt 不得成为第二套产品规则。
 - 五个定时任务先按治理基线尝试正式 Supabase 读取；全部正式路径不可达时，可以读取 snapshot 继续检查，但进入降级模式。
 - snapshot 只能用于继续检查、识别已知 AUD 和辅助去重；**不得**据此创建 AUD、修改正式 status/owner、把 `FIXED_PENDING_VERIFY` 推成 `VERIFIED` 或声称 live backlog 已同步。
 - 发现新问题但 DB 不可达时，记录 `UNFILED_PENDING_DB_ACCESS` 和完整证据，恢复后再正式 `create_issue`；禁止手工编号。
@@ -102,7 +105,7 @@
 - 「球搭子问题整改」是唯一自动修复者，不是唯一 writer；DB 不可达时只能继续此前已明确认领的 IN_PROGRESS 工作，不能从 snapshot 新认领 OPEN。
 - `public.audit_list_issues()` 返回 `jsonb` 数组，不得误当 table-valued function 使用。
 
-详细治理见 `docs/AUDIT_AUTOMATION_GOVERNANCE.md`。
+详细治理见 `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 与 `docs/DOCUMENT_GOVERNANCE.md`。
 
 ## Deployment policy
 - 详细发布规则以 `docs/RELEASE_GOVERNANCE.md` 为唯一长期真源；真实浏览器证据以 `docs/BROWSER_BLACKBOX_BASELINE.md` 为真源；README 只保留摘要。
