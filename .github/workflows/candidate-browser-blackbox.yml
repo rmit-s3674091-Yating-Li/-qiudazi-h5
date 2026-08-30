@@ -1,0 +1,64 @@
+name: Candidate Browser Blackbox
+
+on:
+  push:
+    branches:
+      - release-candidate
+
+permissions:
+  contents: read
+
+concurrency:
+  group: candidate-browser-blackbox
+  cancel-in-progress: true
+
+jobs:
+  browser-blackbox:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_URL: https://qiudazi-h5-git-release-candidate-graceharuka233-6548.vercel.app
+      EXPECTED_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install Playwright runtime
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium webkit
+
+      - name: Run exact-head browser blackbox
+        run: node qa/candidate-browser-blackbox.mjs
+
+      - name: Publish QA summary
+        if: always()
+        run: |
+          echo "## Candidate Browser Blackbox" >> "$GITHUB_STEP_SUMMARY"
+          echo "- expected SHA: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- base URL: ${BASE_URL}" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f qa-artifacts/result.json ]; then
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat qa-artifacts/result.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-browser-evidence-${{ github.sha }}
+          path: qa-artifacts/
+          if-no-files-found: warn
+          retention-days: 14
