@@ -71,10 +71,13 @@
 - `public.audit_issue_registry_readonly` 只是 backend-only 只读投影，不是第二事实源；H5 `anon/authenticated` 无 SELECT。
 - 新问题通过 `audit_ops.create_issue(...)` 原子创建并语义去重。
 - GitHub Issue #21 正文只是人类可读镜像；评论用于已有 AUD 的 append-only 工作日志。
-- 不存在全局唯一 writer；数据库 row 和评论可并发写。
-- 「球搭子问题整改」是唯一自动修复者，不是唯一 writer；修复后只能到 `FIXED_PENDING_VERIFY`，必须独立验证后才能 `VERIFIED`。
-- 五个定时任务正式 backlog 读取统一遵循 `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 当前三路径协议：backend-only readonly view → 受控 RPC → 受信任 SQL function fallback；全部失败才 BLOCKED。
-- `public.audit_list_issues()` 返回 `jsonb` 数组，不得误当 table-valued function 使用；不得用 Issue #21 镜像替代正式真源。
+- `docs/AUDIT_BACKLOG_SNAPSHOT.json` 是连接器波动时使用的只读工程快照，不是第二事实源；必须带 `generated_at / source_path / source_head`。
+- 五个定时任务先按治理基线尝试正式 Supabase 读取；全部正式路径不可达时，可以读取 snapshot 继续检查，但进入降级模式。
+- snapshot 只能用于继续检查、识别已知 AUD 和辅助去重；**不得**据此创建 AUD、修改正式 status/owner、把 `FIXED_PENDING_VERIFY` 推成 `VERIFIED` 或声称 live backlog 已同步。
+- 发现新问题但 DB 不可达时，记录 `UNFILED_PENDING_DB_ACCESS` 和完整证据，恢复后再正式 `create_issue`；禁止手工编号。
+- Release Gate 无法读取 live backlog 时可以继续其它审计，但最终只能 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，不能 PASS；snapshot 超过 2 小时只作历史参考。
+- 「球搭子问题整改」是唯一自动修复者，不是唯一 writer；DB 不可达时只能继续此前已明确认领的 IN_PROGRESS 工作，不能从 snapshot 新认领 OPEN。
+- `public.audit_list_issues()` 返回 `jsonb` 数组，不得误当 table-valued function 使用。
 
 详细治理见 `docs/AUDIT_AUTOMATION_GOVERNANCE.md`。
 
@@ -84,4 +87,5 @@
 - 完整候选完成发布相关 P0/P1 修复、build、migration clean replay、权限审计后，才由总控受控触发一次 Vercel Preview 做真实黑盒 / Visual / English QA。
 - Quick Start 是 P1，不因“不是 P0”机械阻塞；但若它已进入当前候选并造成四导航/P0 页面回归、权限扩大或标准赛事生命周期回归，Release Gate 必须阻塞。
 - Preview 通过不等于 Release Gate；Gate 通过后再进入中国区 CloudBase 手动部署。
+- live backlog 暂不可达时 Gate 不得 PASS；待正式 Supabase 路径恢复并重新核对后才能解除 degraded 状态。
 - 未通过 Gate 不自动 merge main。
