@@ -4,6 +4,20 @@
 
 ---
 
+## 2026-08-30 — 审计自动化连接器容错 / Snapshot 降级机制
+
+- 手工复现确认：自动化/当前会话可能在 Supabase Connector 层收到 `You do not have permission to perform this action`，该事件可能发生在数据库 view/RPC 本身仍正常的情况下；因此“无法直连 Supabase = 数据库故障”这一假设不成立。
+- Supabase `audit_ops.issue_registry` **继续是唯一正式 backlog 真源**，不改变事实源治理。
+- 新增 `docs/AUDIT_BACKLOG_SNAPSHOT.json` 作为只读工程快照，包含 `generated_at / source_path / source_head` 与非敏感审计元数据；它不是第二 backlog，也不是 Issue #21 的替代品。
+- 正式读取仍优先走 backend-only readonly view → 受控 RPC → 受信任 SQL function fallback；三条正式路径都因连接器权限/安全层暂不可达时，自动化改为读取 snapshot 并进入降级模式，而不是整轮停止。
+- Snapshot 只允许用于继续白盒/黑盒/安全/Gate 检查、识别已知 AUD 和辅助语义去重；禁止据此创建 AUD、修改正式 status/owner/evidence、将 `FIXED_PENDING_VERIFY` 变更为 `VERIFIED` 或声称 live backlog 已同步。
+- 新问题在 DB 不可达时使用运行标记 `UNFILED_PENDING_DB_ACCESS` 保存证据，待正式数据库路径恢复后再调用 `create_issue`；禁止手工编号。
+- Release Gate 无 live backlog 时可继续检查 exact head、CI、repo/live 其它一致性、Visual/English 与安全项，但最终只能 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，不能 PASS；snapshot 超过 2 小时只能作历史参考。
+- 「球搭子问题整改」在 DB 不可达时只能继续此前已明确认领的 IN_PROGRESS 工作，不得根据 snapshot 认领新的 OPEN。
+- `docs/AUDIT_AUTOMATION_GOVERNANCE.md`、README 与五个现役自动化任务已同步该降级协议；旧部署前审计/旧安全审计保持 disabled，现役为 V2。
+
+---
+
 ## 2026-08-30 — 快速开赛 P1 / 导航主动作
 
 - 在现有四个底部一级导航 **赛事大厅 / 我的赛事 / 球搭子们 / 我的** 的基础上增加中央凸起圆形“快速开赛”主动作；它不是第五个 Tab，不改变现有 IA，“我的战绩”继续属于“我的”。
@@ -20,11 +34,11 @@
 
 - Supabase `audit_ops.issue_registry` 继续是正式 backlog **唯一事实源**。
 - 新增 `public.audit_issue_registry_readonly` 作为 backend-only 只读投影，只解决自动化连接器对 SECURITY DEFINER RPC 调用兼容性，不形成第二份 backlog。
-- 正式读取协议统一为：① backend-only readonly view；② `public.audit_list_issues()` RPC；③ 受信任 SQL `select * from public.audit_list_issues();`；只有三条都失败才 `BLOCKED`。
+- 正式读取协议统一为：① backend-only readonly view；② `public.audit_list_issues()` RPC；③ 受信任 SQL `select * from public.audit_list_issues();`。
 - `public.audit_list_issues()` 实际 `RETURNS jsonb`，fallback 返回一列 JSON 数组；自动化不得把它误当 `RETURNS TABLE` 使用。
 - 已实际验证：readonly view 可读取当前 OPEN/IN_PROGRESS backlog；`anon/authenticated` 无 SELECT，后台角色仅保留必要 SELECT；RPC/SQL function fallback 也可取得正式 JSON backlog。
 - migrations：`20260830032055_add_readonly_audit_issue_registry_view`、`20260830032103_restrict_readonly_audit_issue_registry_view`、`20260830032403_restrict_audit_readonly_view_to_select_only`。
-- `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 已升级为三路径真源；README、P0 与定时任务需服从该治理基线。Issue #21 仍只是镜像，禁止替代正式 backlog。
+- 后续若三条正式路径因**连接器权限/安全层**同时不可达，不再机械整轮 `BLOCKED`；当前最终降级规则以本文件上方“Snapshot 降级机制”与 `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 为准。
 
 ---
 
@@ -77,7 +91,7 @@
 - 新问题通过 `audit_ops.create_issue(...)` 原子语义去重 + 编号；同 semantic key 并发通过事务 advisory lock 收敛。
 - Issue #21 正文仅是镜像，评论为已有 AUD 的 append-only 工作日志。
 - 不存在全局唯一 writer；整改师只是唯一自动修复者。
-- 读取协议的当前最终版本以本文件上方“三路径收口”与 `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 为准。
+- 读取协议的当前最终版本以本文件上方“三路径收口 + Snapshot 降级机制”与 `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 为准。
 
 ---
 
@@ -99,5 +113,6 @@
 - 功能变化必须同步 PRD / PRODUCT / INTERACTION / VISUAL / 专项基线 / P0 / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG。
 - 修复者只能把正式 AUD 推到 `FIXED_PENDING_VERIFY`；独立测试/审计通过后才能 `VERIFIED`。
 - 发布相关 P0 或核心 P1 未独立验证时，Release Gate 必须 BLOCKED。
+- live backlog 不可达时 Release Gate 只能降级为 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，不得 PASS；待正式路径恢复后重新核对。
 - P1 新能力不因“不是 P0”机械失败，但进入候选后若造成既有 P0 回归、权限扩大或核心流程不可用，仍是 Release Gate 阻塞项。
 - 未通过 Gate 不自动 merge main，不进入中国区正式候选部署。
