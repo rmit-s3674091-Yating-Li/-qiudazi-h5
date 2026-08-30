@@ -55,7 +55,11 @@ MVP 不同时给组织者提供“从赛事相册移除”和“永久删除”�
 3. 设置城市、可选场地、单循环/单淘汰和计分规则；
 4. 点击“确认并生成对阵”，服务端原子创建 Event / Entry / EntryPlayer，`event_mode='quick'`，名单直接 locked，随后自动生成首次对阵并进入赛事管理。
 
-quick event 不走公开招募、报名截止、候补、普通赛事邀请、双打组队邀请。不得为了复用标准赛事而伪造未来时间或 deadline。比赛日期/开赛时间可直接取创建时本地赛事时间，`registration_deadline` 对 quick event 为 null。
+quick event 不走公开招募、报名截止、候补、普通赛事邀请、双打组队邀请，**也不进入普通赛事大厅发现流**。它只在创建人和实际参赛者自己的赛事上下文中出现；即使内部使用 `visibility='private'`，也不得复用标准私有赛事的脱敏大厅卡。不得为了复用标准赛事而伪造未来时间或 deadline。比赛日期/开赛时间可直接取创建时本地赛事时间，`registration_deadline` 对 quick event 为 null。
+
+`event_mode` 是明确业务字段，必须从 DB schema / migration 贯穿到 `list_events`、`get_event_snapshot`、TypeScript `Event` 与页面判断；不得通过 deadline 是否为空、status 或赛事名称反推 quick/standard。
+
+如果 Event / Entry 已创建成功，但首次 draw 因网络或 Edge Function 临时失败，客户端必须持久保存该 event id/version 并进入“赛事已创建 / 继续生成对阵”的恢复状态。恢复操作只能对该已存在赛事重试 draw，**不得再次调用 `create_quick_event` 产生重复赛事**；刷新快速开赛页面后仍应恢复 pending event。用户可进入已创建赛事管理页查看，但在 pending draw 被处理前不得无提示创建第二场 quick event。
 
 快速开赛只是创建方式不同；创建后继续使用标准 Event / Entry / Match、viewer_role、记分、排名、完赛、战绩和照片权限模型。开赛前如果有人临时不来，组织者通过赛事管理调整名单并重新生成对阵；赛事真正开始后不允许普通替换 Player。
 
@@ -67,7 +71,7 @@ H5 MVP 支持简体中文 / English。语言偏好本地持久化，不引入复
 ## 7. 私有赛事边界保持
 本次新增 suggested level range 可进入私有脱敏预览；registration_deadline 不进入。稳定原则继续为：大厅可发现 ≠ 获得赛事详情权限 ≠ 获得报名资格。赛事照片另按 5.1 的受限内容规则授权，公开赛事详情可见不等于照片可见。
 
-quick event 默认不是招募型大厅赛事，不应以 public 招募卡形式扩散；是否未来允许分享 quick event 只影响赛事详情分享，不得把它变成可报名赛事。
+quick event 不是招募型大厅赛事，**既不以 public 招募卡，也不以 private 脱敏卡出现在普通赛事大厅**；是否未来允许分享 quick event 只影响赛事详情分享，不得把它变成可报名赛事。
 
 ## 8. 权威身份与“我参与的”语义
 赛事详情中的组织者/受邀者/参与者身份必须以服务端赛事快照返回的 `viewer_role` 等权威权限事实为准；本地 Profile/cache 只能辅助展示，不能单独决定组织者管理入口。旧 auth session 映射到 canonical Profile 的恢复场景下，合法组织者仍必须获得正确管理能力。比赛详情、实时记分和直接录入比分页同样属于身份敏感页面，是否允许组织者记分/更正比分必须沿用同一权威 `viewer_role`，不得退回本地 Profile ID 比较；本地比分级联预演需要 actor 时应使用快照中的 canonical 赛事 owner 身份。
@@ -79,4 +83,4 @@ quick event 中由组织者选择的临时 Player 仍按 Player 规则积累历�
 ## 9. P0 回归重点
 截止前1秒/截止瞬间/截止后报名；提前打开页面后超时提交；双打搭档已接受但未形成 Entry；组织者代报名；截止后退赛；旧邀请接受；直接 RPC 绕过；私有卡不泄露 deadline；建议级别旧数据迁移；邀请隐私服务端拦截；档案字段服务端裁剪；语言切换持久化与核心流程全英文；业务逻辑不依赖展示文案；旧 auth session/canonical Profile 下组织者管理入口与比赛记分/比分更正能力；双打两名真实搭档均进入“我参与的”且在私有赛事快照中识别为 participant；赛事照片仅 organizer/actual participant 可读、一场多图、只有 organizer 可上传/删除赛事源照片、participant 逐张主动导入/移出“参与赛事相册”、系统不自动导入、organizer 删除源照片后未来不可再导入但已导入个人资产继续存在、隐私设置只控制个人参与赛事相册“仅自己/搭子可见”、搭子只获得短时水印预览且不获得高清/Storage path；390px及更窄表单、卡片、英文长文本和照片操作布局。
 
-快速开赛属于当前新增 P1 能力，不反向改变上述 P0 标准赛事规则；一旦进入受控 Preview，需独立验证 quick event 创建原子性、Player 去重/归属、自动生成对阵、375/390/430 中央按钮不遮挡四个既有导航，以及 quick event 不开放普通报名/候补。
+快速开赛属于当前新增 P1 能力，不反向改变上述 P0 标准赛事规则；一旦进入受控 Preview，需独立验证 quick event 创建原子性、`event_mode` 全链路、普通大厅不可发现、Player 去重/归属、自动生成对阵、draw 失败恢复不重复建赛、375/390/430 中央按钮不遮挡四个既有导航，以及 quick event 不开放普通报名/候补。
