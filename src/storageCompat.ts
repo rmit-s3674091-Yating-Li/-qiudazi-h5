@@ -5,7 +5,23 @@ if (typeof navigator !== "undefined") {
   const fallback = {
     persisted: async () => false,
     persist: async () => false,
-    estimate: async () => ({ usage: 0, quota: 0 }),
+    estimate: async (): Promise<StorageEstimate> => ({ usage: 0, quota: 0 }),
+  };
+
+  const patchMissingMethod = (target: object, method: string, value: unknown) => {
+    try {
+      Object.defineProperty(target, method, {
+        configurable: true,
+        value,
+      });
+    } catch {
+      try {
+        (target as unknown as Record<string, unknown>)[method] = value;
+      } catch {
+        // Leave non-configurable host methods untouched; browser blackbox
+        // will surface any unsupported runtime rather than hiding it.
+      }
+    }
   };
 
   try {
@@ -15,22 +31,14 @@ if (typeof navigator !== "undefined") {
         value: fallback,
       });
     } else {
-      for (const method of ["persisted", "persist", "estimate"] as const) {
-        if (typeof navigator.storage[method] !== "function") {
-          try {
-            Object.defineProperty(navigator.storage, method, {
-              configurable: true,
-              value: fallback[method],
-            });
-          } catch {
-            try {
-              (navigator.storage as StorageManager & Record<string, unknown>)[method] = fallback[method];
-            } catch {
-              // Leave non-configurable host methods untouched; browser blackbox
-              // will surface any unsupported runtime rather than hiding it.
-            }
-          }
-        }
+      if (typeof navigator.storage.persisted !== "function") {
+        patchMissingMethod(navigator.storage, "persisted", fallback.persisted);
+      }
+      if (typeof navigator.storage.persist !== "function") {
+        patchMissingMethod(navigator.storage, "persist", fallback.persist);
+      }
+      if (typeof navigator.storage.estimate !== "function") {
+        patchMissingMethod(navigator.storage, "estimate", fallback.estimate);
       }
     }
   } catch {
