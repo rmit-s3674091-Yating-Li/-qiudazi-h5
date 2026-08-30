@@ -85,10 +85,10 @@ Deno.serve(async(req)=>{
     if(!body.photo_id||typeof body.version!=="number") return json({error:"INVALID_REQUEST"},400);
     const {data:existing,error:readError}=await admin.from("event_photos").select("id,event_id,original_url,watermarked_url,uploaded_at,version").eq("id",body.photo_id).maybeSingle<SourcePhoto>();
     if(readError) return json({error:"PHOTO_NOT_FOUND"},404);
-    if(!existing) return json({ok:true});
+    if(!existing) return json({error:"VERSION_CONFLICT"},409);
     const {data:deleted,error:deleteError}=await userClient.rpc("delete_event_photo_metadata",{p_photo_id:body.photo_id,p_version:body.version});
     if(deleteError){const m=deleteError.message||"";if(m.includes("VERSION_CONFLICT"))return json({error:"VERSION_CONFLICT"},409);if(m.includes("FORBIDDEN"))return json({error:"FORBIDDEN"},403);return json({error:"PHOTO_METADATA_DELETE_FAILED"},500);}
-    if(!deleted) return json({ok:true});
+    if(!deleted) return json({error:"VERSION_CONFLICT"},409);
     const row=deleted as SourcePhoto;
     const {error:removeError}=await admin.storage.from("event-photos").remove([row.original_url,row.watermarked_url]);
     if(removeError){await admin.from("event_photos").insert(row);return json({error:"PHOTO_DELETE_FAILED"},500);}
