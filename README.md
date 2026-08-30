@@ -21,12 +21,21 @@
 - Profile/User、Player、Connection 分离；昵称不是关联键。
 - 双打一个 Entry 两个 Player；“我参与的”按有效 Entry→Player 事实判断。
 - 参赛建议级别是发现/匹配区间，不是硬报名门槛。
-- 比赛日期/时间 P0 必填；报名截止默认开赛前 2 小时且只能提前；截止由服务端强制执行。
+- 标准赛事比赛日期/时间 P0 必填；报名截止默认开赛前 2 小时且只能提前；截止由服务端强制执行。
+- 系统自动报名截止要随开赛时间持续按 T-2h 联动；用户主动提前截止与系统自动值必须区分。
 - 私有赛事大厅可发现但必须脱敏；可发现 ≠ 详情权限 ≠ 报名资格。
 - 服务端 `viewer_role` 等权威事实决定组织者/参与者/受邀者权限，本地 Profile/cache 不能单独授权。
 - 邀请关系、赛事邀请、双打组队邀请、临时 Player 历史关联邀请语义独立。
-- 稳定数据不做高频轮询；mutation 后精准刷新；用户错误不暴露 JWT/SQL/RPC/RLS/raw stack。
+- 稳定数据不做高频轮询；mutation 后精准刷新；用户错误不暴露 JWT/SQL/RPC/RLS/Postgres/raw stack。
 - H5 MVP 支持简体中文 / English，375 / 390 / 430px 需要真实 Visual QA。
+
+## Navigation and Quick Start
+- 四个既有一级底部导航保持：**赛事大厅 / 我的赛事 / 球搭子们 / 我的**。
+- “我的战绩”继续属于“我的”，不得拆成一级 Tab。
+- **快速开赛**是 P1 高频道具型 action：在四导航视觉中心使用凸起圆形按钮，但不是第五个 Tab，不创建第五套信息架构。
+- quick flow：单打/双打 → 选择已有或新增临时 Player → 城市/可选场地/赛制/计分 → 确认并生成对阵。
+- `event_mode=quick` 跳过报名截止、候补、普通赛事邀请，直接形成 locked Event/Entry/EntryPlayer 并自动生成首次对阵；之后继续使用标准赛事 viewer_role、Match、记分、排名、完赛、战绩、照片模型。
+- quick mode 不得放宽或改变标准赛事 deadline / waitlist / invite / Player / Storage 权限。
 
 ## Final photo model
 ### 赛事源相册
@@ -59,17 +68,20 @@
 
 ## Audit backlog and automation
 - Supabase `audit_ops.issue_registry` 是正式 backlog 唯一事实源。
+- `public.audit_issue_registry_readonly` 只是 backend-only 只读投影，不是第二事实源；H5 `anon/authenticated` 无 SELECT。
 - 新问题通过 `audit_ops.create_issue(...)` 原子创建并语义去重。
 - GitHub Issue #21 正文只是人类可读镜像；评论用于已有 AUD 的 append-only 工作日志。
 - 不存在全局唯一 writer；数据库 row 和评论可并发写。
 - 「球搭子问题整改」是唯一自动修复者，不是唯一 writer；修复后只能到 `FIXED_PENDING_VERIFY`，必须独立验证后才能 `VERIFIED`。
-- 正式 backlog 优先通过 `public.audit_list_issues()` 读取；若连接器安全层不允许直接 RPC，可使用受信任只读 SQL 调用同一函数；不得用 Issue #21 镜像替代正式真源。
+- 五个定时任务正式 backlog 读取统一遵循 `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 当前三路径协议：backend-only readonly view → 受控 RPC → 受信任 SQL function fallback；全部失败才 BLOCKED。
+- `public.audit_list_issues()` 返回 `jsonb` 数组，不得误当 table-valued function 使用；不得用 Issue #21 镜像替代正式真源。
 
 详细治理见 `docs/AUDIT_AUTOMATION_GOVERNANCE.md`。
 
 ## Deployment policy
 - `main` 受 ruleset 保护：禁止删除/force push，必须 PR、linear history、分支最新且通过 H5 Build Check，无自动 bypass。
 - Vercel Git 自动部署保持关闭；日常开发优先 GitHub CI + Supabase 验证，避免浪费 Preview 配额。
-- 完整候选完成 P0/P1 修复、build、migration clean replay、权限审计后，才由总控受控触发一次 Vercel Preview 做真实黑盒 / Visual / English QA。
+- 完整候选完成发布相关 P0/P1 修复、build、migration clean replay、权限审计后，才由总控受控触发一次 Vercel Preview 做真实黑盒 / Visual / English QA。
+- Quick Start 是 P1，不因“不是 P0”机械阻塞；但若它已进入当前候选并造成四导航/P0 页面回归、权限扩大或标准赛事生命周期回归，Release Gate 必须阻塞。
 - Preview 通过不等于 Release Gate；Gate 通过后再进入中国区 CloudBase 手动部署。
 - 未通过 Gate 不自动 merge main。
