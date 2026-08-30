@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-30T03:23:47Z",
-  "source_path": "public.audit_issue_registry_readonly",
-  "source_head": "661e5a1bdc0a16e75e2c0a9cd1662561f7855539",
+  "generated_at": "2026-08-30T04:12:00Z",
+  "source_path": "public.audit_list_issues()",
+  "source_head": "97adb1f2c548d586cd292efacacc24dc5fd3a4ef",
   "note": "Read-only fallback snapshot. Supabase audit_ops.issue_registry remains the sole source of truth. This file must not be used to create AUD ids or mutate formal status.",
   "issues": [
     {"audit_id":"AUD-20260829-001","status":"FIXED_PENDING_VERIFY","severity":"P0","module":"Supabase migration / environment reproducibility","owner":null},
@@ -11,7 +11,7 @@
     {"audit_id":"AUD-20260829-016","status":"IN_PROGRESS","severity":"P2","module":"UX / 组织者参赛者选择","owner":"球搭子问题整改"},
     {"audit_id":"AUD-20260829-017","status":"FIXED_PENDING_VERIFY","severity":"P0","module":"隐私 / Storage / 赛事照片","owner":"球搭子问题整改"},
     {"audit_id":"AUD-20260830-003","status":"IN_PROGRESS","severity":"P1","module":"Settings / Privacy","owner":"球搭子问题整改"},
-    {"audit_id":"AUD-20260830-004","status":"OPEN","severity":"P0","module":"赛事照片 / RPC","owner":null},
+    {"audit_id":"AUD-20260830-004","status":"IN_PROGRESS","severity":"P0","module":"赛事照片 / RPC","owner":"球搭子问题整改"},
     {"audit_id":"AUD-20260830-005","status":"OPEN","severity":"P1","module":"创建赛事 / 报名截止","owner":null}
   ]
 }
