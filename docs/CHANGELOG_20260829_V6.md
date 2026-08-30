@@ -1,8 +1,10 @@
 # 2026-08-29 — V6 Event lifecycle / privacy / language major update
 
+> **历史快照，不是当前状态真源。** 本文件保留 2026-08-29 当时的大版本变更记录，不用于判断当前 PR head、AUD 状态、照片模型或 Release Gate。当前产品规则请读取 README 指向的 PRD V6 / PRODUCT / INTERACTION / PHOTO_ALBUM / P0；当前整改状态以 Supabase `audit_ops.issue_registry` / `public.audit_list_issues()` 为准；当前发布工程状态以 PR #20 exact head、GitHub CI 与根目录 `CHANGELOG.md` 为准。
+
 **分支**：`feature/20260829-event-lifecycle-privacy-i18n`  
 **PR**：#20（部署前保持 draft）  
-**状态**：共享 Supabase 测试库 migration 已应用；前端分支实现中，待 CI、迁移可重放审计和中国区 CloudBase 真机 E2E 后再合并 main。
+**当时状态**：共享 Supabase 测试库 migration 已应用；前端分支实现中，待 CI、迁移可重放审计和中国区 CloudBase 真机 E2E 后再合并 main。
 
 ## 产品变化
 - 赛事单值“赛事级别”改为“参赛建议级别”最低/最高区间；私有脱敏预览允许显示该区间。
@@ -25,7 +27,7 @@
 ## 文档
 - 新增 `docs/PRD_V6_EVENT_LIFECYCLE_PRIVACY_I18N.md`。
 - README 将 V6 PRD 提升到大改/审计的第一阅读顺序。
-- 本记录作为 CHANGELOG 大版本条目；合并前仍需将关键规则同步回 PRODUCT/INTERACTION/P0 长期基线，避免只依赖增量文档。
+- 本记录作为 CHANGELOG 大版本历史条目；后续关键规则已同步进入 PRODUCT/INTERACTION/P0/PHOTO_ALBUM 等长期基线，不应再以本历史快照覆盖当前基线。
 
 ## 验证重点
 截止前/截止瞬间/截止后写入、旧页面超时提交、直接 RPC 绕过、双打未完成 Entry、截止后退赛、私有预览脱敏、邀请隐私、档案字段裁剪、旧 level 迁移、语言持久化、390px窄屏、migration clean replay、CI build。
