@@ -7,17 +7,32 @@
 自动化体系必须把“问题本体”“展示镜像”“整改/验证过程日志”分离，并针对不同写入介质采用不同的并发控制方式，而不是简单限制为只有一个任务可以写。
 
 - **Supabase `audit_ops.issue_registry`：待整改问题唯一事实源（Source of Truth）**。多个审计/测试任务可以并发创建彼此独立的 backlog row；数据库负责原子编号、唯一约束和事务一致性。
+- **受控读取 API `public.audit_list_issues()`：自动化读取正式 backlog 的标准入口**。内部 `audit_ops` 表保持私有，不为了自动化读取而向 H5 用户或 API 角色开放表级 SELECT。
 - **GitHub Issue #21 正文：待整改问题清单的人类可读镜像**，不得作为新问题创建入口，也不得反向覆盖数据库事实。由于正文属于整块共享文本，应由固定镜像同步流程更新，避免多个任务同时整段覆盖。
 - **GitHub Issue #21 评论：已存在 AUD 的整改、验证和补充证据日志**。评论采用 append-only；多个任务可以并发追加评论，不需要单 writer。
 - **「球搭子问题整改」：唯一自动修复者**，负责自动修改产品代码、必要 migration 和受影响文档，并可承担 Issue #21 正文镜像同步职责；它不是整个自动化体系的“唯一 writer”。
 - 代码变更巡检、全功能测试、部署前审计、周安全审计均可以写入其职责范围内的安全并发介质：创建新的 Supabase backlog row、向已有 AUD 追加 Issue 评论；但不得直接修改产品代码、数据库 schema/migration、canonical 文档或 Issue #21 正文。
 
-## 2. 新待整改问题创建
+## 2. 正式 backlog 的安全读取
+
+`audit_ops.issue_registry` 和 `audit_ops.issue_counters` 属于内部工程治理数据，不是 H5 产品数据，也不作为前端 Data API 表暴露。
+
+自动化每轮读取正式 backlog 时必须：
+
+1. 优先调用 `public.audit_list_issues()`；
+2. 不直接依赖对 `audit_ops.issue_registry` / `audit_ops.issue_counters` 的表级 SELECT；
+3. `public.audit_list_issues()` 使用 `SECURITY DEFINER` 且 `search_path=''`，函数体显式引用内部 schema；
+4. 该 RPC 只授予 `service_role` EXECUTE，`PUBLIC` / `anon` / `authenticated` 均无执行权；
+5. `service_role` 不因此获得 `audit_ops` schema USAGE 或内部表 SELECT；
+6. 若该 RPC 真正不可用，自动化必须标记 `BLOCKED`，不得退化为把 GitHub Issue #21 镜像当作正式事实源；
+7. 对内部、未暴露且无 API grants 的治理表，不能仅因为 `RLS=false` 就直接定级为 critical；安全判断必须同时核对 exposed schema、表 grants、函数 ACL 和真实调用路径。
+
+## 3. 新待整改问题创建
 
 任何审计/测试任务发现疑似新问题时，必须按以下顺序执行：
 
 1. 读取当前 canonical 文档。
-2. 读取 `audit_ops.issue_registry` 当前 backlog。
+2. 通过 `public.audit_list_issues()` 读取正式 backlog。
 3. 读取 GitHub Issue #21 正文与相关历史评论作为补充证据。
 4. 对既有 backlog 做语义去重；姓名、页面文案差异或不同来源不得被误判为不同问题。
 5. 确认确属独立新问题后，生成稳定、简短、与缺陷语义绑定的 `semantic_key`。
@@ -42,7 +57,7 @@ audit_ops.create_issue(
 9. `created=false` 表示相同 semantic key 已被其他并发任务登记，必须复用既有 AUD 并补充证据，禁止再次创建新编号。
 10. 若中央创建函数不可用，任务必须标记 `BLOCKED`，禁止退化为手工编号、`最大编号 + 1`、GitHub 正文直接插行或评论代替问题创建。
 
-## 3. 并发与唯一编号
+## 4. 并发与唯一编号
 
 `audit_ops.create_issue` 内部通过数据库事务完成编号分配与正式 backlog row 创建。编号格式为：
 
@@ -61,9 +76,9 @@ AUD-YYYYMMDD-NNN
 
 任何自动化不得在任务开始时预留、缓存或猜测“下一个 AUD”。
 
-## 4. Backlog 数据职责
+## 5. Backlog 数据职责
 
-`audit_ops.issue_registry` 至少承载以下事实：
+`audit_ops.issue_registry` 当前至少承载以下正式事实：
 
 - `audit_id`
 - `audit_date`
@@ -78,7 +93,6 @@ AUD-YYYYMMDD-NNN
 - `evidence`
 - `affected_head`
 - `owner`
-- `work_context`
 - `created_at`
 - `updated_at`
 
@@ -91,19 +105,19 @@ AUD-YYYYMMDD-NNN
 - `WONT_FIX`
 - `DUPLICATE`
 
-`FAILED`、`BLOCKED`、`NEEDS_DECISION` 可以进入工作上下文/评论证据，并由负责状态归并的流程根据实际情况同步正式状态。
+`FAILED`、`BLOCKED`、`NEEDS_DECISION` 等运行上下文进入对应 AUD 的评论/证据，并由负责状态归并的流程根据实际情况同步正式状态。
 
-## 5. Issue #21 正文镜像
+## 6. Issue #21 正文镜像
 
 Issue #21 正文用于快速人工阅读，不是数据库。
 
-- 正文应由固定的镜像同步流程根据 `audit_ops.issue_registry` 重新生成或同步；当前可由「球搭子问题整改」承担该同步职责。
-- 同步前必须重新读取最新 backlog。
+- 正文应由固定的镜像同步流程根据正式 backlog 重新生成或同步；当前可由「球搭子问题整改」承担该同步职责。
+- 同步前必须通过受控读取路径重新读取最新 backlog。
 - 正文不得反向覆盖、推断或修改 backlog 状态。
 - 正文落后于数据库时，以数据库为准，并在后续同步中修正。
 - 其他审计/测试任务不得直接编辑 Issue #21 正文；这是为了避免整块文本并发覆盖，不意味着它们不能写 backlog 或追加评论。
 
-## 6. Issue 评论用途
+## 7. Issue 评论用途
 
 评论必须引用一个**已经正式存在的 AUD**。允许记录：
 
@@ -126,7 +140,7 @@ Issue #21 正文用于快速人工阅读，不是数据库。
 
 评论应保持 append-only，形成可审计的工作流水。多个任务可以同时追加不同评论；这类写入本身不需要单 writer。
 
-## 7. 不同写入介质的并发规则
+## 8. 不同写入介质的并发规则
 
 自动化体系不采用“全局单 writer”，而按介质处理并发：
 
@@ -161,13 +175,15 @@ Issue #21 正文用于快速人工阅读，不是数据库。
 
 当前定时体系中，产品代码和文档的自动修复仍集中由「球搭子问题整改」执行，以避免重复修复；交互式总控临时写文件时也可以写，但必须遵守同样的最新 SHA + 重新读取/合并规则。
 
-## 8. 整改状态流转
+## 9. 整改状态流转
 
 「球搭子问题整改」从 Supabase backlog 选取问题，优先级为：
 
 ```text
 P0 → P1 → P2
 ```
+
+任何 P0 在独立验证中明确 FAILED/BLOCKED 时，应重新进入可整改状态并优先于其他 P1/P2，不能因此前已进入 `FIXED_PENDING_VERIFY` 或 CI green 而跳过失败路径。
 
 正式修复前：
 
@@ -188,7 +204,9 @@ P0 → P1 → P2
 - 状态归并流程根据独立证据把 backlog 更新为 `VERIFIED`，或失败时退回适当状态；
 - 再同步 Issue #21 正文镜像。
 
-## 9. 五个定时任务职责
+## 10. 五个定时任务职责
+
+所有五个任务读取正式 backlog 时统一使用 `public.audit_list_issues()`；不得因为直接表读取被安全边界拒绝而改用 Issue 镜像替代。
 
 ### 球搭子代码变更巡检
 白盒发现与静态独立验证。新问题直接写 Supabase backlog；已有 AUD 的补证据/验证写评论；不修代码、不整段修改 Issue 正文。
@@ -200,12 +218,12 @@ P0 → P1 → P2
 独立 Release Gate。新发布问题直接写 Supabase backlog；已有 AUD 的 Gate 证据写评论；不修代码、不整段修改 Issue 正文。
 
 ### 球搭子周安全审计
-独立安全发现与安全验证。新安全问题直接写 Supabase backlog；已有 AUD 的安全证据写评论；不直接整改、不整段修改 Issue 正文。
+独立安全发现与安全验证。新安全问题直接写 Supabase backlog；已有 AUD 的安全证据写评论；不直接整改、不整段修改 Issue 正文。安全 lint 必须结合实际 grants、暴露面和业务授权语义复核，不得机械升级严重级别。
 
 ### 球搭子问题整改
 唯一自动修复者，并承担当前 Issue #21 正文镜像同步职责。原则上处理已有 backlog；若整改过程中确实发现无法并入当前 AUD 的独立问题，也必须通过 `audit_ops.create_issue` 正式创建。它不是 backlog/comment 的唯一 writer。
 
-## 10. 发布与审计要求
+## 11. 发布与审计要求
 
 - CI green 不等于功能、Visual、权限或 Release Gate 通过。
 - Vercel Git 自动部署保持关闭；普通 commit 不主动消耗 Preview。
@@ -213,13 +231,15 @@ P0 → P1 → P2
 - 未清零发布相关 P0/P1、未完成独立验证或 repository/live Supabase 不一致时，不得进入 CloudBase 候选部署。
 - 不得自动 merge `main`。
 
-## 11. 当前迁移事实
+## 12. 当前迁移事实
 
 2026-08-30 起：
 
 - 原 `audit_ops.reserve_issue_id(...)` 的单纯发号机制已升级为正式 backlog 模型；
 - 新增 `audit_ops.create_issue(...)`，在一个数据库事务内完成编号分配与待整改问题 row 创建；
+- `20260829200350_audit_create_issue_concurrency.sql` 为同日 semantic key 并发建单增加事务级串行化，避免唯一约束竞态；
+- `20260830005513_audit_backlog_read_rpc.sql` 新增 `public.audit_list_issues()` 作为自动化受控只读入口：只授予 `service_role` EXECUTE，`PUBLIC` / `anon` / `authenticated` 无执行权，内部治理表继续无 API 角色表级 SELECT/USAGE；
 - 既有 `AUD-20260829-001` ～ `AUD-20260829-017` 已迁入 `audit_ops.issue_registry`，保持原编号、严重级别、状态与语义；
 - 2026-08-29 的计数器保持在 17，不因迁移或自测消耗正式编号；
 - GitHub Issue #21 从“唯一问题台账”调整为“正式 backlog 的人类可读镜像 + 已有问题工作评论区”；
-- 并发治理采用“数据库行级原子写入 + 评论 append-only + Issue 正文固定镜像同步 + repo 文件 optimistic concurrency”，而不是全局单 writer。
+- 并发治理采用“数据库行级原子写入 + 受控 RPC 读取 + 评论 append-only + Issue 正文固定镜像同步 + repo 文件 optimistic concurrency”，而不是全局单 writer。
