@@ -12,9 +12,10 @@
 5. `docs/VISUAL_DESIGN_BASELINE.md`
 6. `docs/P0_ACCEPTANCE.md`
 7. `docs/ENVIRONMENT_BASELINE.md` — 环境身份、仓库、Supabase、部署与基础配置真源
-8. `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
-9. `CHANGELOG.md`
-10. 当前源码、migration、Edge Functions 与 GitHub CI
+8. `docs/RELEASE_GOVERNANCE.md` — feature / release-candidate / main 三层发布与 exact-head Preview 真源
+9. `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
+10. `CHANGELOG.md`
+11. 当前源码、migration、Edge Functions 与 GitHub CI
 
 若早期 PRD、Demo、旧 bundle、历史评论或历史运行配置与上述当前基线冲突，以当前基线和运行时重新验证结果为准。
 
@@ -71,7 +72,7 @@
 详细规则见 `docs/PHOTO_ALBUM_BASELINE.md`。
 
 ## Development hygiene
-- 基础配置、环境身份、repository visibility、env var 与部署平台角色统一服从 `docs/ENVIRONMENT_BASELINE.md`；不得在不同文档/任务中各维护一份互相独立的真值。
+- 基础配置、环境身份、repository visibility、env var 与部署平台角色统一服从 `docs/ENVIRONMENT_BASELINE.md`；发布分支、Candidate Freeze、Preview 与 Gate 顺序统一服从 `docs/RELEASE_GOVERNANCE.md`，不得在不同文档/任务中各维护一份互相独立的真值。
 - H5 Build Check 会校验 repository 仍为 Private，并扫描 tracked files 的典型服务器级秘密；publishable/anon browser key 不视为服务器秘密。
 - migration 文件统一使用 `YYYYMMDDHHMMSS_snake_case.sql`；14 位 version 在 repo 内必须全局唯一。
 - live 通过 `apply_migration` 生成版本后，repo 对应文件必须使用**同一个 version 与同一 SQL 语义**，禁止 live/repo 使用“相近但不同”的时间戳。
@@ -99,11 +100,15 @@
 详细治理见 `docs/AUDIT_AUTOMATION_GOVERNANCE.md`。
 
 ## Deployment policy
+- 详细发布规则以 `docs/RELEASE_GOVERNANCE.md` 为唯一长期真源；README 只保留摘要。
 - Repository 必须保持 **Private**。当前账号方案下 private repo 的 GitHub repository ruleset 不可用，因此不能再把“平台 ruleset 已强制保护 main”作为事实或 Gate 证据。
 - 当前 main 治理由流程强制：所有开发只写 feature branch，经 PR、exact-head H5 Build Check、`release-candidate` exact-head Preview、Release Gate 后再由用户/总控做 merge 决策；所有自动化禁止直接 merge/push main。若未来升级 GitHub Pro 并重新启用 ruleset，需运行时验证后再恢复平台级保护描述。
 - Vercel Git deployment 不是全开：`vercel.json` 默认 `** = false`（globstar 覆盖 `feature/...` 等带斜杠分支），仅 `release-candidate = true` 与 `main = true`。日常 feature/docs/fix push 不产生 Preview，避免浪费 Hobby 配额。
-- 完整候选完成发布相关 P0/P1 修复、build、migration preflight + clean replay、repo/live version/SQL 语义一致性与权限审计后，总控才允许把 `release-candidate` 移动到 PR exact head。Vercel 自动生成 Preview 后必须核对 deployment `githubCommitSha` 与 PR exact head 完全一致，才进入真实黑盒 / Visual / English QA。
+- 标准发布模型固定为：`feature/* → PR → exact-head CI → Candidate Freeze → release-candidate → exact-head READY Preview → 黑盒/Visual/English → Release Gate → main merge 决策 → CloudBase/正式发布`。
+- Candidate Freeze 后任何代码、migration 或 canonical 文档提交都会使旧 Preview 失去 exact-head 资格；必须暂停黑盒/Gate，对新 head 重新跑 CI，并重新移动 `release-candidate`。禁止为了省一次 Preview 继续测试旧 SHA。
+- 完整候选完成发布相关 P0/P1 修复、build、migration preflight + clean replay、repo/live version/SQL 语义一致性与权限审计后，总控才允许把 `release-candidate` 移动到 PR exact head。Vercel 自动生成 Preview 后必须核对 `state=READY`、`githubCommitRef=release-candidate`、deployment `githubCommitSha` 与 PR exact head 完全一致，才进入真实黑盒 / Visual / English QA。
 - `release-candidate` 只作为触发器，不承载独立开发；若 Preview SHA 不匹配，不得用旧 Preview 顶替。
+- 不得为了触发部署而提前 merge/push main，也不得用 main Production 替代候选 Preview 验证。
 - Quick Start 是 P1，不因“不是 P0”机械阻塞；但若它已进入当前候选并造成四导航/P0 页面回归、权限扩大或标准赛事生命周期回归，Release Gate 必须阻塞。
 - Preview 通过不等于 Release Gate；Gate 通过后再进入中国区 CloudBase 手动部署。
 - live backlog 暂不可达时 Gate 不得 PASS；待正式 Supabase 路径恢复并重新核对后才能解除 degraded 状态。
