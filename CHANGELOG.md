@@ -1,6 +1,18 @@
 # 球搭子 H5 — CHANGELOG
 
-本文件记录影响产品行为、数据模型、权限、技术架构和发布状态的主要变化。更早的逐提交历史仍可从 Git history 与 Issue #21 append-only 工作日志追溯；当前产品规则以 PRD / PRODUCT / INTERACTION / VISUAL / PHOTO_ALBUM / P0 / AUDIT_AUTOMATION_GOVERNANCE 为准。
+本文件记录影响产品行为、数据模型、权限、技术架构和发布状态的主要变化。更早的逐提交历史仍可从 Git history 与 Issue #21 append-only 工作日志追溯；当前产品规则以 PRD / PRODUCT / INTERACTION / VISUAL / PHOTO_ALBUM / P0 / ENVIRONMENT_BASELINE / AUDIT_AUTOMATION_GOVERNANCE 为准。
+
+---
+
+## 2026-08-30 — GitHub Repository 转为 Private / 基础配置安全收口
+
+- GitHub repository `rmit-s3674091-Yating-Li/-qiudazi-h5` 已由 Public 转为 **Private**，并经运行时 `get_repo` 重新确认 `visibility=private`。
+- Private 转换后已确认：PR #20 仍为 Open + Draft；ChatGPT GitHub connector 仍具备当前 repo 的 admin/push/pull 访问；Vercel 项目 `qiudazi-h5` 的 Git link 仍指向同一 GitHub repository。
+- 当前 GitHub 账号方案下，private repository 的 repository ruleset API 返回需升级 GitHub Pro；因此原“main 由 ruleset 平台强制保护”的描述不再成立。当前 main 保护改为流程治理：feature branch → PR → exact-head H5 Build Check → Release Gate → 人工 merge 决策；所有自动化继续禁止直接 push/merge main。
+- `docs/ENVIRONMENT_BASELINE.md` 将 repository visibility=Private 纳入基础配置真源，并记录 private-repo ruleset 能力边界、Vercel private-repo 授权边界和未来若升级 Pro 后的恢复条件。
+- H5 Build Check 新增 `Validate repository visibility`，若 repository 意外变回 public 直接 fail-fast；新增 tracked-file server-secret preflight，阻止典型 service secret、GitHub PAT、private key、含密码 PostgreSQL URL 等服务器级凭据进入仓库。Supabase browser publishable/anon key 不作为服务器秘密处理。
+- README 与 `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 已移除“当前 main 受 ruleset 强制保护”的错误事实，统一为 private repository + PR/CI/Gate 流程治理。
+- Repository 曾经公开过，因此“转 Private”不等于撤销历史暴露。后续安全审计应继续关注历史提交中是否曾出现服务器级秘密；如发现必须立即轮换，不能只依赖删除 Git 历史。
 
 ---
 
@@ -122,8 +134,8 @@
 ---
 
 ## 发布原则
-- `main` 受 GitHub ruleset 保护：禁止删除/force push、必须 PR、linear history、分支最新、H5 Build Check 通过、无 bypass。
-- 功能变化必须同步 PRD / PRODUCT / INTERACTION / VISUAL / 专项基线 / P0 / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG。
+- Repository 必须保持 **Private**。当前 GitHub 方案下 private repo 无 repository ruleset 平台强制保护，main 采用 feature branch → PR → exact-head H5 Build Check → Release Gate → 人工 merge 的流程治理；所有自动化禁止直接 push/merge main。
+- 功能变化必须同步 PRD / PRODUCT / INTERACTION / VISUAL / 专项基线 / P0 / ENVIRONMENT_BASELINE / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG。
 - 修复者只能把正式 AUD 推到 `FIXED_PENDING_VERIFY`；独立测试/审计通过后才能 `VERIFIED`。
 - 发布相关 P0 或核心 P1 未独立验证时，Release Gate 必须 BLOCKED。
 - live backlog 不可达时 Release Gate 只能降级为 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，不得 PASS；待正式路径恢复后重新核对。
