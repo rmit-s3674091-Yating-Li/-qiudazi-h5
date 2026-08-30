@@ -20,6 +20,7 @@ const results = {
   baseUrl,
   expectedSha,
   authMode: oidcToken ? 'github-oidc-preflight-only' : 'public-preview',
+  previewRuntimeIsolation: 'vercel-toolbar-blocked',
   startedAt: new Date().toISOString(),
   checks: [],
   diagnostics: [],
@@ -30,6 +31,15 @@ const record = (name, ok, details = '') => {
   if (!ok) failed = true;
 };
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function isolateVercelPreviewRuntime(context) {
+  // Vercel Preview appends https://vercel.live/_next-live/feedback/feedback.js
+  // outside the deployed application HTML. It is not product code and has
+  // produced WebKit-only navigator.storage errors that cannot occur in the
+  // production bundle. Block only that injected runtime so this blackbox
+  // validates the release candidate itself and all real Supabase traffic.
+  await context.route(/^https:\/\/vercel\.live\//, route => route.abort('blockedbyclient'));
+}
 
 async function waitForExactDeployment() {
   const deadline = Date.now() + 6 * 60_000;
@@ -151,6 +161,7 @@ async function completeIdentity(page, nickname, withUpload = false, label = nick
 async function assertMobileShell(browserType, viewport, label, language = 'zh') {
   const browser = await browserType.launch();
   const context = await browser.newContext(contextOptions(viewport, language));
+  await isolateVercelPreviewRuntime(context);
   if (language === 'en') await context.addInitScript(() => localStorage.setItem('qiudazi-language', 'en'));
   const page = await context.newPage();
   attachDiagnostics(page, label);
@@ -196,6 +207,8 @@ async function assertDualSession() {
   const browser = await chromium.launch();
   const a = await browser.newContext(contextOptions({ width: 390, height: 844 }));
   const b = await browser.newContext(contextOptions({ width: 390, height: 844 }));
+  await isolateVercelPreviewRuntime(a);
+  await isolateVercelPreviewRuntime(b);
   const pa = await a.newPage(), pb = await b.newPage();
   attachDiagnostics(pa, 'dual-user-a');
   attachDiagnostics(pb, 'dual-user-b');
