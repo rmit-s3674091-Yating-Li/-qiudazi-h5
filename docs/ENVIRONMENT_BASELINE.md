@@ -55,7 +55,7 @@
 - 角色：公网 Preview / 候选黑盒验证，不是 Supabase 数据真源。
 - 当前项目名：`qiudazi-h5`；运行时已确认 Git link：`rmit-s3674091-Yating-Li/-qiudazi-h5`。project id 属于平台事实，使用时仍应从 Vercel 当前项目列表重新读取。
 - `vercel.json`：framework=`vite`、build=`npm run build`、output=`dist`。
-- Git deployment 采用**候选分支白名单**：`git.deploymentEnabled` 中 `* = false`，仅 `main = true` 与 `release-candidate = true`。普通 feature/docs/fix push 不产生 Vercel deployment，从而控制 Hobby 配额。
+- Git deployment 采用**候选分支白名单**：`git.deploymentEnabled` 中 `** = false`，仅 `main = true` 与 `release-candidate = true`。使用 globstar 是为了覆盖 `feature/...` 等包含 `/` 的分支名；普通 feature/docs/fix push 不产生 Vercel deployment，从而控制 Hobby 配额。
 - `release-candidate` 是 Preview 触发器，不承载独立开发。总控只有在发布相关 P0/P1 收口、PR exact head CI green、repo/live 一致性满足候选条件后，才允许把 `release-candidate` 移动到该 exact head；移动后必须读取 Vercel deployment metadata，确认 `githubCommitSha` 与 PR exact head 完全一致，才视为正式 candidate。
 - 若 `release-candidate` 产生的 deployment SHA 与 PR exact head 不一致，不得用于黑盒/Gate；应停止后续测试并调查 Git/Vercel integration，不得用旧 Preview 顶替。
 - `main` 保留 Git deployment 是为了 Gate 通过、人工 merge 决策后产生正式部署；未通过 Gate 时自动化仍禁止 merge/push main。
