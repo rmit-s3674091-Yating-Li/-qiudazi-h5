@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-08-30 — Quick Event Mode 全链路一致性补漏
+
+- 一致性复查发现：后端已经存在 `events.event_mode` 与 `create_quick_event`，但 TypeScript `Event` 类型和 `list_events()` 返回链路未显式保留 `event_mode`，属于 DB schema → RPC → TypeScript 链路漏同步。
+- 同时发现 quick event 虽然产品定位为“不经过招募、报名、候补”，但旧 `list_events()` 对普通大厅仍可能把它作为 private 脱敏赛事卡返回，导致 quick/standard 发现边界不清。
+- 已补 `Event.event_mode: 'standard' | 'quick'`；live + repo migration `20260830052402_hide_quick_events_from_hall_and_surface_mode.sql` 让 `list_events()` 显式返回 `event_mode`，并在非 `p_mine` 的普通大厅查询中只返回 standard event。
+- quick event 继续可由 owner / actual participant 从“我的赛事”进入；`get_event_snapshot()` 通过 `to_jsonb(events)` 保留完整 `event_mode`，不得通过 status/deadline/name 反推模式。
+- PRD V6、PRODUCT、INTERACTION、P0 已同步明确：quick event 既不以 public 招募卡，也不以 private 脱敏卡进入普通赛事大厅；create 成功但首次 draw 失败时必须恢复已有 event，禁止重复 create。
+- H5 Build Check 新增 `Assert quick event mode boundaries`：fresh replay 必须存在 event_mode default、`create_quick_event` 和 `list_events` 的显式 mode 返回/大厅过滤逻辑，防止未来 schema/RPC/type 再次漂移。
+
+---
+
 ## 2026-08-30 — 黑盒测试改为 Candidate-driven Preflight
 
 - 复盘确认：黑盒自动化在没有 current-head Preview 时仍执行 backlog/环境检查，会产生“没有东西可测”的噪声报告；这不是产品缺陷，而是调度顺序错误。
