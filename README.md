@@ -100,9 +100,10 @@
 
 ## Deployment policy
 - Repository 必须保持 **Private**。当前账号方案下 private repo 的 GitHub repository ruleset 不可用，因此不能再把“平台 ruleset 已强制保护 main”作为事实或 Gate 证据。
-- 当前 main 治理由流程强制：所有开发只写 feature branch，经 PR、exact-head H5 Build Check、Release Gate 后再由用户/总控做 merge 决策；所有自动化禁止直接 merge/push main。若未来升级 GitHub Pro 并重新启用 ruleset，需运行时验证后再恢复平台级保护描述。
-- Vercel Git 自动部署保持关闭；日常开发优先 GitHub CI + Supabase 验证，避免浪费 Preview 配额。Private 转换后已确认 Vercel Git link 仍指向同一仓库。
-- 完整候选完成发布相关 P0/P1 修复、build、migration preflight + clean replay、repo/live version/SQL 语义一致性与权限审计后，才由总控受控触发一次 Vercel Preview 做真实黑盒 / Visual / English QA。
+- 当前 main 治理由流程强制：所有开发只写 feature branch，经 PR、exact-head H5 Build Check、`release-candidate` exact-head Preview、Release Gate 后再由用户/总控做 merge 决策；所有自动化禁止直接 merge/push main。若未来升级 GitHub Pro 并重新启用 ruleset，需运行时验证后再恢复平台级保护描述。
+- Vercel Git deployment 不是全开：`vercel.json` 默认 `* = false`，仅 `release-candidate = true` 与 `main = true`。日常 feature/docs/fix push 不产生 Preview，避免浪费 Hobby 配额。
+- 完整候选完成发布相关 P0/P1 修复、build、migration preflight + clean replay、repo/live version/SQL 语义一致性与权限审计后，总控才允许把 `release-candidate` 移动到 PR exact head。Vercel 自动生成 Preview 后必须核对 deployment `githubCommitSha` 与 PR exact head 完全一致，才进入真实黑盒 / Visual / English QA。
+- `release-candidate` 只作为触发器，不承载独立开发；若 Preview SHA 不匹配，不得用旧 Preview 顶替。
 - Quick Start 是 P1，不因“不是 P0”机械阻塞；但若它已进入当前候选并造成四导航/P0 页面回归、权限扩大或标准赛事生命周期回归，Release Gate 必须阻塞。
 - Preview 通过不等于 Release Gate；Gate 通过后再进入中国区 CloudBase 手动部署。
 - live backlog 暂不可达时 Gate 不得 PASS；待正式 Supabase 路径恢复并重新核对后才能解除 degraded 状态。
