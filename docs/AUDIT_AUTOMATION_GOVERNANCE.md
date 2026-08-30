@@ -1,6 +1,6 @@
 # 球搭子审计与整改自动化治理基线
 
-> 本文定义「球搭子」自动化审计、待整改问题登记、整改、验证与发布 Gate 的长期协作规则。它属于工程治理基线，不改变产品业务规则。
+> 本文定义「球搭子」自动化审计、待整改问题登记、整改、验证与发布 Gate 的长期协作规则。它属于工程治理基线，不改变产品业务规则。发布分支、Candidate Freeze、Vercel Preview 与 main 的详细顺序以 `docs/RELEASE_GOVERNANCE.md` 为准。
 
 ## 1. 核心原则
 
@@ -11,7 +11,7 @@
 - GitHub Issue #21 正文只是人类可读镜像，不得替代正式 backlog；Issue 评论只记录已存在 AUD 的 append-only 过程证据。
 - 「球搭子问题整改」是唯一自动修复者，但不是全局唯一 writer。代码变更巡检、全功能测试、部署前审计、周安全审计均可按本文件规则创建 backlog row 和追加已有 AUD 评论。
 - 总控是项目指挥与可直接整改角色：可以认领 `OPEN + owner=null` 的问题并直接修复；已有 owner 的整改项不得抢占或并发修改，但总控可以通过正式 AUD 的 `[CONTROL_NOTE ...]` 提供实现建议、风险提示和验收边界。
-- GitHub repository 的 canonical visibility 为 Private；完整环境身份与 GitHub 方案能力边界以 `docs/ENVIRONMENT_BASELINE.md` 为准。
+- GitHub repository 的 canonical visibility 为 Private；完整环境身份与 GitHub 方案能力边界以 `docs/ENVIRONMENT_BASELINE.md` 为准；发布候选身份以 `docs/RELEASE_GOVERNANCE.md` 为准。
 
 ### 1.1 环境身份与 migration 一致性前置校验
 
@@ -23,7 +23,7 @@
 - 不得从旧聊天、旧日志、历史 snapshot、历史工具结果或模型上下文复用其它 project_id。若 project list 中不存在 canonical 映射，停止数据库写操作并标记环境异常；不得猜测 ID。
 - `You do not have permission to perform this action` 首先要区分：① project ref 错误/当前连接器看不到该项目；② ChatGPT 插件权限；③ Supabase 组织/项目角色；④ 数据库 grant/RPC/RLS。禁止直接把连接器层错误归因于 PostgreSQL ACL。
 - GitHub 相关审计同时必须确认 repository visibility 仍为 private。若意外变回 public，属于基础环境漂移并阻塞候选。
-- 当前账号方案下 private repository 的 GitHub repository ruleset 不可用；不得把“ruleset/platform branch protection 存在”作为当前 Gate 证据。所有自动化继续禁止直接 push/merge main，实际治理依赖 feature branch → PR → exact-head CI → Release Gate → 人工 merge 决策。
+- 当前账号方案下 private repository 的 GitHub repository ruleset 不可用；不得把“ruleset/platform branch protection 存在”作为当前 Gate 证据。所有自动化继续禁止直接 push/merge main，实际治理依赖 feature branch → PR → exact-head CI → Candidate Freeze → release-candidate Preview → 黑盒 → Release Gate → 人工 merge 决策。
 
 Migration 治理采用以下硬规则：
 
@@ -111,10 +111,11 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 ## 5. 修复与验证职责
 
 ### 球搭子项目总控
-- 负责动态读取 PR exact head、正式 backlog、CI、部署候选和自动化状态，协调优先级与 candidate freeze。
+- 负责动态读取 PR exact head、正式 backlog、CI、部署候选和自动化状态，协调优先级与 Candidate Freeze。
 - 可以直接认领并整改 `OPEN + owner=null` 的问题，也可以修代码、DB、migration 与 canonical 文档。
 - 已有 owner 的问题不抢、不并发修改；需要纠偏时使用 §4.1 CONTROL_NOTE。
 - 总控亲自修复的问题最多推进到 `FIXED_PENDING_VERIFY`，必须交由独立白盒/黑盒/Gate 验证。
+- Candidate Freeze 后应暂停会继续推动产品/DB/canonical 变更的自动修复；若确需再提交任何代码、migration 或 canonical 文档，必须立即视为旧 candidate 失效，暂停黑盒/Gate，重新完成新 head CI 与 `release-candidate` 移动。
 
 ### 球搭子问题整改
 - 唯一自动修复者。
@@ -140,10 +141,11 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 
 1. 实时读取 PR #20 exact head SHA；
 2. 实时读取 Vercel `qiudazi-h5` deployments；
-3. 只有找到 `READY` 且 Git source commit SHA 与 exact head 完全一致的 Preview，才允许进入 backlog 读取和真实页面测试；
-4. 不存在 exact-head READY Preview 时，运行结果为 `WAITING_FOR_CANDIDATE`：不是缺陷、不是 BLOCKED，不创建 AUD、不读取 backlog、不测试旧 Preview，并且应静默结束，不给用户发送无意义通知；
+3. 只有找到 `READY`、`githubCommitRef=release-candidate` 且 `githubCommitSha` 与 exact head 完全一致的 Preview，才允许进入 backlog 读取和真实页面测试；
+4. 不存在该 exact-head READY Preview 时，运行结果为 `WAITING_FOR_CANDIDATE`：不是缺陷、不是 BLOCKED，不创建 AUD、不读取 backlog、不测试旧 Preview，并且应静默结束，不给用户发送无意义通知；
 5. 一旦候选存在，本轮锁定 deployment id / URL / head SHA，禁止在测试过程中切换到其它 Preview；
-6. 黑盒任务自身不得主动触发 Vercel。候选 Preview 由总控在发布相关修复收口、exact-head CI green、repo/live 一致性达到候选条件后受控创建一次。
+6. 黑盒任务自身不得主动触发 Vercel。候选 Preview 只由总控按 `docs/RELEASE_GOVERNANCE.md`：发布相关 P0/P1 收口 → exact-head CI green → canonical 同步 → Candidate Freeze → 移动 `release-candidate` 后由 Git Integration 自动生成；
+7. 若测试开始前发现 PR head 已再次前移，即使旧 candidate 仍 READY，也必须停止并返回 `WAITING_FOR_CANDIDATE`；旧 SHA 不得继承验证资格。
 
 此规则的目标是确保“开始黑盒 = 已经有东西可测”，同时避免旧 Preview 被误当 current-head 候选以及无候选时重复产生噪声报告。
 
@@ -151,7 +153,7 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 独立安全发现与验证；结合真实 grants、exposure、function ACL、业务身份校验判断，不因 Advisor INFO/WARN 机械升 P0。DB 不可达不应阻止其继续做静态/配置安全检查，但不能因此给正式状态结论。数据库安全结论前先执行 §1.1 环境身份校验。
 
 ### 球搭子部署前审计
-独立 Release Gate；不修代码/DB/长期文档。必须核对 exact head、CI build + clean replay、repo/live migration version 与 SQL 语义一致性、真实黑盒/Visual/English 与发布相关 backlog。live backlog 不可达时可以继续其它 Gate 检查，但最终只能 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，不能 PASS。
+独立 Release Gate；不修代码/DB/长期文档。必须核对 exact head、CI build + clean replay、`release-candidate` exact-head READY deployment identity、repo/live migration version 与 SQL 语义一致性、对应 deployment 的真实黑盒/Visual/English 与发布相关 backlog。live backlog 不可达时可以继续其它 Gate 检查，但最终只能 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，不能 PASS。
 
 ## 6. Issue #21、Snapshot 与共享写入
 
@@ -177,16 +179,21 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 
 ## 8. 发布规则
 
+- 发布与候选分支顺序的 canonical source 是 `docs/RELEASE_GOVERNANCE.md`；本节定义审计/自动化如何执行该规则。
 - CI green 不等于功能/Visual/权限/Gate 通过。
 - H5 Build Check 的 repository visibility、server-secret、migration preflight、Supabase clean replay、后端结构断言均属于 Release Gate 必要证据；任何一项失败都必须读实际日志根因，禁止仅按 step 名称推断。
 - Repository 必须保持 Private；意外变回 public 直接阻塞发布。
-- 普通 commit 不主动触发 Vercel；完整候选后才受控创建 Preview。
-- 黑盒测试只消费 exact-head READY Preview，不负责生产 Preview；没有候选时静默等待。
+- Vercel Git deployment 长期只允许 `release-candidate` 与 `main`；普通 feature/docs/fix commit 不应产生 deployment。
+- Candidate Freeze 前必须完成 canonical 文档同步；Freeze 后任何代码、migration 或 canonical 文档变更都使旧 candidate 自动失效。
+- `release-candidate` 只作为受控触发器，不承载独立开发；只有 PR exact-head CI green 后才允许移动到该 head。
+- 黑盒测试只消费 `READY + githubCommitRef=release-candidate + githubCommitSha=PR exact head` 的 Preview，不负责生产 Preview；没有候选时静默等待。
+- Release Gate 的 CI、Preview、黑盒证据必须属于同一 exact head；任一证据属于旧 SHA 时不得 PASS。
 - Release Gate 只对发布相关 P0 与核心 P1 阻塞；P1 新能力不能仅因“不是 P0”被机械判失败，但进入候选后的真实回归/不可用属于阻塞。
 - repository ↔ live Supabase migration/RPC/RLS/Storage/Edge Function 不一致时阻塞发布；migration version 对不上也属于不一致。
 - live backlog 暂不可达时 Gate 不得 PASS；先保留 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，待正式路径恢复后复核。
-- 未通过 Gate 不进入 CloudBase 正式候选，不自动 merge `main`。
-- 当前 private repository 在现有 GitHub 方案下无法使用 repository ruleset；main 保护采用 feature branch → PR → exact-head H5 Build Check → Release Gate → 人工 merge 的流程治理。所有自动化禁止直接 push/merge main。若未来升级 GitHub Pro 并恢复 ruleset，必须运行时验证后再把平台保护作为 Gate 证据。
+- 不得为了触发部署提前 merge/push main，也不得用 main Production 代替 Preview 验证。
+- 未通过 Gate 不进入 CloudBase 正式候选，不自动 merge `main`；Gate PASS 后仍由用户/总控决定是否 merge。
+- 当前 private repository 在现有 GitHub 方案下无法使用 repository ruleset；main 保护采用 feature branch → PR → exact-head H5 Build Check → Candidate Freeze → `release-candidate` exact-head Preview → 黑盒 → Release Gate → 人工 merge 的流程治理。所有自动化禁止直接 push/merge main。若未来升级 GitHub Pro 并恢复 ruleset，必须运行时验证后再把平台保护作为 Gate 证据。
 
 ## 9. 当前迁移事实（2026-08-30）
 
