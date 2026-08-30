@@ -83,6 +83,22 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
     }
   }
 
+  async function lockRosterAndDraw() {
+    const locked = await rpc<Snapshot["event"]>("lock_event_roster", { p_event_id: id, p_version: q.data!.event.version });
+    try {
+      await command(locked.id, { type: "draw", event_version: locked.version, confirmed: true });
+      setTab("draw");
+      setNotice(en ? "Roster locked and the initial draw was generated." : "名单已锁定，并已自动生成首次对阵。");
+    } catch (drawError) {
+      setTab("draw");
+      await Promise.all([q.refresh(), myEntryQ.refresh()]);
+      const detail = explainError(drawError);
+      throw new Error(en
+        ? `The roster is locked, but the initial draw did not finish. Use “Retry draw” to continue. ${detail}`
+        : `名单已经锁定，但首次对阵没有生成完成。请点击“继续生成对阵”重试。${detail}`);
+    }
+  }
+
   async function share() {
     const url = `${location.origin}${location.pathname}#/events/${id}`;
     try {
@@ -213,18 +229,23 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
         {tab === "photo" && <PhotoPanel s={s} owner={owner} onDone={q.refresh} />}
 
         {owner && e.status === "locked" && <div className="stack">
-          <button disabled={busy} onClick={() => setConfirm({
-            title: e.draw_generated ? txt("重新生成对阵？", "Regenerate the draw?") : txt("生成本场对阵？", "Generate the draw?"),
-            description: e.draw_generated
-              ? txt("将清空当前签表，按正式名单重新生成。自动轮空不算已经开赛。", "The current draw will be cleared and rebuilt from the confirmed roster. Automatic byes do not count as started matches.")
-              : txt("按锁定的正式名单和赛制生成；此操作不会开始赛事。", "Generate from the locked confirmed roster and event format. This does not start the event."),
+          {!e.draw_generated ? <button disabled={busy} onClick={() => setConfirm({
+            title: txt("继续生成首次对阵？", "Retry the initial draw?"),
+            description: txt("名单已经锁定。继续只会按当前正式名单生成对阵，不会再次锁定或修改参赛名单。", "The roster is already locked. Retry only generates the draw from the confirmed roster; it does not lock or change the roster again."),
             run: () => command(e.id, { type: "draw", event_version: e.version, confirmed: true }),
-          })}>{e.draw_generated ? txt("重新生成对阵", "Regenerate draw") : txt("生成对阵", "Generate draw")}</button>
-          {e.draw_generated && <button disabled={busy} onClick={() => setConfirm({
-            title: txt("开始赛事？", "Start the event?"),
-            description: txt("开始后开放记分，不能再改动参赛名单。", "Scoring opens after the event starts and the roster can no longer be changed."),
-            run: () => command(e.id, { type: "start", event_version: e.version }),
-          })}>{txt("开始赛事", "Start event")}</button>}
+          })}>{txt("继续生成对阵", "Retry draw")}</button> : <>
+            <button className="secondary" disabled={busy} onClick={() => setTab("draw")}>{txt("查看对阵", "View draw")}</button>
+            <button disabled={busy} onClick={() => setConfirm({
+              title: txt("开始赛事？", "Start the event?"),
+              description: txt("开始后开放记分，不能再改动参赛名单。", "Scoring opens after the event starts and the roster can no longer be changed."),
+              run: () => command(e.id, { type: "start", event_version: e.version }),
+            })}>{txt("开始赛事", "Start event")}</button>
+            <button className="text-button" disabled={busy} onClick={() => setConfirm({
+              title: txt("重新生成对阵？", "Regenerate the draw?"),
+              description: txt("将清空当前签表，按正式名单重新生成。自动轮空不算已经开赛。", "The current draw will be cleared and rebuilt from the confirmed roster. Automatic byes do not count as started matches."),
+              run: () => command(e.id, { type: "draw", event_version: e.version, confirmed: true }),
+            })}>{txt("重新生成对阵", "Regenerate draw")}</button>
+          </>}
           <button className="text-button" disabled={busy} onClick={() => setConfirm({
             title: txt("解锁并清空对阵？", "Unlock roster and clear the draw?"),
             description: txt("将重新开放报名，清空当前所有对阵。已有正式比赛开始或结束时禁止解锁。", "Registration will reopen and the draw will be cleared. Unlocking is blocked after a real match has started or finished."),
@@ -256,9 +277,9 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
               : own.status === "waitlist" ? txt("已候补 · 查看名单", "Waitlisted · view roster") : txt("已报名 · 查看名单", "Registered · view roster")}
           </button>}
           {owner && e.status === "signup" && <button className="grow" disabled={busy} onClick={() => setConfirm({
-            title: txt("锁定参赛名单？", "Lock the roster?"),
-            description: txt("锁定后不能继续报名、退出或递补。请确认正式名单和小组人数设置无误；锁定不会自动生成对阵。", "After locking, registration, withdrawal and waitlist promotion stop. Check the confirmed roster and group settings first; locking does not generate the draw."),
-            run: () => rpc("lock_event_roster", { p_event_id: id, p_version: e.version }),
+            title: txt("锁定参赛名单并生成对阵？", "Lock the roster and generate the draw?"),
+            description: txt("锁定后不能继续报名、退出或递补。请确认正式名单和小组人数设置无误；确认后系统会立即自动生成首次对阵。", "After locking, registration, withdrawal and waitlist promotion stop. Check the confirmed roster and group settings first; the initial draw is generated automatically after confirmation."),
+            run: lockRosterAndDraw,
           })}>{txt("锁定名单", "Lock roster")}</button>}
           {e.status !== "signup" && <button className="secondary full" onClick={share}>{t("shareEvent")}</button>}
         </div></div>
