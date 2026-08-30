@@ -1,6 +1,20 @@
 # 球搭子 H5 — CHANGELOG
 
-本文件记录影响产品行为、数据模型、权限、技术架构和发布状态的主要变化。更早的逐提交历史仍可从 Git history 与 Issue #21 append-only 工作日志追溯；当前产品规则以 PRD / PRODUCT / INTERACTION / VISUAL / PHOTO_ALBUM / P0 / ENVIRONMENT_BASELINE / RELEASE_GOVERNANCE / AUDIT_AUTOMATION_GOVERNANCE 为准。
+本文件记录影响产品行为、数据模型、权限、技术架构和发布状态的主要变化。更早的逐提交历史仍可从 Git history 与 Issue #21 append-only 工作日志追溯；当前产品规则以 PRD / PRODUCT / INTERACTION / VISUAL / PHOTO_ALBUM / P0 / ENVIRONMENT_BASELINE / RELEASE_GOVERNANCE / BROWSER_BLACKBOX_BASELINE / AUDIT_AUTOMATION_GOVERNANCE 为准。
+
+---
+
+## 2026-08-30 — 真实浏览器黑盒执行器永久化（GitHub Actions + Playwright）
+
+- 复盘确认原「球搭子全功能测试」ChatGPT 定时任务虽然能读取 GitHub/Supabase/Vercel/HTTP 内容，但其运行环境没有稳定的真实浏览器、移动 viewport、点击/输入、双会话和文件上传执行能力；因此“candidate 已存在但自动黑盒无法真正操作页面”属于测试执行器能力缺口，不是产品缺陷。
+- 新增 `docs/BROWSER_BLACKBOX_BASELINE.md` 作为真实浏览器黑盒 canonical source，明确从此 HTTP fetch、源码、CI、Supabase SQL、Vercel connector 均只能作为补充证据，不能替代真实浏览器交互。
+- 新增/加固 `.github/workflows/candidate-browser-blackbox.yml`：仅对 `release-candidate` exact head 运行，GitHub-hosted runner 实际启动 Playwright Chromium + WebKit；使用 GitHub Actions OIDC 短时 token 访问受保护 Vercel Preview，不保存长期 bypass secret；timeout 扩展为 30 分钟，成功/失败均上传 exact-SHA evidence artifact。
+- `scripts/write-build-meta.mjs` + `npm run build` 在候选产物生成 `/build-meta.json`，Browser Blackbox 必须二次确认 `sha=expected SHA` 且 `ref=release-candidate`，从页面实际构建产物层阻止 branch alias / deployment metadata 漂移。
+- `qa/candidate-browser-blackbox.mjs` 保留真实 mobile/English/dual-session 基线：Chromium 375/390/430、WebKit 390、English、四导航、Quick Start viewport、双 BrowserContext 隔离、截图与真实文件输入。
+- 新增 `qa/candidate-full-lifecycle.mjs`，以 390px English Chromium 真实执行：报名截止 auto/custom；Settings/Privacy 保存→reload 持久化；Quick Start 在 `create_quick_event` 成功后人为中断第一次 `tournament-command` 并验证同 event id Retry draw；标准赛事 create→owner 报名→第二真实用户报名→一次锁定自动 draw→start→真实 Match 6:0 记分→standings→finish；赛事照片真实 file input 上传→participant 导入个人相册→organizer 删除源→personal copy 仍存在。
+- 复杂流程保存 Playwright trace ZIP 与关键截图；artifact 固定名 `candidate-browser-evidence-<github.sha>`，同时包含 `result.json` 与 `full-lifecycle-result.json`。Release Gate 除 workflow success 外还必须核对 same SHA、两个 JSON `ok=true` 和关键证据。
+- 运行状态新增：`WAITING_FOR_BROWSER_EVIDENCE`（候选已有但 browser workflow 尚未完成）与 `BROWSER_INFRA_FAILURE`（runner/OIDC/DNS/Playwright/artifact 基础设施失败）；二者都不是产品 AUD。只有真实浏览器已经进入产品并复现业务/权限/视觉/持久化问题时，才按正式 backlog 建单/追加证据。
+- 「球搭子全功能测试」角色正式改为 Browser Blackbox 总控/证据复核者，不再假定自身是浏览器执行器；Release Gate 必须消费 same-SHA Browser Blackbox workflow/artifact。README、ENVIRONMENT、RELEASE_GOVERNANCE、P0、AUDIT_AUTOMATION_GOVERNANCE 与自动化 prompt 同步该规则。
 
 ---
 
@@ -200,11 +214,12 @@
 ---
 
 ## 发布原则
-- Repository 必须保持 Private。当前 GitHub 方案下 private repo 无 repository ruleset 平台强制保护，main 采用 feature branch → PR → exact-head H5 Build Check → Candidate Freeze → `release-candidate` exact-head Preview → 黑盒/Visual/English → Release Gate → 人工 merge 的流程治理；所有自动化禁止直接 push/merge main。
-- 功能变化必须同步 PRD / PRODUCT / INTERACTION / VISUAL / 专项基线 / P0 / ENVIRONMENT_BASELINE / RELEASE_GOVERNANCE / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG。
+- Repository 必须保持 Private。当前 GitHub 方案下 private repo 无 repository ruleset 平台强制保护，main 采用 feature branch → PR → exact-head H5 Build Check → Candidate Freeze → `release-candidate` exact-head Preview + Candidate Browser Blackbox → 黑盒证据复核 → Release Gate → 人工 merge 的流程治理；所有自动化禁止直接 push/merge main。
+- 功能变化必须同步 PRD / PRODUCT / INTERACTION / VISUAL / 专项基线 / P0 / ENVIRONMENT_BASELINE / RELEASE_GOVERNANCE / BROWSER_BLACKBOX_BASELINE / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG。
 - 修复者只能把正式 AUD 推到 `FIXED_PENDING_VERIFY`；独立测试/审计通过后才能 `VERIFIED`。
-- 黑盒测试只消费 `READY + githubCommitRef=release-candidate + githubCommitSha=当前 PR exact head` 的 Preview；没有可测候选时静默等待，不把旧 Preview 当成当前候选。
-- Candidate Freeze 后若 PR head 因代码/migration/canonical 文档更新而变化，旧 Preview 自动作废并必须重新生成候选。
+- 黑盒测试只消费 `READY + githubCommitRef=release-candidate + githubCommitSha=当前 PR exact head` 的 Preview，并必须有 same-SHA `Candidate Browser Blackbox` workflow/artifact；没有可测候选或真实浏览器证据时只等待，不把旧 Preview/HTTP/source 当成当前黑盒。
+- Candidate Freeze 后若 PR head 因代码/migration/测试基础设施/canonical 文档更新而变化，旧 Preview 与旧 Browser Blackbox 自动作废并必须重新生成候选。
+- Browser runner/OIDC/DNS/Playwright/artifact 自身失败标记 `BROWSER_INFRA_FAILURE`，不建立产品 AUD；真实浏览器进入产品后发现的失败才进入正式 backlog。
 - 发布相关 P0 或核心 P1 未独立验证时，Release Gate 必须 BLOCKED。
 - live backlog 不可达时 Release Gate 只能降级为 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，不得 PASS；待正式路径恢复后重新核对。
 - P1 新能力不因“不是 P0”机械失败，但进入候选后若造成既有 P0 回归、权限扩大或核心流程不可用，仍是 Release Gate 阻塞项。
