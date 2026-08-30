@@ -15,6 +15,16 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Validate canonical environment identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          canonical_ref="rtmjzmgrhifjzxaliltm"
+          canonical_url="https://${canonical_ref}.supabase.co"
+          grep -Fq "canonical project ref / project_id：\`${canonical_ref}\`" docs/ENVIRONMENT_BASELINE.md
+          grep -Fxq "VITE_SUPABASE_URL=${canonical_url}" .env.example
+          grep -Fq "${canonical_url}" src/repositories/supabase.ts
+          echo "Environment identity preflight passed: ${canonical_ref}."
       - uses: actions/setup-node@v4
         with:
           node-version: '22.12.0'
