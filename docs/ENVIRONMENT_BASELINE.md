@@ -1,6 +1,6 @@
 # 球搭子环境与基础配置基线
 
-> 本文是「球搭子」工程环境身份、基础配置与部署边界的 canonical source。凡是项目 ID、仓库、分支、运行环境、环境变量、部署平台角色等基础信息发生冲突，以本文 + 运行时重新校验结果为准；不得以旧聊天、旧日志、历史截图或模型记忆替代。
+> 本文是「球搭子」工程环境身份、基础配置与部署边界的 canonical source。凡是项目 ID、仓库、分支、运行环境、环境变量、部署平台角色等基础信息发生冲突，以本文 + 运行时重新校验结果为准；不得以旧聊天、旧日志、历史截图或模型记忆替代。发布流程与候选分支的详细顺序以 `docs/RELEASE_GOVERNANCE.md` 为准。
 
 ## 1. GitHub
 
@@ -8,12 +8,12 @@
 - canonical visibility：**Private**。运行时 `visibility` 必须为 `private`；H5 Build Check 会校验 `github.event.repository.private=true`，若意外变回 public 直接失败。
 - 默认分支：`main`
 - 当前大版本开发分支：`feature/20260829-event-lifecycle-privacy-i18n`
-- 发布候选分支：`release-candidate`。该分支不是长期开发分支，只在 candidate freeze 后由总控移动到已经通过 exact-head CI 的 PR head，用于触发一份可追溯 Vercel Preview。
+- 发布候选分支：`release-candidate`。该分支不是长期开发分支，只在 Candidate Freeze 后由总控移动到已经通过 exact-head CI 的 PR head，用于触发一份可追溯 Vercel Preview；任何独立开发、cherry-pick 或额外内容 commit 都不得落在该分支。
 - 当前开发 PR：`#20`
 - PR #20 在开发与收口阶段保持 Draft；未通过 Release Gate 不 merge main。
 - GitHub Actions：`.github/workflows/build.yml` 的 `H5 Build Check` 是当前基础 CI。
 - 当前 GitHub 账号方案下，仓库转为 Private 后 repository ruleset API 返回“Upgrade to GitHub Pro or make this repository public to enable this feature”；因此**不得再声称 main 当前由 GitHub ruleset 平台强制保护**。
-- 当前 main 保护采用流程治理：所有开发只写 feature branch → PR #20 → exact-head CI → `release-candidate` exact-head Preview → Release Gate → 人工 merge 决策；所有自动化均禁止直接 merge/push main。若未来升级 GitHub Pro 并重新启用 private-repo ruleset，必须运行时验证后再把“平台强制保护”写回本文。
+- 当前 main 保护采用流程治理：所有开发只写 feature branch → PR #20 → exact-head CI → Candidate Freeze → `release-candidate` exact-head Preview → 黑盒/Visual/English → Release Gate → 人工 merge 决策；所有自动化均禁止直接 merge/push main。若未来升级 GitHub Pro 并重新启用 private-repo ruleset，必须运行时验证后再把“平台强制保护”写回本文。
 - Private 转换后已确认：ChatGPT GitHub connector 仍有 admin/push/pull 权限，PR #20 可正常读取；Vercel Git link 仍指向同一 repository。
 
 > 分支 head SHA、PR merge SHA、workflow run id 属于动态运行事实，不写成长期固定值；每轮工作必须实时读取。
@@ -56,11 +56,14 @@
 - 当前项目名：`qiudazi-h5`；运行时已确认 Git link：`rmit-s3674091-Yating-Li/-qiudazi-h5`。project id 属于平台事实，使用时仍应从 Vercel 当前项目列表重新读取。
 - `vercel.json`：framework=`vite`、build=`npm run build`、output=`dist`。
 - Git deployment 采用**候选分支白名单**：`git.deploymentEnabled` 中 `** = false`，仅 `main = true` 与 `release-candidate = true`。使用 globstar 是为了覆盖 `feature/...` 等包含 `/` 的分支名；普通 feature/docs/fix push 不产生 Vercel deployment，从而控制 Hobby 配额。
-- `release-candidate` 是 Preview 触发器，不承载独立开发。总控只有在发布相关 P0/P1 收口、PR exact head CI green、repo/live 一致性满足候选条件后，才允许把 `release-candidate` 移动到该 exact head；移动后必须读取 Vercel deployment metadata，确认 `githubCommitSha` 与 PR exact head 完全一致，才视为正式 candidate。
+- 三层发布模型固定为：feature/docs/fix 只跑 CI → `release-candidate` 只触发唯一候选 Preview → `main` 只承担 Gate 通过后的正式发布语义。详细规则见 `docs/RELEASE_GOVERNANCE.md`。
+- `release-candidate` 是 Preview 触发器，不承载独立开发。总控只有在发布相关 P0/P1 收口、PR exact head CI green、repo/live 一致性满足候选条件、canonical 文档已同步后，才允许把 `release-candidate` 移动到该 exact head；移动后必须读取 Vercel deployment metadata，确认 `state=READY`、`githubCommitRef=release-candidate`、`githubCommitSha` 与 PR exact head 完全一致，才视为正式 candidate。
+- Candidate Freeze 后任何代码、migration 或 canonical 文档提交都会使旧 Preview 失去 exact-head 资格。此时必须暂停黑盒/Gate，重新等待新 head CI，再移动 `release-candidate`；不得继续测试旧 SHA。
 - 若 `release-candidate` 产生的 deployment SHA 与 PR exact head 不一致，不得用于黑盒/Gate；应停止后续测试并调查 Git/Vercel integration，不得用旧 Preview 顶替。
-- `main` 保留 Git deployment 是为了 Gate 通过、人工 merge 决策后产生正式部署；未通过 Gate 时自动化仍禁止 merge/push main。
+- `main` 保留 Git deployment 是为了 Gate 通过、人工 merge 决策后产生正式部署；未通过 Gate 时自动化仍禁止 merge/push main，也不得用 main Production 替代 Preview 验证。
 - repository 改 Private 后，必须保持 Vercel 对 private GitHub repo 的授权；若后续无法列出项目或部署，应先检查 GitHub App repository access，而不是立即重连/重建项目。
-- deployment id、Preview URL 属于运行时平台事实，不凭历史值长期硬编码；使用前从 Vercel 当前项目/部署列表重新读取。
+- deployment id、Preview URL、候选 SHA 属于运行时平台事实，不凭历史值长期硬编码；使用前从 Vercel 当前项目/部署列表重新读取。
+- 2026-08-30 已真实验证：将 `release-candidate` 移到当时 exact head 后，Vercel 自动生成 READY Preview，metadata 正确记录同一 `githubCommitRef` 与 `githubCommitSha`。该事实证明机制有效，但具体 SHA/deployment id 不作为长期配置保存。
 
 ## 6. CloudBase
 
@@ -75,18 +78,21 @@
 - 五个现役自动化涉及 Supabase 前均必须先验证本文的 environment identity；不得从任务 prompt、旧运行结果或 snapshot 自己猜 project_id。
 - 环境映射与本文不一致时，停止写操作并报告 `ENVIRONMENT_IDENTITY_MISMATCH`；不得通过不断尝试不同 project_id 来“碰运气”。
 - GitHub repository visibility 若不是 private，属于基础环境漂移；安全审计/Release Gate 应报告并阻塞候选。
-- 在当前 private + 非 Pro 方案下，不得把“ruleset/platform branch protection 存在”当成 Gate 证据；只能把 PR/CI/Gate 过程证据视为当前有效治理。所有自动化继续严格禁止直接 merge main。
+- 在当前 private + 非 Pro 方案下，不得把“ruleset/platform branch protection 存在”当成 Gate 证据；只能把 PR/CI/Candidate/Gate 过程证据视为当前有效治理。所有自动化继续严格禁止直接 merge main。
+- 黑盒和 Gate 必须以 `docs/RELEASE_GOVERNANCE.md` 的 exact-head candidate 身份条件为准；没有 current-head READY candidate 时不得测试旧 Preview 或给最终 Gate PASS/FAIL。
 
 ## 8. 配置变更流程
 
-任何基础配置发生变化（例如 Supabase project ref、GitHub repo、repository visibility、主分支、部署环境、关键 env var 名称）时，必须在同一轮完成：
+任何基础配置发生变化（例如 Supabase project ref、GitHub repo、repository visibility、主分支、候选分支、部署环境、关键 env var 名称）时，必须在同一轮完成：
 
 1. 运行时验证新事实；
 2. 更新本文；
-3. 更新实际配置/代码/CI；
-4. 更新 README 的引用与必要摘要；
-5. 更新 `CHANGELOG.md`；
-6. 检查自动化 prompt 是否还硬编码旧值；
-7. 重新跑 exact-head CI / 必要环境验证。
+3. 更新 `docs/RELEASE_GOVERNANCE.md`（若涉及发布/部署）；
+4. 更新实际配置/代码/CI；
+5. 更新 README 的引用与必要摘要；
+6. 更新 `docs/P0_ACCEPTANCE.md` 与 `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 中相关 Gate 规则；
+7. 更新 `CHANGELOG.md`；
+8. 检查自动化 prompt 是否还硬编码旧值；
+9. 重新跑 exact-head CI / 必要环境验证。
 
 **禁止只修改其中一处。** 基础配置属于“低频但高影响”信息，宁可运行时再次确认，也不得依赖记忆。
