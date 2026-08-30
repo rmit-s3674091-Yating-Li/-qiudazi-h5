@@ -101,7 +101,7 @@
 ## Deployment policy
 - Repository 必须保持 **Private**。当前账号方案下 private repo 的 GitHub repository ruleset 不可用，因此不能再把“平台 ruleset 已强制保护 main”作为事实或 Gate 证据。
 - 当前 main 治理由流程强制：所有开发只写 feature branch，经 PR、exact-head H5 Build Check、`release-candidate` exact-head Preview、Release Gate 后再由用户/总控做 merge 决策；所有自动化禁止直接 merge/push main。若未来升级 GitHub Pro 并重新启用 ruleset，需运行时验证后再恢复平台级保护描述。
-- Vercel Git deployment 不是全开：`vercel.json` 默认 `* = false`，仅 `release-candidate = true` 与 `main = true`。日常 feature/docs/fix push 不产生 Preview，避免浪费 Hobby 配额。
+- Vercel Git deployment 不是全开：`vercel.json` 默认 `** = false`（globstar 覆盖 `feature/...` 等带斜杠分支），仅 `release-candidate = true` 与 `main = true`。日常 feature/docs/fix push 不产生 Preview，避免浪费 Hobby 配额。
 - 完整候选完成发布相关 P0/P1 修复、build、migration preflight + clean replay、repo/live version/SQL 语义一致性与权限审计后，总控才允许把 `release-candidate` 移动到 PR exact head。Vercel 自动生成 Preview 后必须核对 deployment `githubCommitSha` 与 PR exact head 完全一致，才进入真实黑盒 / Visual / English QA。
 - `release-candidate` 只作为触发器，不承载独立开发；若 Preview SHA 不匹配，不得用旧 Preview 顶替。
 - Quick Start 是 P1，不因“不是 P0”机械阻塞；但若它已进入当前候选并造成四导航/P0 页面回归、权限扩大或标准赛事生命周期回归，Release Gate 必须阻塞。
