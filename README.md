@@ -113,3 +113,5 @@
 - Preview 通过不等于 Release Gate；Gate 通过后再进入中国区 CloudBase 手动部署。
 - live backlog 暂不可达时 Gate 不得 PASS；待正式 Supabase 路径恢复并重新核对后才能解除 degraded 状态。
 - 未通过 Gate 不自动 merge main。
+
+> 发布治理补充：2026-08-30 已完成 `release-candidate` → exact-head READY Preview 的真实闭环验证；具体 SHA/deployment id 属运行时证据，不在 README 固化。
