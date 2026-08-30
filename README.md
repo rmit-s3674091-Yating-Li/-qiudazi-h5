@@ -11,18 +11,20 @@
 4. `docs/PHOTO_ALBUM_BASELINE.md` — 当前赛事照片/参与赛事相册专项真源
 5. `docs/VISUAL_DESIGN_BASELINE.md`
 6. `docs/P0_ACCEPTANCE.md`
-7. `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
-8. `CHANGELOG.md`
-9. 当前源码、migration、Edge Functions 与 GitHub CI
+7. `docs/ENVIRONMENT_BASELINE.md` — 环境身份、仓库、Supabase、部署与基础配置真源
+8. `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
+9. `CHANGELOG.md`
+10. 当前源码、migration、Edge Functions 与 GitHub CI
 
-若早期 PRD、Demo、旧 bundle 或历史评论与上述当前基线冲突，以当前基线和用户最近明确决定为准。
+若早期 PRD、Demo、旧 bundle、历史评论或历史运行配置与上述当前基线冲突，以当前基线和运行时重新验证结果为准。
 
 ## Environment identity
+基础环境与配置的完整真源统一见 `docs/ENVIRONMENT_BASELINE.md`。README 只保留必要摘要，避免多处重复维护后漂移：
 - 当前球搭子共享测试 Supabase 项目名固定为 `qiudazi-test`。
-- 当前 canonical Supabase project ref / project_id 为 **`rtmjzmgrhifjzxaliltm`**，前端 API host 也必须对应 `https://rtmjzmgrhifjzxaliltm.supabase.co`。
-- 任何自动化、总控或人工脚本在执行 Supabase SQL、migration、Storage、Edge Function 或审计 backlog 操作前，都必须先通过 Supabase project list / project detail 校验 `qiudazi-test → rtmjzmgrhifjzxaliltm`，不得从旧聊天、旧日志、snapshot 或历史上下文复用其它 project_id。
-- 若 project list 中看不到该映射，先视为连接器/账号环境异常；不得用猜测的 project_id 重试写操作。
-- `You do not have permission to perform this action` 必须先区分“错误/不可见 project_id”与 ChatGPT 插件权限、Supabase 项目角色、数据库 grant/RPC/RLS，不能直接归因于数据库 ACL。
+- 当前 canonical Supabase project ref / project_id 为 **`rtmjzmgrhifjzxaliltm`**，前端 API host 对应 `https://rtmjzmgrhifjzxaliltm.supabase.co`。
+- 任何自动化、总控或人工脚本在执行 Supabase SQL、migration、Storage、Edge Function 或审计 backlog 操作前，都必须先通过运行时 project list / detail 校验该映射；不得从旧聊天、旧日志、snapshot 或历史上下文复用其它 project_id。
+- 若 project list 中看不到 canonical 映射，先视为连接器/账号环境异常；不得用猜测的 project_id 重试写操作。
+- `You do not have permission to perform this action` 必须按 `ENVIRONMENT_BASELINE` 的分层顺序诊断，不能直接归因于数据库 ACL。
 
 ## Stable product principles
 - Profile/User、Player、Connection 分离；昵称不是关联键。
@@ -68,6 +70,7 @@
 详细规则见 `docs/PHOTO_ALBUM_BASELINE.md`。
 
 ## Development hygiene
+- 基础配置、环境身份、env var 与部署平台角色统一服从 `docs/ENVIRONMENT_BASELINE.md`；不得在不同文档/任务中各维护一份互相独立的真值。
 - migration 文件统一使用 `YYYYMMDDHHMMSS_snake_case.sql`；14 位 version 在 repo 内必须全局唯一。
 - live 通过 `apply_migration` 生成版本后，repo 对应文件必须使用**同一个 version 与同一 SQL 语义**，禁止 live/repo 使用“相近但不同”的时间戳。
 - 新增 migration 前同时重读 repo migration 目录与 live migration list；并发 writer 不得凭历史目录快照自行分配版本。
