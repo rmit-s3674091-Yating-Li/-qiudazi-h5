@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-08-30 — 黑盒测试改为 Candidate-driven Preflight
+
+- 复盘确认：黑盒自动化在没有 current-head Preview 时仍执行 backlog/环境检查，会产生“没有东西可测”的噪声报告；这不是产品缺陷，而是调度顺序错误。
+- 「球搭子全功能测试」现改为 candidate-driven condition watch。每轮最先读取 PR #20 exact head 与 Vercel deployments；只有存在 `READY` 且 Git source commit SHA 与 exact head 完全一致的 Preview 时，才进入正式 backlog 读取和真实页面测试。
+- 若不存在 exact-head READY Preview，本轮状态为 `WAITING_FOR_CANDIDATE`：不是 `BLOCKED`、不创建 AUD、不改 backlog、不测试旧 Preview、不继续执行后续黑盒步骤，并应静默结束，避免向用户重复发送“无法测试”的无效通知。
+- 一旦候选存在，黑盒锁定该 deployment id / URL / head SHA 作为本轮唯一测试对象；旧 Preview、HTTP 200、源码或 CI 结果均不能替代真实页面黑盒。
+- 黑盒任务只消费候选，不负责生产 Vercel Preview。候选由总控在发布相关修复收口、exact-head CI green、repo/live 一致性达到候选条件后受控创建一次，从而继续控制 Preview 配额。
+- `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 已新增 Candidate Preflight，并修正“所有任务先读 backlog”的旧顺序：黑盒必须先确认有 current-head 可测候选，再读 backlog。
+
+---
+
 ## 2026-08-30 — GitHub Repository 转为 Private / 基础配置安全收口
 
 - GitHub repository `rmit-s3674091-Yating-Li/-qiudazi-h5` 已由 Public 转为 **Private**，并经运行时 `get_repo` 重新确认 `visibility=private`。
@@ -63,7 +74,7 @@
 - `public.audit_list_issues()` 实际 `RETURNS jsonb`，fallback 返回一列 JSON 数组；自动化不得把它误当 `RETURNS TABLE` 使用。
 - 已实际验证：readonly view 可读取当前 OPEN/IN_PROGRESS backlog；`anon/authenticated` 无 SELECT，后台角色仅保留必要 SELECT；RPC/SQL function fallback 也可取得正式 JSON backlog。
 - migrations：`20260830032055_add_readonly_audit_issue_registry_view`、`20260830032103_restrict_readonly_audit_issue_registry_view`、`20260830032403_restrict_audit_readonly_view_to_select_only`。
-- 后续若三条正式路径因**连接器权限/安全层**同时不可达，不再机械整轮 `BLOCKED`；当前最终降级规则以本文件上方“Snapshot 降级机制”与 `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 为准。
+- 后续若三条正式路径因连接器权限/安全层同时不可达，不再机械整轮 `BLOCKED`；当前最终降级规则以本文件上方“Snapshot 降级机制”与 `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 为准。
 
 ---
 
@@ -79,10 +90,10 @@
 - actual participant 可以查看自己参赛赛事当前存在的照片，但不能上传/替换/删除源照片。
 - 系统不自动把赛事照片塞入个人相册；participant 必须逐张主动“加入我的参与赛事相册”。
 - 加入成功不再只是 EventPhoto 收藏引用，而是复制/固化成该 Profile 自己的独立 private original + protected preview 个人资产。
-- organizer 之后删除源照片，只让赛事页源照片消失并阻止未来新导入；**此前已经成功导入的 participant 个人副本继续存在，不受源删除影响**。
+- organizer 之后删除源照片，只让赛事页源照片消失并阻止未来新导入；此前已经成功导入的 participant 个人副本继续存在，不受源删除影响。
 - participant “移出我的相册”只删除本人个人副本，不影响赛事源或其他用户。
 - 参与赛事相册整体默认“仅自己可见”，可在设置与隐私切换为“搭子可见”；只有 accepted Connection 能看，并且只得到短时水印预览，无高清、Storage path 或管理权。
-- 当前 P0 已明确：赛事上下文中的 organizer / actual participant 可显式查看短时高清；**本人在“我的参与赛事相册”查看高清原图不是当前 P0 必需能力**。若现有代码已提供本人个人高清，只能视为受控附加能力，仍须服务端重校验 + 短时 URL，不能因此成为黑盒/Gate 的额外发布阻塞项。
+- 当前 P0 已明确：赛事上下文中的 organizer / actual participant 可显式查看短时高清；本人在“我的参与赛事相册”查看高清原图不是当前 P0 必需能力。若现有代码已提供本人个人高清，只能视为受控附加能力，仍须服务端重校验 + 短时 URL，不能因此成为黑盒/Gate 的额外发布阻塞项。
 
 ### 数据与后端
 - `20260830020252_participant_album_independent_assets.sql`：`event_photos` 取消单赛事唯一约束，支持一场多图；新增 `participant_album_photos` 独立个人资产表，包含 owner Profile、赛事上下文快照、nullable `source_event_photo_id`、个人 original / watermarked path、import time。
@@ -91,7 +102,7 @@
 - 新增/重构受控 RPC：`list_event_photos`、`add_event_photo`、`delete_event_photo_metadata`、`prepare_personal_album_import`、`finalize_personal_album_import`、`list_my_past_event_albums`、`get_personal_album_asset`、`list_partner_visible_event_albums`、`delete_my_personal_album_metadata`。
 - `20260830020857_photo_asset_model_hardening.sql`：源照片删除与 source add/finalize 共用 event 行锁边界；旧 version、metadata 已不存在或 DELETE 0-row 均返回可重试 `VERSION_CONFLICT`，不得误报删除成功；同时移除旧单图/自动历史兼容 RPC，避免旧调用路径绕过最终模型。
 - `20260830021240_photo_multi_snapshot_compat.sql`：旧 snapshot 的单图兼容字段停止承载照片对象路径，赛事照片统一从受控多图 RPC 获取。
-- live `photo-management` 已升级到 **v7 / ACTIVE / verify_jwt=true**：organizer source upload/delete、participant personal import/delete、self personal preview/original、partner preview 均经服务端路径；source delete 在 metadata 不存在或版本冲突时返回 409，而非成功。
+- live `photo-management` 已升级到 v7 / ACTIVE / verify_jwt=true：organizer source upload/delete、participant personal import/delete、self personal preview/original、partner preview 均经服务端路径；source delete 在 metadata 不存在或版本冲突时返回 409，而非成功。
 - personal import 由服务端从 private source 下载并复制到 `personal/<profile_id>/...` 路径，再落个人 metadata；源照片之后可独立删除。
 - 所有照片仍使用 private `event-photos` Storage；partner list 不下发 object path；accepted partner 只能按服务端 visibility/Connection 校验获取短时水印预览。
 - live 基础校验已确认：`event-photos.public=false`；`participant_album_photos.source_event_photo_id` 为 `ON DELETE SET NULL`；个人资产表 RLS=true 且 anon/authenticated 无直接 SELECT；legacy photo RPC 已不存在；空 photo_id 调用 source delete 正确产生 `VERSION_CONFLICT`。
@@ -134,9 +145,10 @@
 ---
 
 ## 发布原则
-- Repository 必须保持 **Private**。当前 GitHub 方案下 private repo 无 repository ruleset 平台强制保护，main 采用 feature branch → PR → exact-head H5 Build Check → Release Gate → 人工 merge 的流程治理；所有自动化禁止直接 push/merge main。
+- Repository 必须保持 Private。当前 GitHub 方案下 private repo 无 repository ruleset 平台强制保护，main 采用 feature branch → PR → exact-head H5 Build Check → Release Gate → 人工 merge 的流程治理；所有自动化禁止直接 push/merge main。
 - 功能变化必须同步 PRD / PRODUCT / INTERACTION / VISUAL / 专项基线 / P0 / ENVIRONMENT_BASELINE / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG。
 - 修复者只能把正式 AUD 推到 `FIXED_PENDING_VERIFY`；独立测试/审计通过后才能 `VERIFIED`。
+- 黑盒测试只消费 exact-head READY Preview；没有可测候选时静默等待，不把旧 Preview 当成当前候选。
 - 发布相关 P0 或核心 P1 未独立验证时，Release Gate 必须 BLOCKED。
 - live backlog 不可达时 Release Gate 只能降级为 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，不得 PASS；待正式路径恢复后重新核对。
 - P1 新能力不因“不是 P0”机械失败，但进入候选后若造成既有 P0 回归、权限扩大或核心流程不可用，仍是 Release Gate 阻塞项。
