@@ -136,6 +136,16 @@ jobs:
           snapshot_function_count=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='get_event_snapshot';")
           test "$snapshot_function_count" -ge "1"
           test "$snapshot_photo_compat" = "$snapshot_function_count"
+      - name: Assert quick event mode boundaries
+        env:
+          PGPASSWORD: postgres
+        run: |
+          event_mode_column=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from information_schema.columns where table_schema='public' and table_name='events' and column_name='event_mode' and column_default='''standard''::text';")
+          quick_rpc=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='create_quick_event';")
+          list_mode=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='list_events' and position('e.event_mode' in pg_get_functiondef(p.oid))>0 and position('coalesce(e.event_mode, ''standard'')=''standard''' in pg_get_functiondef(p.oid))>0;")
+          test "$event_mode_column" = "1"
+          test "$quick_rpc" = "1"
+          test "$list_mode" = "1"
       - name: Stop isolated local Supabase
         if: always()
         run: supabase stop --no-backup
