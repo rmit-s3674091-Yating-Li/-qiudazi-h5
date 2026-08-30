@@ -7,11 +7,11 @@
 ## 2026-08-30 — Vercel 候选分支白名单部署机制
 
 - 根因确认：此前 `vercel.json` 使用 `git.deploymentEnabled=false` 全局关闭 Git deployments，因此 feature 与 main push 都不会自动产生新 deployment；这不是 feature branch、private repository 或 Supabase 问题。
-- 为兼顾 Hobby 配额与 exact-head 可追溯性，Vercel Git deployment 改为白名单：`* = false`，仅 `release-candidate = true` 与 `main = true`。
+- 为兼顾 Hobby 配额与 exact-head 可追溯性，Vercel Git deployment 改为白名单：`** = false`，仅 `release-candidate = true` 与 `main = true`。这里必须使用 globstar `**` 才能覆盖 `feature/...` 这类包含 `/` 的分支名；单星号 `*` 会漏掉斜杠分支。
 - 日常 feature/docs/fix push 继续不触发 Vercel；candidate freeze 后，总控只把专用 `release-candidate` 分支移动到已经通过 exact-head CI 的 PR head，从而触发一份 Preview。
 - 黑盒与 Release Gate 仍只接受 deployment metadata 中 `githubCommitSha` 与 PR exact head 完全一致的 READY Preview；`release-candidate` 只作为触发器，不承载独立开发。
 - Gate 通过前不 merge/push main；main 允许 Git deployment 仅用于最终人工 merge 决策后的正式部署。
-- `docs/ENVIRONMENT_BASELINE.md` 与 README 已同步该机制。
+- `docs/ENVIRONMENT_BASELINE.md` 与 README 已同步该机制；已实测 globstar 生效后，后续 feature 分支文档提交不再产生新的 Vercel deployment。
 
 ---
 
@@ -90,7 +90,7 @@
 - 新增 `docs/AUDIT_BACKLOG_SNAPSHOT.json` 作为只读工程快照，包含 `generated_at / source_path / source_head` 与非敏感审计元数据；它不是第二 backlog，也不是 Issue #21 的替代品。
 - 正式读取仍优先走 backend-only readonly view → 受控 RPC → 受信任 SQL function fallback；三条正式路径都因连接器权限/安全层暂不可达时，自动化改为读取 snapshot 并进入降级模式，而不是整轮停止。
 - Snapshot 只允许用于继续白盒/黑盒/安全/Gate 检查、识别已知 AUD 和辅助语义去重；禁止据此创建 AUD、修改正式 status/owner/evidence、将 `FIXED_PENDING_VERIFY` 变更为 `VERIFIED` 或声称 live backlog 已同步。
-- 新问题在 DB 不可达时使用运行标记 `UNFILED_PENDING_DB_ACCESS` 保存证据，待正式数据库路径恢复后再调用 `create_issue`；禁止手工编号。
+- 新问题在 DB 不可达时使用运行标记 `UNFILED_PENDING_DB_ACCESS` 保存证据，待后续能访问 Supabase 时再调用 `create_issue`；禁止手工编号。
 - Release Gate 无 live backlog 时可继续检查 exact head、CI、repo/live 其它一致性、Visual/English 与安全项，但最终只能 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，不能 PASS；snapshot 超过 2 小时只能作历史参考。
 - 「球搭子问题整改」在 DB 不可达时只能继续此前已明确认领的 IN_PROGRESS 工作，不得根据 snapshot 认领新的 OPEN。
 - `docs/AUDIT_AUTOMATION_GOVERNANCE.md`、README 与五个现役自动化任务已同步该降级协议；旧部署前审计/旧安全审计保持 disabled，现役为 V2。
