@@ -1,6 +1,7 @@
 // Bootstrap compatibility before any ESM dependency (including Supabase Auth)
-// can probe navigator.storage. Native StorageManager implementations are kept;
-// only missing methods are filled for partial WebKit implementations.
+// can probe navigator.storage. WebKit can expose Navigator as a host object that
+// rejects own-property patches, so install a stable prototype getter when the
+// StorageManager surface is missing or partial. Native methods stay preferred.
 (function () {
   if (typeof navigator === "undefined") return;
 
@@ -10,29 +11,52 @@
     estimate: function () { return Promise.resolve({ usage: 0, quota: 0 }); }
   };
 
+  function bindOrFallback(storage, method) {
+    try {
+      if (storage && typeof storage[method] === "function") {
+        return storage[method].bind(storage);
+      }
+    } catch (_) {}
+    return fallback[method];
+  }
+
+  var nativeStorage;
+  try { nativeStorage = navigator.storage; } catch (_) { nativeStorage = undefined; }
+
+  var complete = false;
   try {
-    if (typeof navigator.storage === "undefined") {
-      Object.defineProperty(navigator, "storage", {
+    complete = !!nativeStorage &&
+      typeof nativeStorage.persisted === "function" &&
+      typeof nativeStorage.persist === "function" &&
+      typeof nativeStorage.estimate === "function";
+  } catch (_) {}
+  if (complete) return;
+
+  var facade = {
+    persisted: bindOrFallback(nativeStorage, "persisted"),
+    persist: bindOrFallback(nativeStorage, "persist"),
+    estimate: bindOrFallback(nativeStorage, "estimate")
+  };
+
+  // Prefer the prototype because WebKit may reject defining properties directly
+  // on the Navigator host object. The getter returns one stable facade so callers
+  // such as Supabase Auth can safely evaluate navigator.storage.persisted.
+  try {
+    var proto = typeof Navigator !== "undefined" ? Navigator.prototype : Object.getPrototypeOf(navigator);
+    if (proto) {
+      Object.defineProperty(proto, "storage", {
         configurable: true,
-        value: fallback
+        get: function () { return facade; }
       });
       return;
     }
+  } catch (_) {}
 
-    ["persisted", "persist", "estimate"].forEach(function (method) {
-      if (typeof navigator.storage[method] !== "function") {
-        try {
-          Object.defineProperty(navigator.storage, method, {
-            configurable: true,
-            value: fallback[method]
-          });
-        } catch (_) {
-          try { navigator.storage[method] = fallback[method]; } catch (_) {}
-        }
-      }
+  // Last-resort fallback for browsers that allow an own Navigator property.
+  try {
+    Object.defineProperty(navigator, "storage", {
+      configurable: true,
+      get: function () { return facade; }
     });
-  } catch (_) {
-    // Leave non-configurable host objects untouched; browser blackbox will
-    // surface any unsupported runtime rather than hiding it.
-  }
+  } catch (_) {}
 })();
