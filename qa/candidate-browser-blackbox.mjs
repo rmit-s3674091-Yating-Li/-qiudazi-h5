@@ -4,11 +4,16 @@ import { chromium, webkit } from 'playwright';
 
 const baseUrl = process.env.BASE_URL;
 const expectedSha = process.env.EXPECTED_SHA;
+const oidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN || '';
 if (!baseUrl || !expectedSha) throw new Error('BASE_URL and EXPECTED_SHA are required');
+
+const protectionHeaders = oidcToken
+  ? { 'x-vercel-trusted-oidc-idp-token': oidcToken }
+  : {};
 
 const outDir = path.join(process.cwd(), 'qa-artifacts');
 fs.mkdirSync(outDir, { recursive: true });
-const results = { baseUrl, expectedSha, startedAt: new Date().toISOString(), checks: [] };
+const results = { baseUrl, expectedSha, authMode: oidcToken ? 'github-oidc' : 'none', startedAt: new Date().toISOString(), checks: [] };
 const record = (name, ok, details = '') => { results.checks.push({ name, ok, details }); if (!ok) throw new Error(`${name}: ${details}`); };
 
 async function waitForExactDeployment() {
@@ -16,16 +21,32 @@ async function waitForExactDeployment() {
   let last = '';
   while (Date.now() < deadline) {
     try {
-      const r = await fetch(new URL('/build-meta.json', baseUrl), { cache: 'no-store' });
-      if (r.ok) {
+      const r = await fetch(new URL('/build-meta.json', baseUrl), {
+        cache: 'no-store',
+        headers: protectionHeaders,
+        redirect: 'follow',
+      });
+      const contentType = r.headers.get('content-type') || '';
+      if (r.ok && contentType.includes('application/json')) {
         const meta = await r.json();
         last = JSON.stringify(meta);
         if (meta.sha === expectedSha) { record('exact-head deployment reached', true, last); return; }
-      } else last = `HTTP ${r.status}`;
+      } else {
+        const body = await r.text();
+        last = `HTTP ${r.status} ${contentType}; body=${body.slice(0, 120).replace(/\s+/g, ' ')}`;
+      }
     } catch (e) { last = String(e); }
     await new Promise(r => setTimeout(r, 5000));
   }
-  record('exact-head deployment reached', false, `expected ${expectedSha}; last=${last}`);
+  record('exact-head deployment reached', false, `expected ${expectedSha}; auth=${results.authMode}; last=${last}`);
+}
+
+function contextOptions(viewport, language = 'zh') {
+  return {
+    viewport,
+    locale: language === 'en' ? 'en-US' : 'zh-CN',
+    extraHTTPHeaders: protectionHeaders,
+  };
 }
 
 async function completeIdentity(page, nickname, withUpload = false) {
@@ -49,7 +70,7 @@ async function completeIdentity(page, nickname, withUpload = false) {
 
 async function assertMobileShell(browserType, viewport, label, language = 'zh') {
   const browser = await browserType.launch();
-  const context = await browser.newContext({ viewport, locale: language === 'en' ? 'en-US' : 'zh-CN' });
+  const context = await browser.newContext(contextOptions(viewport, language));
   if (language === 'en') await context.addInitScript(() => localStorage.setItem('qiudazi-language', 'en'));
   const page = await context.newPage();
   await completeIdentity(page, `QA-${label}-${expectedSha.slice(0,6)}`);
@@ -70,8 +91,8 @@ async function assertMobileShell(browserType, viewport, label, language = 'zh') 
 
 async function assertDualSession() {
   const browser = await chromium.launch();
-  const a = await browser.newContext({ viewport: { width: 390, height: 844 } });
-  const b = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const a = await browser.newContext(contextOptions({ width: 390, height: 844 }));
+  const b = await browser.newContext(contextOptions({ width: 390, height: 844 }));
   const pa = await a.newPage(), pb = await b.newPage();
   await completeIdentity(pa, `QA-A-${expectedSha.slice(0,6)}`);
   await completeIdentity(pb, `QA-B-${expectedSha.slice(0,6)}`, true);
