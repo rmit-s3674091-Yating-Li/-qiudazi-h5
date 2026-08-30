@@ -105,7 +105,10 @@ async function businessShellReady(page, timeout = 20_000) {
     await page.locator('a.quick-start-fab[href="#/quick-start"], a[href="#/quick-start"][aria-label]').first()
       .waitFor({ state: 'visible', timeout });
     const text = await page.locator('body').innerText();
-    return !/正在恢复你的球搭子身份|Restoring your Qiu Dazi identity/i.test(text);
+    const url = page.url();
+    return /#\/events(?:$|\?)/.test(url)
+      && !url.includes('/profile')
+      && !/正在恢复你的球搭子身份|Restoring your Qiu Dazi identity/i.test(text);
   } catch {
     return false;
   }
@@ -144,12 +147,15 @@ async function completeIdentity(page, nickname, withUpload = false, label = nick
       results.diagnostics.push({ label, kind: 'identity-retry', attempt, body: text.slice(0, 500) });
       await page.screenshot({ path: path.join(outDir, `${label}-identity-retry-${attempt}.png`), fullPage: true });
       await retry.first().click();
-      await sleep(1500);
+      await sleep(2000);
       continue;
     }
 
+    // Do not reload here. Reloading aborts an in-flight guest-session/auth/profile
+    // recovery request and can manufacture the exact failure this harness is trying
+    // to detect. Give the current navigation/auth chain time to settle naturally.
     results.diagnostics.push({ label, kind: 'identity-not-ready', attempt, url: page.url(), body: text.slice(0, 500) });
-    await page.reload({ waitUntil: 'domcontentloaded' });
+    await sleep(2500);
   }
 
   const finalText = await page.locator('body').innerText().catch(() => '');
