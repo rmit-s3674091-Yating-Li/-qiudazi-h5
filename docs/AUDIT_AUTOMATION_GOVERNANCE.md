@@ -7,10 +7,10 @@
 - **Supabase `audit_ops.issue_registry` 是待整改问题唯一事实源（Source of Truth）**。多个审计/测试任务可以并发创建独立 backlog row；数据库负责原子编号、semantic key 去重和事务一致性。
 - `public.audit_issue_registry_readonly` 只是 `audit_ops.issue_registry` 的 **backend-only 只读投影**，用于提高自动化读取兼容性，不是第二事实源。
 - `public.audit_list_issues()` 是兼容读取 RPC；它返回 `jsonb` 数组，不是 `RETURNS TABLE`。
-- `docs/AUDIT_BACKLOG_SNAPSHOT.json` 是**只读、带时间戳的自动化降级快照**。它不是正式 backlog，也不能用于写状态、分配 AUD 或声称数据库已同步。
+- `docs/AUDIT_BACKLOG_SNAPSHOT.json` 是只读、带时间戳的自动化降级快照。它不是正式 backlog，也不能用于写状态、分配 AUD 或声称数据库已同步。
 - GitHub Issue #21 正文只是人类可读镜像，不得替代正式 backlog；Issue 评论只记录已存在 AUD 的 append-only 过程证据。
 - 「球搭子问题整改」是唯一自动修复者，但不是全局唯一 writer。代码变更巡检、全功能测试、部署前审计、周安全审计均可按本文件规则创建 backlog row 和追加已有 AUD 评论。
-- GitHub repository 的 canonical visibility 为 **Private**；完整环境身份与 GitHub 方案能力边界以 `docs/ENVIRONMENT_BASELINE.md` 为准。
+- GitHub repository 的 canonical visibility 为 Private；完整环境身份与 GitHub 方案能力边界以 `docs/ENVIRONMENT_BASELINE.md` 为准。
 
 ### 1.1 环境身份与 migration 一致性前置校验
 
@@ -26,9 +26,9 @@
 
 Migration 治理采用以下硬规则：
 
-- repo `supabase/migrations/*.sql` 文件必须使用 `YYYYMMDDHHMMSS_snake_case.sql`，14 位 version 在整个目录内**全局唯一**。
+- repo `supabase/migrations/*.sql` 文件必须使用 `YYYYMMDDHHMMSS_snake_case.sql`，14 位 version 在整个目录内全局唯一。
 - live 已通过 `apply_migration` 产生版本时，repo 对应 migration 必须复用该 live version；不得另造一个“接近的时间戳”再补仓库。
-- 同一轮变更的正确顺序是：确认 canonical project → 取得/确定唯一 migration version → apply live migration → 以**同一 version、同一 SQL 语义**写回 repo → clean replay → repo/live 对比。
+- 同一轮变更的正确顺序是：确认 canonical project → 取得/确定唯一 migration version → apply live migration → 以同一 version、同一 SQL 语义写回 repo → clean replay → repo/live 对比。
 - 多个并发 writer 在新增 migration 前必须重新读取当前 migration 目录和 live migration list；不能根据几分钟前的目录快照自行分配版本。
 - `.github/workflows/build.yml` 必须在启动本地 Supabase 前做 migration filename + version uniqueness preflight；重复 version 或非法命名直接 fail-fast。
 - clean replay 失败时必须先读实际失败 statement。`supabase start` 步骤显示 failure 不代表 Docker/CLI 启动失败；Supabase CLI 会在 start 阶段自动应用 migration，因此要以日志最后一个 SQLSTATE/statement 为根因。
@@ -40,9 +40,9 @@ Migration 治理采用以下硬规则：
 
 `audit_ops.issue_registry` / `audit_ops.issue_counters` 属于内部工程治理数据，不是 H5 产品数据，不向客户端开放表级读取。
 
-所有五个定时任务每轮先按以下顺序读取正式 backlog：
+除“球搭子全功能测试”需要先执行 §5.1 Candidate Preflight 外，其余任务每轮按以下顺序读取正式 backlog；黑盒任务只有在确认存在 exact-head READY Preview 后才进入本节：
 
-1. **优先**通过受信任后台数据库工具读取：
+1. 优先通过受信任后台数据库工具读取：
 
 ```sql
 select *
@@ -57,16 +57,16 @@ order by audit_date, sequence_no;
 select * from public.audit_list_issues();
 ```
 
-该函数 `RETURNS jsonb`，SQL 结果是一列 `audit_list_issues`，其值为 JSON 数组。**不得把它当 RETURNS TABLE 使用，也不得写 `select audit_id,status ... from public.audit_list_issues()`。**
+该函数 `RETURNS jsonb`，SQL 结果是一列 `audit_list_issues`，其值为 JSON 数组。不得把它当 RETURNS TABLE 使用，也不得写 `select audit_id,status ... from public.audit_list_issues()`。
 
 ### 2.1 三条正式路径都失败时
 
-三条正式路径均因连接器权限/安全层暂时不可达时，任务**不得直接整轮瘫痪**，而应读取 `docs/AUDIT_BACKLOG_SNAPSHOT.json` 并进入降级模式：
+三条正式路径均因连接器权限/安全层暂时不可达时，任务不得直接整轮瘫痪，而应读取 `docs/AUDIT_BACKLOG_SNAPSHOT.json` 并进入降级模式：
 
 - 快照只允许用于：继续白盒/黑盒/安全/Gate 检查、识别已知 AUD、辅助语义去重、判断“上次正式快照时仍未关闭的问题”。
-- 快照**禁止**用于：创建 AUD、修改正式 status/owner/evidence、把 `FIXED_PENDING_VERIFY` 推成 `VERIFIED`、声称 live backlog 已同步、替代 `audit_ops.issue_registry` 成为事实源。
+- 快照禁止用于：创建 AUD、修改正式 status/owner/evidence、把 `FIXED_PENDING_VERIFY` 推成 `VERIFIED`、声称 live backlog 已同步、替代 `audit_ops.issue_registry` 成为事实源。
 - 若任务发现疑似新问题但当前无法访问正式建单路径，应输出 `UNFILED_PENDING_DB_ACCESS` 并保留完整证据，待后续能访问 Supabase 时再正式 `create_issue`；禁止手工编号。
-- Release Gate 在无法读取 live backlog 时可以继续完成其它检查，但**最终不得给 PASS**；应标记 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，直到某一条正式路径恢复并重新核对。
+- Release Gate 在无法读取 live backlog 时可以继续完成其它检查，但最终不得给 PASS；应标记 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，直到某一条正式路径恢复并重新核对。
 - 快照包含 `generated_at`、`source_path`、`source_head` 等元数据。超过 2 小时的快照不得作为 Release Gate 的“当前 backlog”依据；可以继续做非最终检查，但必须明确 stale。
 - 白盒/黑盒/安全巡检使用 stale 快照时，不得据此关闭或降级已有正式问题。
 
@@ -93,16 +93,9 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 
 ## 4. Backlog 状态
 
-正式状态仅以下六种：
+正式状态仅以下六种：`OPEN`、`IN_PROGRESS`、`FIXED_PENDING_VERIFY`、`VERIFIED`、`WONT_FIX`、`DUPLICATE`。
 
-- `OPEN`
-- `IN_PROGRESS`
-- `FIXED_PENDING_VERIFY`
-- `VERIFIED`
-- `WONT_FIX`
-- `DUPLICATE`
-
-`FAILED`、`BLOCKED`、`NEEDS_DECISION`、`DEGRADED_LIVE_BACKLOG_UNAVAILABLE`、`UNFILED_PENDING_DB_ACCESS` 属于运行上下文/证据，不新增正式状态枚举；必要时由负责归并的流程把正式状态退回 `OPEN` 或保持 `IN_PROGRESS`。
+`FAILED`、`BLOCKED`、`NEEDS_DECISION`、`DEGRADED_LIVE_BACKLOG_UNAVAILABLE`、`UNFILED_PENDING_DB_ACCESS`、`WAITING_FOR_CANDIDATE` 属于运行上下文/证据，不新增正式状态枚举；必要时由负责归并的流程把正式状态退回 `OPEN` 或保持 `IN_PROGRESS`。
 
 ## 5. 修复与验证职责
 
@@ -111,7 +104,7 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 - 每轮读取动态 PR #20 head，不缓存旧 head。
 - 原则上只认领 `OPEN` 且未被占用的问题；已由本任务认领的 `IN_PROGRESS` 可继续。
 - 优先级 `P0 → P1 → P2`。
-- 修复完成最多到 `FIXED_PENDING_VERIFY`，**不得自行 VERIFIED**。
+- 修复完成最多到 `FIXED_PENDING_VERIFY`，不得自行 VERIFIED。
 - 若 live backlog 不可达，允许继续已经明确认领的 `IN_PROGRESS` 本地代码工作，但不得从 snapshot 认领新的 OPEN，也不得依据 snapshot 改正式状态。
 - 修改代码/migration/canonical 文档前必须重新 fetch 最新文件 + 最新 blob SHA，在最新内容上合并；stale conflict 必须重读重合并。
 - 涉及 Supabase DDL 时必须执行 §1.1 环境身份与 migration 前置校验；live 与 repo 必须使用同一 migration version。
@@ -122,6 +115,19 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 
 ### 球搭子全功能测试
 真实黑盒 + Visual/UX + English QA；不得用源码、CI、HTTP 200 或旧 Preview 代替页面交互证据。已有 AUD 追加证据，新问题正式建单；DB 不可达时只记录待建单证据。
+
+#### 5.1 Candidate Preflight（黑盒硬前置）
+
+黑盒任务属于 candidate-driven condition watch，而不是“无候选也强行跑”的普通巡检。每轮必须最先：
+
+1. 实时读取 PR #20 exact head SHA；
+2. 实时读取 Vercel `qiudazi-h5` deployments；
+3. 只有找到 `READY` 且 Git source commit SHA 与 exact head 完全一致的 Preview，才允许进入 backlog 读取和真实页面测试；
+4. 不存在 exact-head READY Preview 时，运行结果为 `WAITING_FOR_CANDIDATE`：不是缺陷、不是 BLOCKED，不创建 AUD、不读取 backlog、不测试旧 Preview，并且应静默结束，不给用户发送无意义通知；
+5. 一旦候选存在，本轮锁定 deployment id / URL / head SHA，禁止在测试过程中切换到其它 Preview；
+6. 黑盒任务自身不得主动触发 Vercel。候选 Preview 由总控在发布相关修复收口、exact-head CI green、repo/live 一致性达到候选条件后受控创建一次。
+
+此规则的目标是确保“开始黑盒 = 已经有东西可测”，同时避免旧 Preview 被误当 current-head 候选以及无候选时重复产生噪声报告。
 
 ### 球搭子周安全审计
 独立安全发现与验证；结合真实 grants、exposure、function ACL、业务身份校验判断，不因 Advisor INFO/WARN 机械升 P0。DB 不可达不应阻止其继续做静态/配置安全检查，但不能因此给正式状态结论。数据库安全结论前先执行 §1.1 环境身份校验。
@@ -142,14 +148,14 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 照片专项冲突时以 `PRD V6 §5.1 + docs/PHOTO_ALBUM_BASELINE.md` 为最终真源：赛事多图、organizer-only 源管理、actual participant 主动逐张导入独立 private personal copy、源删不级联已导入个人副本、personal album 默认 private/可 partners、accepted Connection 仅短时水印预览。当前 P0 不要求本人在个人参与赛事相册查看高清；赛事上下文 organizer/actual participant 显式短时高清仍保留。
 
 ### 快速开赛
-快速开赛是 **P1 新能力**，不替代或重写标准赛事 P0 链路：
+快速开赛是 P1 新能力，不替代或重写标准赛事 P0 链路：
 - 四个既有底部主导航职责保持不变；中央凸起“快速开赛”是 action，不是第五 Tab；不得把“战绩”等从“我的”拆出。
 - `event_mode=quick` 只跳过报名/候补/邀请阶段，创建 locked Event/Entry/EntryPlayer 并自动生成首次对阵；之后记分、排名、完赛、战绩、照片继续复用标准模型。
 - quick mode 不得放宽标准赛事 deadline、waitlist、invite、viewer_role、Player/Storage 权限。
 - 快速开赛本身未被提升为原 P0；但它若进入当前候选并造成四导航遮挡、既有 P0 页面不可用、权限扩大或标准赛事逻辑回归，则按发布回归处理。
 
 ### AUD-016
-当前已确认：组织者在 **confirmed 剩余名额内**应支持批量多选/提交临时 Player。跨 `confirmed → waitlist` 的批量语义仍不得擅自扩大；候补保持既有单 Entry 规则，直到另有明确产品决策。
+当前已确认：组织者在 confirmed 剩余名额内应支持批量多选/提交临时 Player。跨 `confirmed → waitlist` 的批量语义仍不得擅自扩大；候补保持既有单 Entry 规则，直到另有明确产品决策。
 
 ## 8. 发布规则
 
@@ -157,7 +163,8 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 - H5 Build Check 的 repository visibility、server-secret、migration preflight、Supabase clean replay、后端结构断言均属于 Release Gate 必要证据；任何一项失败都必须读实际日志根因，禁止仅按 step 名称推断。
 - Repository 必须保持 Private；意外变回 public 直接阻塞发布。
 - 普通 commit 不主动触发 Vercel；完整候选后才受控创建 Preview。
-- Release Gate 只对**发布相关** P0 与核心 P1 阻塞；P1 新能力不能仅因“不是 P0”被机械判失败，但进入候选后的真实回归/不可用属于阻塞。
+- 黑盒测试只消费 exact-head READY Preview，不负责生产 Preview；没有候选时静默等待。
+- Release Gate 只对发布相关 P0 与核心 P1 阻塞；P1 新能力不能仅因“不是 P0”被机械判失败，但进入候选后的真实回归/不可用属于阻塞。
 - repository ↔ live Supabase migration/RPC/RLS/Storage/Edge Function 不一致时阻塞发布；migration version 对不上也属于不一致。
 - live backlog 暂不可达时 Gate 不得 PASS；先保留 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，待正式路径恢复后复核。
 - 未通过 Gate 不进入 CloudBase 正式候选，不自动 merge `main`。
