@@ -8,7 +8,7 @@
 
 **分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
 **关联**：`AUD-20260829-017`  
-**状态**：实现已按最新产品决策重构并完成基础数据库/权限硬化；只有在当前候选的 H5 Build Check / clean replay 通过后才进入 `FIXED_PENDING_VERIFY`，之后仍必须等待独立黑盒、安全、Visual 验证才能 `VERIFIED`。
+**状态**：`FIXED_PENDING_VERIFY`。最终实现与数据库/权限硬化已完成；实现/CI head `e52e60b7d7caece8187cc0641ee8840d96d6755b` 的 H5 Build Check run `33287779608` 中 build 与 Supabase clean replay 均成功。仍须等待独立黑盒、安全、并发竞态与 Visual/English 验证后才能 `VERIFIED`。
 
 ### 产品最终决策
 - 赛事相册是 source album，一场赛事允许多张照片。
