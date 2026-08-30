@@ -19,20 +19,23 @@
 
 自动化每轮读取正式 backlog 时必须：
 
-1. 优先调用 `public.audit_list_issues()`；
-2. 不直接依赖对 `audit_ops.issue_registry` / `audit_ops.issue_counters` 的表级 SELECT；
-3. `public.audit_list_issues()` 使用 `SECURITY DEFINER` 且 `search_path=''`，函数体显式引用内部 schema；
-4. 该 RPC 只授予 `service_role` EXECUTE，`PUBLIC` / `anon` / `authenticated` 均无执行权；
-5. `service_role` 不因此获得 `audit_ops` schema USAGE 或内部表 SELECT；
-6. 若该 RPC 真正不可用，自动化必须标记 `BLOCKED`，不得退化为把 GitHub Issue #21 镜像当作正式事实源；
-7. 对内部、未暴露且无 API grants 的治理表，不能仅因为 `RLS=false` 就直接定级为 critical；安全判断必须同时核对 exposed schema、表 grants、函数 ACL 和真实调用路径。
+1. **优先调用 `public.audit_list_issues()`**；
+2. 如果当前自动化运行环境、Supabase 连接器或工具安全层**不允许直接调用该 SECURITY DEFINER RPC**，允许通过受信任的 Supabase 数据库工具执行只读 SQL：`select * from public.audit_list_issues()`，或等价的只读调用方式取得同一正式结果；
+3. 上述 fallback 只是工具调用路径兼容，不代表扩大数据库权限；不得因此直接 SELECT `audit_ops.issue_registry` / `audit_ops.issue_counters`，也不得给 `anon` / `authenticated` / `service_role` 增加内部表 SELECT 或 schema USAGE；
+4. `public.audit_list_issues()` 使用 `SECURITY DEFINER` 且 `search_path=''`，函数体显式引用内部 schema；
+5. 该 RPC 只授予 `service_role` EXECUTE，`PUBLIC` / `anon` / `authenticated` 均无执行权；
+6. `service_role` 不因此获得 `audit_ops` schema USAGE 或内部表 SELECT；
+7. **只有直接 RPC 与受信任只读 SQL 调用两条路径都不可用时**，自动化才标记 `BLOCKED`；
+8. 无论哪种工具路径，都不得退化为把 GitHub Issue #21 镜像当作正式事实源；
+9. “连接器安全层拒绝某种调用方式”与“数据库授权失败”是两个概念，必须先判断阻断发生在哪一层，避免把工具限制误判为数据库安全漏洞；
+10. 对内部、未暴露且无 API grants 的治理表，不能仅因为 `RLS=false` 就直接定级为 critical；安全判断必须同时核对 exposed schema、表 grants、函数 ACL 和真实调用路径。
 
 ## 3. 新待整改问题创建
 
 任何审计/测试任务发现疑似新问题时，必须按以下顺序执行：
 
 1. 读取当前 canonical 文档。
-2. 通过 `public.audit_list_issues()` 读取正式 backlog。
+2. 按第 2 节受控读取路径取得正式 backlog：优先 `public.audit_list_issues()`；若工具安全层阻止直接 RPC，则使用受信任只读 SQL 调用同一函数。
 3. 读取 GitHub Issue #21 正文与相关历史评论作为补充证据。
 4. 对既有 backlog 做语义去重；姓名、页面文案差异或不同来源不得被误判为不同问题。
 5. 确认确属独立新问题后，生成稳定、简短、与缺陷语义绑定的 `semantic_key`。
@@ -112,7 +115,7 @@ AUD-YYYYMMDD-NNN
 Issue #21 正文用于快速人工阅读，不是数据库。
 
 - 正文应由固定的镜像同步流程根据正式 backlog 重新生成或同步；当前可由「球搭子问题整改」承担该同步职责。
-- 同步前必须通过受控读取路径重新读取最新 backlog。
+- 同步前必须通过第 2 节受控读取路径重新读取最新 backlog。
 - 正文不得反向覆盖、推断或修改 backlog 状态。
 - 正文落后于数据库时，以数据库为准，并在后续同步中修正。
 - 其他审计/测试任务不得直接编辑 Issue #21 正文；这是为了避免整块文本并发覆盖，不意味着它们不能写 backlog 或追加评论。
@@ -206,7 +209,7 @@ P0 → P1 → P2
 
 ## 10. 五个定时任务职责
 
-所有五个任务读取正式 backlog 时统一使用 `public.audit_list_issues()`；不得因为直接表读取被安全边界拒绝而改用 Issue 镜像替代。
+所有五个任务读取正式 backlog 时统一遵循第 2 节：**RPC 优先；若自动化工具安全层阻止直接 RPC，则允许通过受信任只读 SQL 调用同一函数；两条路径都不可用才 BLOCKED。** 不得因为内部表读取受限而改用 Issue 镜像替代。
 
 ### 球搭子代码变更巡检
 白盒发现与静态独立验证。新问题直接写 Supabase backlog；已有 AUD 的补证据/验证写评论；不修代码、不整段修改 Issue 正文。
@@ -229,6 +232,7 @@ P0 → P1 → P2
 - Vercel Git 自动部署保持关闭；普通 commit 不主动消耗 Preview。
 - 完整候选收口后由总控受控触发一次 Vercel Preview。
 - 未清零发布相关 P0/P1、未完成独立验证或 repository/live Supabase 不一致时，不得进入 CloudBase 候选部署。
+- `main` 必须由 GitHub ruleset 技术保护：禁止删除、禁止 force push、必须通过 PR、要求 linear history、要求 `H5 Build Check`、要求分支更新到最新 main；自动化不得绕过 ruleset。
 - 不得自动 merge `main`。
 
 ## 12. 当前迁移事实
@@ -239,7 +243,9 @@ P0 → P1 → P2
 - 新增 `audit_ops.create_issue(...)`，在一个数据库事务内完成编号分配与待整改问题 row 创建；
 - `20260829200350_audit_create_issue_concurrency.sql` 为同日 semantic key 并发建单增加事务级串行化，避免唯一约束竞态；
 - `20260830005513_audit_backlog_read_rpc.sql` 新增 `public.audit_list_issues()` 作为自动化受控只读入口：只授予 `service_role` EXECUTE，`PUBLIC` / `anon` / `authenticated` 无执行权，内部治理表继续无 API 角色表级 SELECT/USAGE；
+- 自动化运行环境若因连接器/工具安全层不能直接调用 SECURITY DEFINER RPC，可通过受信任只读 SQL 调用 `public.audit_list_issues()`；这是工具兼容 fallback，不改变数据库 ACL；
 - 既有 `AUD-20260829-001` ～ `AUD-20260829-017` 已迁入 `audit_ops.issue_registry`，保持原编号、严重级别、状态与语义；
 - 2026-08-29 的计数器保持在 17，不因迁移或自测消耗正式编号；
 - GitHub Issue #21 从“唯一问题台账”调整为“正式 backlog 的人类可读镜像 + 已有问题工作评论区”；
-- 并发治理采用“数据库行级原子写入 + 受控 RPC 读取 + 评论 append-only + Issue 正文固定镜像同步 + repo 文件 optimistic concurrency”，而不是全局单 writer。
+- GitHub `main分支保护` ruleset 已启用：`main` 禁删、禁 force push、必须 PR、linear history、严格要求 `H5 Build Check` 且无 bypass actor；
+- 并发治理采用“数据库行级原子写入 + 受控 RPC/可信只读 SQL 读取 + 评论 append-only + Issue 正文固定镜像同步 + repo 文件 optimistic concurrency”，而不是全局单 writer。
