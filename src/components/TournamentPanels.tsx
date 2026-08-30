@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Camera, Trophy, GitBranch, ListOrdered, ImagePlus } from "lucide-react";
 import type { Match, Snapshot } from "../domain/types";
 import { ranking, groupRankings, podium } from "../domain/RankingEngine";
 import { entryName, ErrorNotice, Confirm } from "./UI";
-import { supabase, uploadAsset, explainError } from "../repositories/supabase";
+import { supabase, uploadAsset, explainError, rpc } from "../repositories/supabase";
 import { imageBlob, watermarkPhoto } from "../utils/images";
 import { useLanguage } from "../i18n";
 import { ProtectedEventPhoto } from "./ProtectedEventPhoto";
@@ -70,29 +70,20 @@ export function RankingPanel({ s }: { s: Snapshot }) {
     </>)}
   </>;
 }
+
+type EventPhoto={id:string;event_id:string;original_url:string;watermarked_url:string;uploaded_at:string;version:number;saved_to_my_album:boolean};
 export function PhotoPanel({ s, owner, onDone }: { s: Snapshot; owner: boolean; onDone: () => void; }) {
-  const {language}=useLanguage();
-  const [pending, setPending] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false), [error, setError] = useState("");
-  async function upload(file: File) {
-    setBusy(true); setError(""); const paths: string[] = []; let saved = false;
-    try {
-      const original = await imageBlob(file), marked = await watermarkPhoto(original, s);
-      const { data } = await supabase!.auth.getSession();
-      if(!data.session) throw new Error(language==="en"?"Restore your sign-in state first.":"请先恢复登录状态");
-      const folder = data.session.user.id + "/" + s.event.id + "/" + crypto.randomUUID();
-      paths.push(await uploadAsset(original, "event-photos", folder + "-original.jpg"));
-      paths.push(await uploadAsset(marked, "event-photos", folder + "-watermark.jpg"));
-      const {error:finalizeError}=await supabase!.functions.invoke("photo-management",{body:{action:"finalize_upload",event_id:s.event.id,version:s.photo?.version||0,original_path:paths[0],preview_path:paths[1]}});
-      if(finalizeError) throw finalizeError;
-      saved = true; onDone();
-    } catch (e) { setError(explainError(e)); }
-    finally { if (!saved && paths.length) await supabase!.storage.from("event-photos").remove(paths); setBusy(false); }
-  }
+  const {language}=useLanguage();const en=language==="en";
+  const [photos,setPhotos]=useState<EventPhoto[]|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(""),[deleting,setDeleting]=useState<EventPhoto|null>(null);
+  const load=async()=>{try{setPhotos(await rpc<EventPhoto[]>("list_event_photos",{p_event_id:s.event.id}));}catch(e){setPhotos([]);setError(explainError(e));}};
+  useEffect(()=>{void load();},[s.event.id]);
+  async function upload(file:File){setBusy(true);setError("");const paths:string[]=[];let saved=false;try{const original=await imageBlob(file),marked=await watermarkPhoto(original,s);const{data}=await supabase!.auth.getSession();if(!data.session)throw new Error(en?"Restore your sign-in state first.":"请先恢复登录状态");const folder=data.session.user.id+"/"+s.event.id+"/"+crypto.randomUUID();paths.push(await uploadAsset(original,"event-photos",folder+"-original.jpg"));paths.push(await uploadAsset(marked,"event-photos",folder+"-watermark.jpg"));const{error:invokeError}=await supabase!.functions.invoke("photo-management",{body:{action:"finalize_upload",event_id:s.event.id,original_path:paths[0],preview_path:paths[1]}});if(invokeError)throw invokeError;saved=true;await load();onDone();}catch(e){setError(explainError(e));}finally{if(!saved&&paths.length)await supabase!.storage.from("event-photos").remove(paths);setBusy(false);}}
+  async function importPersonal(photo:EventPhoto){setBusy(true);setError("");try{const{error:invokeError}=await supabase!.functions.invoke("photo-management",{body:{action:"import_personal",photo_id:photo.id}});if(invokeError)throw invokeError;await load();}catch(e){setError(explainError(e));}finally{setBusy(false);}}
+  async function removeSource(photo:EventPhoto){setDeleting(null);setBusy(true);setError("");try{const{error:invokeError}=await supabase!.functions.invoke("photo-management",{body:{action:"delete",photo_id:photo.id,version:photo.version}});if(invokeError)throw invokeError;await load();onDone();}catch(e){setError(explainError(e));}finally{setBusy(false);}}
   return <>
-    {s.photo ? <><ProtectedEventPhoto previewPath={s.photo.watermarked_url} originalPath={s.photo.original_url} alt={language==="en"?`${s.event.name} post-match photo with final standings watermark`:s.event.name + "赛后合影，含最终名次水印"}/><p className="muted small">{language==="en"?"Protected preview · HD access expires shortly":"受保护水印预览 · 高清授权短时有效"} · {new Date(s.photo.uploaded_at).toLocaleDateString(language==="en"?"en-US":"zh-CN")}</p></> : <div className="photo-upload-stage"><span className="photo-upload-icon"><Camera size={28}/></span><h3>{language==="en"?"Keep this match in a photo":"把这场球，留在照片里"}</h3><p className="muted">{s.event.status === "finished" ? owner ? (language==="en"?"Choose a photo from your phone. An event watermark will be generated automatically after upload.":"从手机照片中选择一张本场合影。上传后会自动生成赛事水印。") : (language==="en"?"Waiting for the organizer to upload the event photo.":"等待组织者上传本场合影。") : (language==="en"?"After the event finishes, this area will hold the event photo.":"比赛结束后，这里会成为本场赛事的合影位置。")}</p><div className="photo-frame-preview" aria-hidden="true"><ImagePlus size={24}/><span>{language==="en"?"Main event photo":"赛事主合影"}</span></div></div>}
-    <ErrorNotice message={error} />
-    {owner && s.event.status === "finished" && <><label className="button full photo-upload-button">{busy ? (language==="en"?"Generating watermark and uploading…":"正在生成水印并上传…") : s.photo ? (language==="en"?"Replace photo":"更换合影") : (language==="en"?"Choose photo and upload":"选择照片并上传")}<input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(e) => { const file = e.target.files?.[0]; if (file) { if (s.photo) setPending(file); else void upload(file); } e.target.value = ""; }} /></label><p className="muted small">{language==="en"?"The camera is not requested when this page opens. Choose a photo you have permission to use; the watermark includes the event name, final standings and match date.":"不会在进入页面时申请摄像头权限。请选择已取得拍摄对象许可的照片；水印包含赛事名称、最终名次和比赛日期。"}</p></>}
-    {pending && <Confirm title={language==="en"?"Replace the main event photo?":"替换本场主合影？"} description={language==="en"?"The new photo will replace the current protected original and preview. If replacement cannot finish safely, the new upload is cleaned up.":"新照片将替换当前受保护原图和水印预览；若替换无法安全完成，本次新上传会被清理。"} onCancel={() => setPending(null)} onConfirm={() => { const file = pending; setPending(null); void upload(file); }} />}
+    <ErrorNotice message={error}/>
+    {photos===null&&!error?<div className="photo-frame-preview"><span>{en?"Loading protected event album…":"正在加载受保护赛事相册…"}</span></div>:photos?.length===0?<div className="photo-upload-stage"><span className="photo-upload-icon"><Camera size={28}/></span><h3>{en?"No event photos yet":"还没有赛事照片"}</h3><p className="muted">{s.event.status!=="finished"?(en?"Photos can be uploaded after the event is finished.":"赛事结束后可上传照片。"):owner?(en?"Upload one or more photos from your device.":"可从手机中上传一张或多张赛事照片。"):(en?"Waiting for the organizer to upload photos.":"等待赛事创建人上传照片。")}</p><div className="photo-frame-preview" aria-hidden="true"><ImagePlus size={24}/><span>{en?"Event album":"赛事相册"}</span></div></div>:<div className="stack">{photos?.map(photo=><article className="card" key={photo.id}><ProtectedEventPhoto previewPath={photo.watermarked_url} originalPath={photo.original_url} alt={en?`${s.event.name} protected event photo`:`${s.event.name}受保护赛事照片`}/><p className="muted small">{en?"Protected preview · HD access expires shortly":"受保护水印预览 · 高清授权短时有效"} · {new Date(photo.uploaded_at).toLocaleDateString(en?"en-US":"zh-CN")}</p>{owner?<button className="button secondary full" disabled={busy} onClick={()=>setDeleting(photo)}>{en?"Delete photo":"删除照片"}</button>:<button className="button secondary full" disabled={busy||photo.saved_to_my_album} onClick={()=>void importPersonal(photo)}>{photo.saved_to_my_album?(en?"Added to my event album":"已加入我的参与赛事相册"):(en?"Add to my event album":"加入我的参与赛事相册")}</button>}</article>)}</div>}
+    {owner&&s.event.status==="finished"&&<><label className="button full photo-upload-button">{busy?(en?"Uploading…":"正在上传…"):(en?"Upload photos":"上传照片")}<input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={busy} onChange={(e)=>{const files=[...(e.target.files||[])];e.target.value="";void(async()=>{for(const file of files)await upload(file);})();}}/></label><p className="muted small">{en?"Only the event organizer can manage this source album. Deleting a source photo blocks future imports but does not remove copies participants already saved to their own albums.":"只有赛事创建人可以管理赛事源相册。删除源照片会阻止后续继续获取，但不会删除参赛者此前已经保存到个人相册的独立照片。"}</p></>}
+    {deleting&&<Confirm title={en?"Delete this event photo?":"删除这张赛事照片？"} description={en?"It will disappear from the event album and can no longer be newly added by participants. Copies already saved to participants' personal event albums are not affected. This source deletion cannot be undone.":"删除后它会从赛事相册消失，其他参赛者不能再新增到自己的相册；此前已经成功加入个人参与赛事相册的照片不受影响。赛事源删除不可恢复。"} onCancel={()=>setDeleting(null)} onConfirm={()=>void removeSource(deleting)}/>} 
   </>;
 }
