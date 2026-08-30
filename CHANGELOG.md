@@ -4,6 +4,17 @@
 
 ---
 
+## 2026-08-30 — Vercel 候选分支白名单部署机制
+
+- 根因确认：此前 `vercel.json` 使用 `git.deploymentEnabled=false` 全局关闭 Git deployments，因此 feature 与 main push 都不会自动产生新 deployment；这不是 feature branch、private repository 或 Supabase 问题。
+- 为兼顾 Hobby 配额与 exact-head 可追溯性，Vercel Git deployment 改为白名单：`* = false`，仅 `release-candidate = true` 与 `main = true`。
+- 日常 feature/docs/fix push 继续不触发 Vercel；candidate freeze 后，总控只把专用 `release-candidate` 分支移动到已经通过 exact-head CI 的 PR head，从而触发一份 Preview。
+- 黑盒与 Release Gate 仍只接受 deployment metadata 中 `githubCommitSha` 与 PR exact head 完全一致的 READY Preview；`release-candidate` 只作为触发器，不承载独立开发。
+- Gate 通过前不 merge/push main；main 允许 Git deployment 仅用于最终人工 merge 决策后的正式部署。
+- `docs/ENVIRONMENT_BASELINE.md` 与 README 已同步该机制。
+
+---
+
 ## 2026-08-30 — 总控 / 整改师 CONTROL_NOTE 协作机制
 
 - 正式确定 owner 边界：`OPEN + owner=null` 可由总控或整改师认领；已有 owner 的 AUD 不抢占、不并发修改同一整改项。
