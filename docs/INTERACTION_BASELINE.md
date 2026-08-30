@@ -37,7 +37,9 @@
 赛事详情、编排、记分、比分更正等身份敏感入口必须依赖服务端 `viewer_role` 等权威事实，前端隐藏按钮不能替代后端授权。
 
 ## 4. 赛事卡与报名截止
-公开/完整赛事卡优先展示状态、类型/建议级别、赛事名、组织者、赛制/计分、日期时间、城市+场地、报名/名额+费用。私有大厅脱敏卡不得展示精确时间、场地、费用、组织者、参赛人、报名人数或截止时间。
+公开/完整标准赛事卡优先展示状态、类型/建议级别、赛事名、组织者、赛制/计分、日期时间、城市+场地、报名/名额+费用。私有标准赛事大厅脱敏卡不得展示精确时间、场地、费用、组织者、参赛人、报名人数或截止时间。
+
+`event_mode='quick'` 不进入普通赛事大厅卡片流；它只在创建人和实际参赛者自己的赛事上下文中展示。quick event 即使内部 visibility 为 private，也不能复用“私有赛事脱敏发现卡”。
 
 截止提示只使用已加载 deadline + 本地时钟，不增加轮询；真正可报名性始终由服务端决定。
 
@@ -117,7 +119,7 @@ participant 不能上传、替换、删除赛事源照片。系统不得自动�
 ## 14. 数据字段全链路
 新增业务字段必须检查 DB schema → migration → RPC/Edge → TypeScript → 页面 → cache invalidation → P0 验收。页面迁移到新实现后，旧自动归档、旧单图、旧隐私页删照片逻辑不得继续成为可达路径。
 
-`event_mode` 是明确业务字段，当前取值为 `standard | quick`，不得靠 deadline 是否为空、status 或名称反推模式。
+`event_mode` 是明确业务字段，当前取值为 `standard | quick`，不得靠 deadline 是否为空、status 或名称反推模式。`list_events`、`get_event_snapshot` 与 TypeScript `Event` 必须显式保留该字段，不能只在 create RPC 中存在。
 
 ## 15. 部署前审计
 发布前必须检查 PRD / PRODUCT / INTERACTION / PHOTO_ALBUM / P0 / CHANGELOG 一致性、核心 E2E、migration clean replay、RLS/RPC/Edge ACL、Storage private 边界、缓存、错误/空状态、英文和 375/390/430px。文档与代码不一致即阻塞发布。
