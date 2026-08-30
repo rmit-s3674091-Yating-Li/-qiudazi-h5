@@ -8,7 +8,7 @@
 
 **分支 / PR**：`feature/20260829-event-lifecycle-privacy-i18n` / PR #20  
 **关联**：`AUD-20260829-017`  
-**状态**：实现已按最新产品决策重构，等待 H5 Build Check / clean replay 与独立黑盒、安全、Visual 验证后才能进入 VERIFIED。
+**状态**：实现已按最新产品决策重构并完成基础数据库/权限硬化；只有在当前候选的 H5 Build Check / clean replay 通过后才进入 `FIXED_PENDING_VERIFY`，之后仍必须等待独立黑盒、安全、Visual 验证才能 `VERIFIED`。
 
 ### 产品最终决策
 - 赛事相册是 source album，一场赛事允许多张照片。
@@ -21,25 +21,27 @@
 - 参与赛事相册整体默认“仅自己可见”，可在设置与隐私切换为“搭子可见”；只有 accepted Connection 能看，并且只得到短时水印预览，无高清、Storage path 或管理权。
 
 ### 数据与后端
-- `event_photos` 取消单赛事唯一约束，支持一场多图。
-- 新增 `participant_album_photos` 独立个人资产表：包含 owner Profile、赛事上下文快照、nullable `source_event_photo_id`、个人 original / watermarked path、import time。
-- `source_event_photo_id` 使用 `ON DELETE SET NULL`，禁止源照片删除级联删除个人资产。
+- `20260830020252_participant_album_independent_assets.sql`：`event_photos` 取消单赛事唯一约束，支持一场多图；新增 `participant_album_photos` 独立个人资产表，包含 owner Profile、赛事上下文快照、nullable `source_event_photo_id`、个人 original / watermarked path、import time。
+- `source_event_photo_id` 使用 `ON DELETE SET NULL`，禁止赛事源照片删除级联删除个人资产；个人资产表启用 RLS，anon/authenticated 无直接表读取 grant。
 - `profile_preferences` 增加 `participant_album_visibility = private | partners`，默认 private。
 - 新增/重构受控 RPC：`list_event_photos`、`add_event_photo`、`delete_event_photo_metadata`、`prepare_personal_album_import`、`finalize_personal_album_import`、`list_my_past_event_albums`、`get_personal_album_asset`、`list_partner_visible_event_albums`、`delete_my_personal_album_metadata`。
-- `photo-management` Edge Function v6：支持 organizer source upload/delete、participant personal import/delete、self personal preview/original、partner preview；`verify_jwt=true`。
+- `20260830020857_photo_asset_model_hardening.sql`：源照片删除与 source add/finalize 共用 event 行锁边界；旧 version、metadata 已不存在或 DELETE 0-row 均返回可重试 `VERSION_CONFLICT`，不得误报删除成功；同时移除旧单图/自动历史兼容 RPC，避免旧调用路径绕过最终模型。
+- `20260830021240_photo_multi_snapshot_compat.sql`：旧 snapshot 的单图兼容字段停止承载照片对象路径，赛事照片统一从受控多图 RPC 获取。
+- live `photo-management` 已升级到 **v7 / ACTIVE / verify_jwt=true**：organizer source upload/delete、participant personal import/delete、self personal preview/original、partner preview 均经服务端路径；source delete 在 metadata 不存在或版本冲突时返回 409，而非成功。
 - personal import 由服务端从 private source 下载并复制到 `personal/<profile_id>/...` 路径，再落个人 metadata；源照片之后可独立删除。
-- 所有照片仍使用 private `event-photos` Storage；partner list 不下发 object path。
+- 所有照片仍使用 private `event-photos` Storage；partner list 不下发 object path；accepted partner 只能按服务端 visibility/Connection 校验获取短时水印预览。
+- live 基础校验已确认：`event-photos.public=false`；`participant_album_photos.source_event_photo_id` 为 `ON DELETE SET NULL`；个人资产表 RLS=true 且 anon/authenticated 无直接 SELECT；legacy photo RPC 已不存在；空 photo_id 调用 source delete 正确产生 `VERSION_CONFLICT`。
 
 ### 前端
 - Event PhotoPanel 改为多图：organizer 多选上传、逐张真删除；participant 逐张加入个人参与赛事相册。
 - “我的”入口统一命名“参与赛事相册”；这里只展示本人主动导入的独立个人照片资产。
-- 本人个人相册支持短时高清与“移出我的相册”。
+- 本人个人相册支持受保护预览、短时高清与“移出我的相册”。
 - PrivacyPage 删除全部 organizer photo management，仅保留参与赛事相册 private / partners 设置。
 - Partner album 继续只展示服务端短时水印预览。
 
 ### 文档
 - `docs/PHOTO_ALBUM_BASELINE.md` 成为照片专项真源。
-- PRD V6 §5.1、PRODUCT_BASELINE、INTERACTION_BASELINE、P0_ACCEPTANCE、README 已同步最终规则。
+- PRD V6 §5.1、PRODUCT_BASELINE、INTERACTION_BASELINE、VISUAL_DESIGN_BASELINE、P0_ACCEPTANCE、README 已同步最终规则。
 - 废弃以下旧规则：单图主合影、设置页删除赛事照片、自动给所有参赛者归档、organizer “移除但后台保留给 participant”、源删除级联个人收藏失效。
 
 ---
