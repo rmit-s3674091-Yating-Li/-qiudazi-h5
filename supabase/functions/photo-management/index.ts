@@ -18,9 +18,14 @@ Deno.serve(async(req)=>{
     if(!body.asset_id||!body.target_profile_id) return json({error:"INVALID_REQUEST"},400);
     const {data:allowed,error:allowedError}=await userClient.rpc("list_partner_visible_event_albums",{p_profile_id:body.target_profile_id});
     if(allowedError) return json({error:"FORBIDDEN"},403);
-    const row=(allowed as Array<{asset_id:string;watermarked_url:string}>|null)?.find(x=>x.asset_id===body.asset_id);
-    if(!row) return json({error:"FORBIDDEN"},403);
-    const {data:signed,error:signError}=await admin.storage.from("event-photos").createSignedUrl(row.watermarked_url,300);
+    const permitted=(allowed as Array<{asset_id:string}>|null)?.some(x=>x.asset_id===body.asset_id);
+    if(!permitted) return json({error:"FORBIDDEN"},403);
+    let path:string|undefined;
+    const {data:current}=await admin.from("event_photos").select("watermarked_url").eq("id",body.asset_id).maybeSingle();
+    path=current?.watermarked_url;
+    if(!path){const {data:archived}=await admin.from("event_photo_archive").select("watermarked_url").eq("id",body.asset_id).maybeSingle();path=archived?.watermarked_url;}
+    if(!path) return json({error:"PHOTO_NOT_FOUND"},404);
+    const {data:signed,error:signError}=await admin.storage.from("event-photos").createSignedUrl(path,300);
     if(signError||!signed?.signedUrl) return json({error:"PHOTO_PREVIEW_FAILED"},500);
     return json({url:signed.signedUrl,expires_in:300});
   }
