@@ -5,7 +5,9 @@ import crypto from 'node:crypto';
 const root = process.cwd();
 const dir = path.join(root, 'supabase', 'migrations');
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'supabase', 'LIVE_MIGRATION_MANIFEST.json'), 'utf8'));
-const expected = new Map(Object.entries(manifest.sha256_by_version));
+const appendPath = path.join(root, 'supabase', 'LIVE_MIGRATION_MANIFEST_APPEND.json');
+const appended = fs.existsSync(appendPath) ? JSON.parse(fs.readFileSync(appendPath, 'utf8')) : {sha256_by_version:{}};
+const expected = new Map(Object.entries({...manifest.sha256_by_version,...appended.sha256_by_version}));
 const snapshots = new Set(manifest.repo_snapshot_versions || []);
 const exactFrom = manifest.live_exact_from;
 const files = fs.readdirSync(dir).filter((name) => /^\d{14}_.+\.sql$/.test(name)).sort();
@@ -27,17 +29,11 @@ for (const [version, wanted] of expected) {
   const normalized = fs.readFileSync(path.join(dir, file), 'utf8').replace(/\r\n/g, '\n').replace(/\n$/, '');
   const actual = sha256(normalized);
   const actualWithTerminalNewline = sha256(normalized + '\n');
-  // Supabase migration history preserves the statement bytes it received. Some
-  // historical statements include a conventional terminal LF while Git blobs
-  // may omit it (or vice versa). Treat exactly one terminal LF as formatting,
-  // while every other byte of the SQL must still match the canonical live hash.
-  if (wanted !== actual && wanted !== actualWithTerminalNewline) {
-    drift.push({ version, file, wanted, actual });
-  }
+  if (wanted !== actual && wanted !== actualWithTerminalNewline) drift.push({ version, file, wanted, actual });
 }
 
 if (missing.length || extra.length || drift.length) {
-  console.error('Migration parity FAILED against supabase/LIVE_MIGRATION_MANIFEST.json');
+  console.error('Migration parity FAILED against live migration manifests');
   if (missing.length) console.error('Missing live versions:', missing.join(', '));
   if (extra.length) console.error('Repo-only versions:', extra.join(', '));
   for (const d of drift) console.error(`SQL drift ${d.version} ${d.file}: expected ${d.wanted}, got ${d.actual}`);
