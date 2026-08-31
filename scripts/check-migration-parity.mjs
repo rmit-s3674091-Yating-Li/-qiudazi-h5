@@ -10,6 +10,8 @@ const snapshots = new Set(manifest.repo_snapshot_versions || []);
 const exactFrom = manifest.live_exact_from;
 const files = fs.readdirSync(dir).filter((name) => /^\d{14}_.+\.sql$/.test(name)).sort();
 const byVersion = new Map();
+const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
+
 for (const file of files) {
   const version = file.slice(0, 14);
   if (byVersion.has(version)) throw new Error(`duplicate repo migration version ${version}: ${byVersion.get(version)}, ${file}`);
@@ -22,9 +24,16 @@ const drift = [];
 for (const [version, wanted] of expected) {
   const file = byVersion.get(version);
   if (!file) continue;
-  const raw = fs.readFileSync(path.join(dir, file), 'utf8').replace(/\r\n/g, '\n').replace(/\n$/, '');
-  const actual = crypto.createHash('sha256').update(raw).digest('hex');
-  if (actual !== wanted) drift.push({ version, file, wanted, actual });
+  const normalized = fs.readFileSync(path.join(dir, file), 'utf8').replace(/\r\n/g, '\n').replace(/\n$/, '');
+  const actual = sha256(normalized);
+  const actualWithTerminalNewline = sha256(normalized + '\n');
+  // Supabase migration history preserves the statement bytes it received. Some
+  // historical statements include a conventional terminal LF while Git blobs
+  // may omit it (or vice versa). Treat exactly one terminal LF as formatting,
+  // while every other byte of the SQL must still match the canonical live hash.
+  if (wanted !== actual && wanted !== actualWithTerminalNewline) {
+    drift.push({ version, file, wanted, actual });
+  }
 }
 
 if (missing.length || extra.length || drift.length) {
