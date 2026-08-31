@@ -9,48 +9,100 @@ import { imageBlob, watermarkPhoto } from "../utils/images";
 import { useLanguage } from "../i18n";
 import { ProtectedEventPhoto } from "./ProtectedEventPhoto";
 
-function podiumLabel(label:string, language:"zh-CN"|"en"){
-  if(language!=="en")return label;
-  if(label==="冠军")return "Champion";
-  if(label==="亚军")return "Runner-up";
-  if(label.includes("季军"))return "Third place";
+function podiumLabel(label: string, language: "zh-CN" | "en") {
+  if (language !== "en") return label;
+  if (label === "冠军") return "Champion";
+  if (label === "亚军") return "Runner-up";
+  if (label.includes("季军")) return "Third place";
   return label;
 }
 
+function knockoutRoundLabel(matchCount: number, totalKnockoutMatches: number, roundNo: number, language: "zh-CN" | "en") {
+  if (totalKnockoutMatches === 1) return language === "en" ? "Single match" : "单场对决";
+  if (matchCount === 1) return language === "en" ? "Final" : "决赛";
+  if (matchCount === 2) return language === "en" ? "Semifinals" : "半决赛";
+  if (matchCount === 4) return language === "en" ? "Quarterfinals" : "1/4 决赛";
+  if (matchCount === 8) return language === "en" ? "Round of 16" : "1/8 决赛";
+  if (matchCount === 16) return language === "en" ? "Round of 32" : "1/16 决赛";
+  return language === "en" ? `Round ${roundNo}` : `第 ${roundNo} 轮`;
+}
+
 export function MatchCard({ m, s }: { m: Match; s: Snapshot }) {
-  const {language}=useLanguage();
-  const a = s.entries.find((e) => e.id === m.entry_a_id),
-    b = s.entries.find((e) => e.id === m.entry_b_id),
-    sets = s.set_scores.filter((x) => x.match_id === m.id).sort((a, b) => a.set_no - b.set_no);
-  const status=m.is_bye?(language==="en"?"Bye":"轮空"):m.status==="not_started"?(language==="en"?"Not started":"未开始"):m.status==="ongoing"?(language==="en"?"In progress":"进行中"):(language==="en"?"Finished":"已结束");
-  const aName=a?entryName(a):m.is_bye?(language==="en"?"Bye":"轮空"):(language==="en"?"TBD":"待晋级");
-  const bName=b?entryName(b):m.is_bye?(language==="en"?"Bye":"轮空"):(language==="en"?"TBD":"待晋级");
-  return <Link className="match-card" to={"/events/" + s.event.id + "/matches/" + m.id}>
-    <div className="row between"><small>{status}</small><small>{m.is_bye ? "Bye" : sets.length ? (language==="en"?"Set score":"盘分") : "VS"}</small></div>
-    <div className={"row between " + (m.winner_entry_id === a?.id ? "winner" : "")}><span>{aName}</span><b className="score">{sets.map((x) => x.a_games_or_points).join(" · ")}</b></div>
-    <div className={"row between " + (m.winner_entry_id === b?.id ? "winner" : "")}><span>{bName}</span><b className="score">{sets.map((x) => x.b_games_or_points).join(" · ")}</b></div>
-    {m.is_bye && <small>{m.stage === "knockout" ? (language==="en"?"Advances automatically to the next round":"自动晋级下一轮") : (language==="en"?"Rest this round; does not count as a win":"本轮休息，不计入胜场")}</small>}
-  </Link>;
+  const { language } = useLanguage();
+  const a = s.entries.find((e) => e.id === m.entry_a_id);
+  const b = s.entries.find((e) => e.id === m.entry_b_id);
+  const sets = s.set_scores.filter((x) => x.match_id === m.id).sort((x, y) => x.set_no - y.set_no);
+  const status = m.is_bye
+    ? language === "en" ? "Bye" : "轮空"
+    : m.status === "not_started"
+      ? language === "en" ? "Not started" : "未开始"
+      : m.status === "ongoing"
+        ? language === "en" ? "In progress" : "进行中"
+        : language === "en" ? "Finished" : "已结束";
+  const aName = a ? entryName(a) : m.is_bye ? (language === "en" ? "Bye" : "轮空") : (language === "en" ? "TBD" : "待晋级");
+  const bName = b ? entryName(b) : m.is_bye ? (language === "en" ? "Bye" : "轮空") : (language === "en" ? "TBD" : "待晋级");
+  const aScore = sets.map((x) => x.a_games_or_points).join(" · ");
+  const bScore = sets.map((x) => x.b_games_or_points).join(" · ");
+
+  return (
+    <Link className="match-card match-card-versus" to={"/events/" + s.event.id + "/matches/" + m.id}>
+      <div className="match-card-meta row between">
+        <small>{status}</small>
+        {sets.length > 0 && <small>{language === "en" ? "Set score" : "盘分"}</small>}
+      </div>
+      {m.is_bye ? (
+        <>
+          <div className={"match-side " + (m.winner_entry_id === a?.id ? "winner" : "")}>
+            <span className="match-side-name">{aName}</span>
+            <b className="score">{aScore}</b>
+          </div>
+          <small>{m.stage === "knockout" ? (language === "en" ? "Advances automatically to the next round" : "自动晋级下一轮") : (language === "en" ? "Rest this round; does not count as a win" : "本轮休息，不计入胜场")}</small>
+        </>
+      ) : (
+        <div className="match-versus-layout">
+          <div className={"match-side match-side-a " + (m.winner_entry_id === a?.id ? "winner" : "")}>
+            <span className="match-side-name">{aName}</span>
+            {sets.length > 0 && <b className="score">{aScore}</b>}
+          </div>
+          <strong className="match-vs" aria-label={language === "en" ? "versus" : "对阵"}>VS</strong>
+          <div className={"match-side match-side-b " + (m.winner_entry_id === b?.id ? "winner" : "")}>
+            <span className="match-side-name">{bName}</span>
+            {sets.length > 0 && <b className="score">{bScore}</b>}
+          </div>
+        </div>
+      )}
+    </Link>
+  );
 }
+
 function DrawPlaceholder({ s }: { s: Snapshot }) {
-  const {language}=useLanguage();
+  const { language } = useLanguage();
   const knockout = s.event.format === "knockout";
-  const title=knockout?(language==="en"?"Knockout draw":"淘汰签表"):s.event.format==="group_knockout"?(language==="en"?"Group stage & knockout draw":"小组赛与淘汰签表"):(language==="en"?"Round matchups":"轮次对阵");
-  return <div className="tournament-placeholder"><div className="placeholder-heading row"><span className="placeholder-icon"><GitBranch size={19}/></span><div><strong>{title}</strong><p className="muted small">{language==="en"?"Matches will appear here after the roster is locked and the draw is generated.":"名单锁定并生成对阵后，比赛会直接填入这里。"}</p></div></div><div className="draw-skeleton" aria-hidden="true"><section><small>{knockout ? (language==="en"?"First round":"首轮") : (language==="en"?"Round 1":"第 1 轮")}</small><div className="skeleton-match"><i/><i/></div><div className="skeleton-match"><i/><i/></div></section><span className="draw-connector">›</span><section><small>{knockout ? (language==="en"?"Next round":"下一轮") : (language==="en"?"Round 2":"第 2 轮")}</small><div className="skeleton-match compact"><i/><i/></div></section></div><p className="placeholder-foot">{language==="en"?"No real matchups yet, so no players or scores are fabricated.":"现在还没有真实对阵，不展示虚构选手或比分。"}</p></div>;
+  const title = knockout
+    ? language === "en" ? "Knockout draw" : "淘汰签表"
+    : s.event.format === "group_knockout"
+      ? language === "en" ? "Group stage & knockout draw" : "小组赛与淘汰签表"
+      : language === "en" ? "Round matchups" : "轮次对阵";
+  return <div className="tournament-placeholder"><div className="placeholder-heading row"><span className="placeholder-icon"><GitBranch size={19}/></span><div><strong>{title}</strong><p className="muted small">{language === "en" ? "Matches will appear here after the roster is locked and the draw is generated." : "名单锁定并生成对阵后，比赛会直接填入这里。"}</p></div></div><div className="draw-skeleton" aria-hidden="true"><section><small>{knockout ? (language === "en" ? "First round" : "首轮") : (language === "en" ? "Round 1" : "第 1 轮")}</small><div className="skeleton-match"><i/><i/></div><div className="skeleton-match"><i/><i/></div></section><span className="draw-connector">›</span><section><small>{knockout ? (language === "en" ? "Next round" : "下一轮") : (language === "en" ? "Round 2" : "第 2 轮")}</small><div className="skeleton-match compact"><i/><i/></div></section></div><p className="placeholder-foot">{language === "en" ? "No real matchups yet, so no players or scores are fabricated." : "现在还没有真实对阵，不展示虚构选手或比分。"}</p></div>;
 }
+
 export function DrawPanel({ s }: { s: Snapshot }) {
-  const {language}=useLanguage();
+  const { language } = useLanguage();
   const [group, setGroup] = useState(1);
-  const ko = s.matches.filter((m) => m.stage === "knockout"), league = s.matches.filter((m) => m.stage !== "knockout" && (m.group_no === null || m.group_no === group));
+  const ko = s.matches.filter((m) => m.stage === "knockout");
+  const league = s.matches.filter((m) => m.stage !== "knockout" && (m.group_no === null || m.group_no === group));
+  const knockoutRounds = [...new Set(ko.map((m) => m.round_no))].sort((a, b) => a - b);
+
   return <>
     {!s.matches.length && <DrawPlaceholder s={s}/>} 
-    {s.event.format === "group_knockout" && s.matches.length > 0 && <div className="chips">{Array.from({ length: s.event.group_count! }, (_, i) => <button key={i} className={group === i + 1 ? "active":""} onClick={() => setGroup(i + 1)}>{language==="en"?`Group ${String.fromCharCode(65+i)}`:`${String.fromCharCode(65+i)} 组`}</button>)}</div>}
-    {s.event.format === "group_knockout" && !!league.length && <div className="card"><h3>{language==="en"?"Live group standings":"本组实时排名"}</h3>{groupRankings(s)[group - 1].map((r) => <div className="row between small" key={r.entry_id}><span>{r.rank}. {entryName(s.entries.find((e) => e.id === r.entry_id))}</span><span>{language==="en"?`${r.wins} wins · game diff ${r.game_difference}`:`${r.wins}胜 · 局差${r.game_difference}`}</span></div>)}</div>}
-    {[...new Set(league.map((m) => m.round_no))].sort((a, b) => a - b).map((r) => <section key={r}><h3>{language==="en"?`Round ${r}`:`第 ${r} 轮`}</h3>{league.filter((m) => m.round_no === r).map((m) => <MatchCard key={m.id} m={m} s={s} />)}</section>)}
-    {!!ko.length && <><h2>{language==="en"?"Knockout draw":"淘汰签表"}</h2><p className="small muted">{language==="en"?"Swipe horizontally to view rounds · Tap a match to view or score":"左右滑动查看各轮 · 点击比赛查看或记分"}</p><div className="bracket">{[...new Set(ko.map((m) => m.round_no))].sort((a, b) => a - b).map((r) => <section key={r} className="bracket-round"><h3>{ko.filter((m) => m.round_no === r).length === 1 ? (language==="en"?"Final":"决赛") : ko.filter((m) => m.round_no === r).length === 2 ? (language==="en"?"Semifinals":"半决赛") : (language==="en"?`Round ${r}`:`第 ${r} 轮`)}</h3>{ko.filter((m) => m.round_no === r).sort((a, b) => a.bracket_position! - b.bracket_position!).map((m) => <MatchCard key={m.id} m={m} s={s} />)}</section>)}</div></>}
-    {s.event.format === "group_knockout" && !ko.length && !!league.length && <p className="notice">{language==="en"?"After all group matches finish, qualifiers and the knockout draw are generated automatically from the standings.":"全部小组赛完成后，系统按排名自动生成晋级名单与淘汰签表。"}</p>}
+    {s.event.format === "group_knockout" && s.matches.length > 0 && <div className="chips">{Array.from({ length: s.event.group_count! }, (_, i) => <button key={i} className={group === i + 1 ? "active":""} onClick={() => setGroup(i + 1)}>{language === "en" ? `Group ${String.fromCharCode(65+i)}` : `${String.fromCharCode(65+i)} 组`}</button>)}</div>}
+    {s.event.format === "group_knockout" && !!league.length && <div className="card"><h3>{language === "en" ? "Live group standings" : "本组实时排名"}</h3>{groupRankings(s)[group - 1].map((r) => <div className="row between small" key={r.entry_id}><span>{r.rank}. {entryName(s.entries.find((e) => e.id === r.entry_id))}</span><span>{language === "en" ? `${r.wins} wins · game diff ${r.game_difference}` : `${r.wins}胜 · 局差${r.game_difference}`}</span></div>)}</div>}
+    {[...new Set(league.map((m) => m.round_no))].sort((a, b) => a - b).map((r) => <section key={r}><h3>{language === "en" ? `Round ${r}` : `第 ${r} 轮`}</h3>{league.filter((m) => m.round_no === r).map((m) => <MatchCard key={m.id} m={m} s={s} />)}</section>)}
+    {!!ko.length && <><h2>{ko.length === 1 ? (language === "en" ? "Matchup" : "对阵") : (language === "en" ? "Knockout draw" : "淘汰签表")}</h2><p className="small muted">{ko.length === 1 ? (language === "en" ? "Tap the matchup to view the match or enter a score" : "点击对阵查看比赛或记分") : (language === "en" ? "Swipe horizontally to view rounds · Tap a match to view or score" : "左右滑动查看各轮 · 点击比赛查看或记分")}</p><div className={"bracket " + (ko.length === 1 ? "single-match-bracket" : "")}>{knockoutRounds.map((r) => { const roundMatches = ko.filter((m) => m.round_no === r); return <section key={r} className="bracket-round"><h3>{knockoutRoundLabel(roundMatches.length, ko.length, r, language)}</h3>{roundMatches.sort((a, b) => (a.bracket_position ?? 0) - (b.bracket_position ?? 0)).map((m) => <MatchCard key={m.id} m={m} s={s} />)}</section>; })}</div></>}
+    {s.event.format === "group_knockout" && !ko.length && !!league.length && <p className="notice">{language === "en" ? "After all group matches finish, qualifiers and the knockout draw are generated automatically from the standings." : "全部小组赛完成后，系统按排名自动生成晋级名单与淘汰签表。"}</p>}
   </>;
 }
+
 function RankingPlaceholder() {
   const {language}=useLanguage();
   return <div className="tournament-placeholder ranking-placeholder"><div className="placeholder-heading row"><span className="placeholder-icon"><ListOrdered size={19}/></span><div><strong>{language==="en"?"Event standings":"赛事排名"}</strong><p className="muted small">{language==="en"?"Standings update automatically from real results after matches begin.":"比赛开始后，排名会根据真实赛果自动更新。"}</p></div></div><div className="ranking-table-skeleton" aria-hidden="true"><div className="ranking-table-head"><span>{language==="en"?"Rank":"名次"}</span><span>{language==="en"?"Player":"参赛者"}</span><span>{language==="en"?"Played":"已赛"}</span><span>{language==="en"?"W/L":"胜负"}</span><span>{language==="en"?"Diff":"局差"}</span></div>{[1,2,3].map(n=><div className="ranking-table-row" key={n}><b>0{n}</b><i/><span>—</span><span>—</span><span>—</span></div>)}</div><p className="placeholder-foot">{language==="en"?"The standings area is ready; no fake ranks appear before real results exist.":"排名区域已经就位；没有真实赛果前不生成虚假名次。"}</p></div>;
