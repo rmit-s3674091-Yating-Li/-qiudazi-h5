@@ -51,6 +51,7 @@ PR：#22（Draft，禁止自动 merge）
 - Event/Entry/EntryPlayer 创建后名单直接 `locked`，随后系统自动生成首次对阵；正常路径不再要求用户点击第二个“生成对阵”按钮。
 - `locked` 表示 roster 已固定，不等于 draw 已完成；若 draw 临时失败，可出现 locked + `draw_generated=false`。
 - 异常恢复统一表达为“开赛未完成 / 恢复开赛”，只重试同一 event draw，禁止重复 create。
+- G 的历史 `08月31日 快速双打` 曾停留在 2 个 doubles Entry、0 Match、`draw_generated=false`；已先用 `commit_tournament` 事务回滚演练，再通过同一权威 commit 边界补写唯一一场 knockout Match。该场赛事随后可正常进入后续管理状态。
 
 ### Quick Start alias 身份链
 - 用户真实 CloudBase 操作复现：Quick Event 能创建，但 tournament-command 在 alias 身份下先返回 403 PROFILE_REQUIRED；修 Edge 后又暴露 commit 层访问 private alias schema 的 500。
@@ -69,13 +70,34 @@ PR：#22（Draft，禁止自动 merge）
 - 旧规则“quick 不进大厅 / quick 必须 private”正式废止。
 - 关联 `AUD-20260831-009` P1，当前 `FIXED_PENDING_VERIFY`。
 
-### QA 自动化数据隔离
-- 首版隔离要求“赛事名 + 组织者昵称”同时带 QA，无法覆盖 Quick Start 自动生成的自然语言赛事名，因此 `QA-Quick-*` 测试账号创建的“08月31日 快速单打”等赛事污染公共 Hall。
-- 新规则改为按受控 QA organizer 隔离：当前 `QA-*` 与 `QA15-*` 组织者创建的 standard/quick 赛事均不得进入公共 Hall，不再依赖赛事名也带 QA。
-- QA 数据仍保留在数据库和测试账号自己的上下文，不通过粗暴删除破坏测试证据。
-- live 验证：`qa_in_public_hall=0`，同时正常用户 G 的 Quick Event 仍可见。
-- 关联 `AUD-20260831-010` P1，当前 `FIXED_PENDING_VERIFY`。
-- 长期应升级为显式 test marker / cleanup / 测试隔离环境，昵称规则仅是当前共享测试库过渡方案。
+### private 标准赛事恢复脱敏发现
+- 修 Quick Event Hall 时曾错误加入总过滤 `visibility='public'`，导致 private standard event 被排除出 Hall，违反既有“可发现但脱敏”规则。
+- 已恢复：private standard event 继续进入 Hall，但 owner、精确日期时间、场地、费用、参赛/候补人数、报名截止等敏感字段保持隐藏。
+- “大厅可发现 / 完整详情权限 / 报名资格”继续分离。
+- 关联 `AUD-20260831-012` P1，当前 `FIXED_PENDING_VERIFY`。
+
+### 自动化测试数据命名与 Hall 隔离
+- 首版隔离要求“赛事名 + 组织者昵称”同时带 QA，无法覆盖 Quick Start 自动生成的自然语言赛事名，因此测试赛事污染普通 Hall。
+- 又发现 Exploratory 使用 `EXP-*`，证明继续临时追加前缀不可持续。
+- 新 canonical 规则：**所有新自动化测试 Profile 统一 `TST-<SUITE>-<ROLE>-<SHA6>-<RUN>`**。
+- legacy `QA-* / QA15-* / EXP-*` 仅兼容过滤，禁止新脚本继续发明第四套根前缀。
+- Hall 隔离按受控测试组织者身份/未来结构化 test marker，不依赖赛事名称；测试数据仍可在“我的赛事”、direct URL、trace/artifact 中保留。
+- 新增 `docs/TEST_DATA_GOVERNANCE.md`；关联 `AUD-20260831-010` P1，当前 `FIXED_PENDING_VERIFY`。
+
+### 我的赛事排序
+- “我的赛事”改为有效赛事在前、失效赛事在后。
+- 有效区按比赛时间从近到远；finished 或比赛时间已过去且不处于 ongoing 的赛事进入失效区，失效区按时间从新到旧。
+- `ongoing` 被视为权威生命周期状态，不因本地时钟自动改成 finished；历史无日期赛事暂不因缺时间自动判失效。
+- live exact migrations `20260831114115` / `20260831114150` 已同步回 repo，等待 clean replay。
+
+### 统一赛事轮次话术与 Match 卡 PK 展示
+- 原实现以“某轮只有 1 场 = 决赛”机械命名，导致两个 Entry、全赛事只有一场时显示“决赛”，容易让用户误以为此前存在预赛/半决赛。
+- 新增 `docs/TOURNAMENT_PRESENTATION_BASELINE.md`：standard/quick、singles/doubles 共用同一套网球轮次规则。
+- **整个淘汰赛只有 2 个 Entry、1 场 Match 时显示“单场对决 / Single match”**，不显示 Final。
+- 多轮淘汰赛按网球常见 Quarterfinals / Semifinals / Final 等结构展示；循环赛继续按 Round N。
+- Match 卡从“两行名单 + 角落 VS”改成明确 Entry A — VS — Entry B；双打成员保持同一 Team 分组。
+- 单场对决区域不再提示“左右滑动查看各轮”。
+- 关联 `AUD-20260831-013` P2；总控实施修复后仅推进到 `FIXED_PENDING_VERIFY`，等待独立巡检/浏览器验证。
 
 ### Quick player fallback avatar
 - 无真实头像的临时 Player 使用 `<span class="avatar fallback">`；旧 `.quick-player > span { flex:1 }` 误把 fallback avatar 当文字容器拉伸成椭圆。
@@ -92,11 +114,17 @@ PR：#22（Draft，禁止自动 merge）
 - create/get/accept claim invite 已统一 canonical current profile；真实 alias 事务验证可以生成 claim token 且 rollback 不留脏邀请。
 - 关联 `AUD-20260831-004` P1。
 
+### 整改与验证职责分离
+- 总控可以直接整改 `OPEN + owner=null` 的问题，但亲自实施的修复**最多推进到 `FIXED_PENDING_VERIFY`**。
+- 总控不得对自己实施的修复自行给 `VERIFIED`；必须由独立代码巡检、真实 Browser Blackbox 或 Release Gate 提供独立证据后收尾。
+- 若修复由“球搭子问题整改”等独立定时整改任务实施，则未参与该次实现的总控可以作为独立复核方判断是否收尾。
+- 该边界以 `docs/AUDIT_AUTOMATION_GOVERNANCE.md` 为长期真源，README 同步摘要。
+
 ### 文档治理同步
-- 新增 `docs/QUICK_START_BASELINE.md`，成为 Quick Start 专项 canonical source。
-- `docs/DOCUMENT_GOVERNANCE.md` 把 QUICK_START 纳入 canonical 层级与变更联动矩阵。
-- `README.md`、`docs/PRD_V6_EVENT_LIFECYCLE_PRIVACY_I18N.md`、`docs/PRODUCT_BASELINE.md`、`docs/INTERACTION_BASELINE.md`、`docs/P0_ACCEPTANCE.md` 已同步当前规则。
-- `docs/AUDIT_BACKLOG_SNAPSHOT.json` 已刷新；正式事实源仍是 `audit_ops.issue_registry`。
+- 新增 `docs/QUICK_START_BASELINE.md`、`docs/TEST_DATA_GOVERNANCE.md`、`docs/TOURNAMENT_PRESENTATION_BASELINE.md`。
+- `docs/DOCUMENT_GOVERNANCE.md` 已把 QUICK_START / TEST_DATA / TOURNAMENT_PRESENTATION 纳入 canonical 层级、变更联动矩阵和自动化必读规则。
+- `README.md`、`docs/PRD_V6_EVENT_LIFECYCLE_PRIVACY_I18N.md`、`docs/PRODUCT_BASELINE.md`、`docs/INTERACTION_BASELINE.md`、`docs/P0_ACCEPTANCE.md` 已做本轮规则同步；专项细则以对应专项 baseline 为准。
+- `docs/AUDIT_BACKLOG_SNAPSHOT.json` 是历史/降级缓存；正式事实源仍是 `audit_ops.issue_registry`。
 - 当前所有 canonical docs commit 都属于 PR #22 exact head 的一部分，因此旧候选/browser/Gate 证据全部失效，必须重新跑完整 exact-head 链。
 
 ---
