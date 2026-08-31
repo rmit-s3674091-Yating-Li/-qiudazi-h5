@@ -4,7 +4,6 @@ import type {
   Player,
   Profile,
   Snapshot,
-  EventPhoto,
 } from "../domain/types";
 export interface Filters {
   match_type?: string;

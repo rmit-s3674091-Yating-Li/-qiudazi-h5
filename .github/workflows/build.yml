@@ -1,0 +1,151 @@
+name: H5 Build Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate repository visibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.repository.private }}" != "true" ]; then
+            echo "Repository visibility drift detected: qiudazi-h5 must remain private."
+            exit 1
+          fi
+          echo "Repository visibility preflight passed: private."
+      - name: Validate canonical environment identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          canonical_ref="rtmjzmgrhifjzxaliltm"
+          canonical_url="https://${canonical_ref}.supabase.co"
+          grep -Fq "canonical project ref / project_id：\`${canonical_ref}\`" docs/ENVIRONMENT_BASELINE.md
+          grep -Fxq "VITE_SUPABASE_URL=${canonical_url}" .env.example
+          grep -Fq "${canonical_url}" src/repositories/supabase.ts
+          echo "Environment identity preflight passed: ${canonical_ref}."
+      - name: Reject server secrets in tracked files
+        shell: bash
+        run: |
+          set -euo pipefail
+          patterns='sb_secret_[A-Za-z0-9_-]+|ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|postgres(ql)?://[^[:space:]@]+:[^[:space:]@]+@|SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=[[:space:]]*[^$<{[:space:]]+'
+          matches=$(git grep -IEn "$patterns" -- . ':(exclude).github/workflows/build.yml' || true)
+          if [ -n "$matches" ]; then
+            echo "Potential server secret detected in tracked files:"
+            echo "$matches"
+            exit 1
+          fi
+          echo "Tracked-file server-secret preflight passed. Browser publishable/anon keys are not treated as server secrets."
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  supabase-clean-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate migration filenames and unique versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No migration files found"
+            exit 1
+          fi
+
+          bad=0
+          for file in "${files[@]}"; do
+            if [[ ! "$file" =~ ^[0-9]{14}_[a-z0-9_]+\.sql$ ]]; then
+              echo "Invalid migration filename: $file"
+              bad=1
+            fi
+          done
+          if [ "$bad" -ne 0 ]; then
+            exit 1
+          fi
+
+          duplicates=$(printf '%s\n' "${files[@]}" | cut -c1-14 | sort | uniq -d)
+          if [ -n "$duplicates" ]; then
+            echo "Duplicate Supabase migration version(s) detected:"
+            while read -r version; do
+              [ -z "$version" ] && continue
+              echo "  version $version"
+              printf '%s\n' "${files[@]}" | grep "^${version}_" | sed 's/^/    - /'
+            done <<< "$duplicates"
+            exit 1
+          fi
+
+          echo "Migration preflight passed: ${#files[@]} unique versioned files."
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Initialize local Supabase config
+        run: supabase init --force
+      - name: Start isolated local Supabase
+        run: supabase start
+      - name: Replay repository migrations from a clean database
+        run: supabase db reset --local
+      - name: Assert storage buckets and policies
+        env:
+          PGPASSWORD: postgres
+        run: |
+          bucket_count=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from storage.buckets where (id='avatars' and public=true and file_size_limit=3145728 and allowed_mime_types=array['image/jpeg','image/png','image/webp']::text[]) or (id='event-photos' and public=false and file_size_limit=10485760 and allowed_mime_types=array['image/jpeg','image/png','image/webp']::text[]);")
+          policy_count=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from pg_policies where schemaname='storage' and tablename='objects' and policyname in ('qiudazi_avatar_insert','qiudazi_avatar_read_own','qiudazi_avatar_delete_own','qiudazi_photo_insert','qiudazi_photo_read_event_member','qiudazi_photo_delete_own');")
+          test "$bucket_count" = "2"
+          test "$policy_count" = "6"
+      - name: Assert final photo RPC surface
+        env:
+          PGPASSWORD: postgres
+        run: |
+          photo_function_count=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('can_upload_photo','can_view_event_photo','list_event_photos','add_event_photo','delete_event_photo_metadata','prepare_personal_album_import','finalize_personal_album_import','list_my_past_event_albums','get_personal_album_asset','list_partner_visible_event_albums','delete_my_personal_album_metadata');")
+          legacy_function_count=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname in ('save_event_photo','remove_event_photo_from_event','set_my_event_album_visibility','list_my_event_photos');")
+          test "$photo_function_count" = "11"
+          test "$legacy_function_count" = "0"
+      - name: Assert independent personal album schema
+        env:
+          PGPASSWORD: postgres
+        run: |
+          personal_table_rls=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select c.relrowsecurity::int from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname='participant_album_photos';")
+          source_fk_set_null=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from pg_constraint con join pg_class c on c.oid=con.conrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname='participant_album_photos' and con.conname='participant_album_photos_source_event_photo_id_fkey' and pg_get_constraintdef(con.oid) like '%ON DELETE SET NULL%';")
+          event_single_photo_unique=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from pg_constraint con join pg_class c on c.oid=con.conrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname='event_photos' and con.conname='event_photos_event_id_key';")
+          album_visibility_default=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select column_default from information_schema.columns where table_schema='public' and table_name='profile_preferences' and column_name='participant_album_visibility';")
+          test "$personal_table_rls" = "1"
+          test "$source_fk_set_null" = "1"
+          test "$event_single_photo_unique" = "0"
+          test "$album_visibility_default" = "'private'::text"
+      - name: Assert event snapshot no longer exposes photo paths
+        env:
+          PGPASSWORD: postgres
+        run: |
+          snapshot_photo_compat=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='get_event_snapshot' and position('''photo'',null' in pg_get_functiondef(p.oid))>0;")
+          snapshot_function_count=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='get_event_snapshot';")
+          test "$snapshot_function_count" -ge "1"
+          test "$snapshot_photo_compat" = "$snapshot_function_count"
+      - name: Assert quick event mode boundaries
+        env:
+          PGPASSWORD: postgres
+        run: |
+          event_mode_column=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from information_schema.columns where table_schema='public' and table_name='events' and column_name='event_mode' and column_default='''standard''::text';")
+          quick_rpc=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='create_quick_event';")
+          list_mode=$(psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='list_events' and position('e.event_mode' in pg_get_functiondef(p.oid))>0 and position('coalesce(e.event_mode,''standard'')=''standard''' in pg_get_functiondef(p.oid))>0;")
+          test "$event_mode_column" = "1"
+          test "$quick_rpc" = "1"
+          test "$list_mode" = "1"
+      - name: Stop isolated local Supabase
+        if: always()
+        run: supabase stop --no-backup

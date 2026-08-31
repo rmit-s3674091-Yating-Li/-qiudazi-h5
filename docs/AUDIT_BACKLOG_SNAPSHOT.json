@@ -1,0 +1,11 @@
+{
+  "generated_at": "2026-08-31T06:58:00Z",
+  "source_path": "public.audit_issue_registry_readonly",
+  "source_head": "6bbc45cce58355aca2f206e4b5b4eb4b172a491a",
+  "note": "Read-only fallback snapshot. Supabase audit_ops.issue_registry remains the sole source of truth. This file must not be used to create AUD ids or mutate formal status.",
+  "issues": [
+    {"audit_id":"AUD-20260829-016","status":"OPEN","severity":"P2","module":"UX / 组织者参赛者选择","owner":null},
+    {"audit_id":"AUD-20260830-002","status":"DUPLICATE","severity":"P1","module":"Audit automation / backlog concurrency","owner":"球搭子问题整改"},
+    {"audit_id":"AUD-20260831-002","status":"OPEN","severity":"P1","module":"EventFormPage / EventRules / deadline editing","owner":null}
+  ]
+}

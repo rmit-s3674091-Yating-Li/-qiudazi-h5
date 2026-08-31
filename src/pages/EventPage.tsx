@@ -1,45 +1,40 @@
 import { useEffect, useState } from "react";
-import {
-  Link,
-  useNavigate,
-  useParams,
-  useSearchParams,
-} from "react-router-dom";
-import { Share2, RefreshCw, Plus } from "lucide-react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Plus, RefreshCw, Share2 } from "lucide-react";
 import { useQuery } from "../hooks/useQuery";
 import { useAuth } from "../hooks/Auth";
+import { command, explainError, repository, rpc } from "../repositories/supabase";
+import type { Entry, Player, Snapshot } from "../domain/types";
 import {
-  repository,
-  rpc,
-  explainError,
-  command,
-} from "../repositories/supabase";
-import type { Snapshot, Entry, Player } from "../domain/types";
-import {
-  Header,
-  ErrorNotice,
-  Loading,
-  labels,
-  feeText,
-  entryName,
   Avatar,
-  Sheet,
   Confirm,
+  ErrorNotice,
+  Header,
+  Loading,
+  Sheet,
+  entryName,
+  feeText,
+  isRegistrationOpenClient,
+  labelFor,
+  suggestedLevelDisplay,
   unit,
-  levelLabel,
 } from "../components/UI";
-import {
-  DrawPanel,
-  RankingPanel,
-  PhotoPanel,
-} from "../components/TournamentPanels";
+import { DrawPanel, PhotoPanel, RankingPanel } from "../components/TournamentPanels";
+import { useLanguage } from "../i18n";
+
 export function EventPage({ manage = false }: { manage?: boolean }) {
   const { id } = useParams(),
     auth = useAuth(),
     navigate = useNavigate(),
     [params, setParams] = useSearchParams();
+  const { language, t } = useLanguage();
+  const en = language === "en";
   const q = useQuery("event-" + id, () => repository.event(id!), 10000);
-  const myEntryQ = useQuery("my-event-entry-" + id, () => rpc<string | null>("get_my_event_entry_id", { p_event_id: id }), 10000);
+  const myEntryQ = useQuery(
+    "my-event-entry-" + id,
+    () => rpc<string | null>("get_my_event_entry_id", { p_event_id: id }),
+    10000,
+  );
   const [rosterStatus, setRosterStatus] = useState("confirmed");
   const [tab, setTab] = useState("info"),
     [signup, setSignup] = useState<"self" | "manual" | null>(null),
@@ -51,23 +46,20 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
       description: string;
       run: () => Promise<unknown>;
     } | null>(null);
+
   useEffect(() => {
-    if (
-      params.get("join") === "1" &&
-      auth.profile?.profile_status === "completed"
-    ) {
+    if (params.get("join") === "1" && auth.profile?.profile_status === "completed") {
       setSignup("self");
       setParams({}, { replace: true });
     }
   }, [params, auth.profile?.profile_status]);
+
   async function join() {
     setError("");
     try {
       const p = await auth.start();
       if (p.profile_status !== "completed") {
-        navigate(
-          "/profile?next=" + encodeURIComponent("/events/" + id + "?join=1"),
-        );
+        navigate("/profile?next=" + encodeURIComponent("/events/" + id + "?join=1"));
         return;
       }
       setSignup("self");
@@ -75,13 +67,14 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
       setError(explainError(e));
     }
   }
+
   async function run(task: () => Promise<unknown>) {
     setBusy(true);
     setError("");
     try {
       await task();
       setConfirm(null);
-      q.refresh();
+      await Promise.all([q.refresh(), myEntryQ.refresh()]);
     } catch (e) {
       setError(explainError(e));
       setConfirm(null);
@@ -89,6 +82,42 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
       setBusy(false);
     }
   }
+
+  async function lockRosterAndDraw() {
+    const latest = await q.refresh();
+    if (latest.viewer_role !== "owner" || latest.event.status !== "signup") {
+      throw new Error(en
+        ? "The event changed before the roster could be locked. Review the latest state and try again."
+        : "赛事状态刚刚发生变化，请确认最新状态后再重试锁定名单。");
+    }
+    const locked = await rpc<Snapshot["event"]>("lock_event_roster", {
+      p_event_id: id,
+      p_version: latest.event.version,
+    });
+    try {
+      await command(locked.id, { type: "draw", event_version: locked.version, confirmed: true });
+      setTab("draw");
+      setNotice(en ? "Roster locked and the initial draw was generated." : "名单已锁定，并已自动生成首次对阵。");
+    } catch (drawError) {
+      setTab("draw");
+      await Promise.all([q.refresh(), myEntryQ.refresh()]);
+      const detail = explainError(drawError);
+      throw new Error(en
+        ? `The roster is locked, but the initial draw did not finish. Use “Retry draw” to continue. ${detail}`
+        : `名单已经锁定，但首次对阵没有生成完成。请点击“继续生成对阵”重试。${detail}`);
+    }
+  }
+
+  async function finishEvent() {
+    const latest = await q.refresh();
+    if (latest.viewer_role !== "owner" || latest.event.status !== "ongoing") {
+      throw new Error(en
+        ? "The event changed before it could be finished. Review the latest state and try again."
+        : "赛事状态刚刚发生变化，请确认最新状态后再重试结束赛事。");
+    }
+    return command(latest.event.id, { type: "finish", event_version: latest.event.version });
+  }
+
   async function share() {
     const url = `${location.origin}${location.pathname}#/events/${id}`;
     try {
@@ -101,35 +130,40 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
         }
       }
       await navigator.clipboard.writeText(url);
-      setNotice("赛事链接已复制，可以发送给朋友");
+      setNotice(t("shareCopied"));
     } catch {
-      setNotice("请复制此赛事链接：" + url);
+      setNotice(t("copyEventLink") + url);
     }
   }
+
   if (!q.data)
     return (
       <>
-        <Header title="赛事" />
+        <Header title={t("event")} />
         <main className="page">
           <ErrorNotice message={q.error} retry={q.refresh} />
           {q.loading && <Loading />}
         </main>
       </>
     );
+
   const s = q.data,
     e = s.event,
-    owner = auth.profile?.id === e.owner_user_id,
+    owner = s.viewer_role === "owner",
+    registrationOpen = isRegistrationOpenClient(e),
     active = s.entries.filter((x) => x.status === "confirmed"),
     waiting = s.entries.filter((x) => x.status === "waitlist"),
     own = s.entries.find(
       (x) => (x.id === myEntryQ.data || x.signup_user_id === auth.profile?.id) && x.status !== "withdrawn",
     );
+  const txt = (zh: string, english: string) => (en ? english : zh);
+
   return (
     <>
       <Header
-        title={manage ? "赛事管理" : "赛事详情"}
+        title={manage ? t("eventManage") : t("eventDetail")}
         action={
-          <button className="icon-button" aria-label="分享赛事" onClick={share}>
+          <button className="icon-button" aria-label={t("shareEvent")} onClick={share}>
             <Share2 size={20} />
           </button>
         }
@@ -137,397 +171,174 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
       <main className="page has-action">
         <div className="event-hero">
           <div className="court-lines" />
-          <span className={"badge " + e.status}>{labels[e.status]}</span>
+          <span className={"badge " + e.status}>{labelFor(e.status, language)}</span>
           <h1>{e.name}</h1>
           <p>
-            {e.level && levelLabel(e.level) + "级 · "}
-            {labels[e.match_type]} · {labels[e.format]}
+            {labelFor(e.match_type, language)} · {suggestedLevelDisplay(e.suggested_level_min, e.suggested_level_max, language)} · {labelFor(e.format, language)}
           </p>
         </div>
         <ErrorNotice message={error || q.error} retry={q.refresh} />
-        {notice && (
-          <div role="status" className="notice">
-            {notice}
-          </div>
+        {notice && <div role="status" className="notice">{notice}</div>}
+        {!registrationOpen && e.status === "signup" && (
+          <div className="notice">{txt("报名已截止，参赛名单按锁定状态处理。", "Registration is closed and the roster is treated as locked.")}</div>
         )}
         <div className="stats">
-          <div>
-            <b>{active.length}</b>
-            <small>
-              正式 / {e.entry_limit || "不限"} {unit(e)}
-            </small>
-          </div>
-          <div>
-            <b>{waiting.length}</b>
-            <small>候补 / 2 {unit(e)}</small>
-          </div>
-          <div>
-            <b>{e.draw_generated ? "已生成" : "未生成"}</b>
-            <small>赛程 / 签表</small>
-          </div>
+          <div><b>{active.length}</b><small>{t("confirmed")} / {e.entry_limit || t("unlimited")} {unit(e, language)}</small></div>
+          <div><b>{waiting.length}</b><small>{t("waitlist")} / 2 {unit(e, language)}</small></div>
+          <div><b>{e.draw_generated ? t("generated") : t("notGenerated")}</b><small>{t("scheduleDraw")}</small></div>
         </div>
         <div className="tab-strip">
-          {[
-            ["info", "赛事"],
-            ["roster", "参赛"],
-            ["draw", "对阵"],
-            ["ranking", "排名"],
-            ["photo", "合影"],
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              className={tab === key ? "active" : ""}
-              onClick={() => setTab(key)}
-            >
-              {label}
-            </button>
+          {[["info", t("eventTab")], ["roster", t("rosterTab")], ["draw", t("drawTab")], ["ranking", t("rankingTab")], ["photo", t("photoTab")]].map(([key, label]) => (
+            <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
           ))}
-          <button aria-label="刷新" onClick={q.refresh}>
-            <RefreshCw size={16} />
-          </button>
+          <button aria-label={t("refresh")} onClick={q.refresh}><RefreshCw size={16} /></button>
         </div>
-        {tab === "info" && (
-          <>
-            <div className="event-facts">
-              <div>
-                <small>比赛日期</small>
-                <strong>
-                  {e.event_date || "日期待定"} {e.event_time?.slice(0, 5)}
-                </strong>
-              </div>
-              <div>
-                <small>球场</small>
-                <strong>{e.venue || "场地待定"}</strong>
-              </div>
-              <div>
-                <small>计分规则</small>
-                <strong>
-                  {e.best_of === 1
-                    ? "一盘决胜"
-                    : e.best_of === 3
-                      ? "三盘两胜"
-                      : "五盘三胜"}{" "}
-                  · {labels[e.scoring_type]}
-                </strong>
-              </div>
-              <div>
-                <small>费用</small>
-                <strong>{feeText(e, active.length)}</strong>
-              </div>
-            </div>
-            {e.tiebreak_trigger && (
-              <p className="muted small">
-                {e.tiebreak_trigger}:{e.tiebreak_trigger} 后抢七 · 传统占先制
-              </p>
-            )}
-            {e.format === "group_knockout" && (
-              <div className="notice">
-                {e.group_count} 个小组 · 每组前 {e.qualifiers_per_group}{" "}
-                晋级淘汰赛
-              </div>
-            )}
-            {owner && e.status === "signup" && (
-              <Link className="card row between" to={"/events/" + id + "/edit"}>
-                <div>
-                  <strong>赛事设置</strong>
-                  <p className="muted small">修改时间、场地、赛制和报名设置</p>
-                </div>
-                <span aria-hidden>›</span>
-              </Link>
-            )}
-          </>
-        )}
-        {tab === "roster" && (
-          <>
-            <div className="chips">
-              <button
-                className={rosterStatus === "confirmed" ? "active" : ""}
-                onClick={() => setRosterStatus("confirmed")}
-              >
-                正式名单 {active.length}
-              </button>
-              <button
-                className={rosterStatus === "waitlist" ? "active" : ""}
-                onClick={() => setRosterStatus("waitlist")}
-              >
-                候补名单 {waiting.length}
-              </button>
-            </div>
-            <div className="section-heading">
-              <h2>
-                {rosterStatus === "confirmed" ? "正式名单" : "候补名单"} ·{" "}
-                {rosterStatus === "confirmed" ? active.length : waiting.length}{" "}
-                {unit(e)}
-              </h2>
-              {owner && e.status === "signup" && (
-                <button
-                  className="text-button"
-                  onClick={() => setSignup("manual")}
-                >
-                  <Plus size={16} />
-                  添加参赛者
-                </button>
-              )}
-            </div>
-            {rosterStatus === "confirmed" &&
-              active.map((en) => (
-                <RosterRow
-                  key={en.id}
-                  entry={en}
-                  remove={
-                    e.status === "signup" &&
-                    (owner || en.signup_user_id === auth.profile?.id)
-                      ? () =>
-                          setConfirm({
-                            title: owner ? "移出参赛名单？" : "确认退出报名？",
-                            description:
-                              "退出后会自动递补最早报名的候补；重新报名将按新的时间排序。",
-                            run: () =>
-                              rpc("withdraw_entry", {
-                                p_event_id: id,
-                                p_entry_id: en.id,
-                              }),
-                          })
-                      : undefined
-                  }
-                />
-              ))}
-            {rosterStatus === "confirmed" && !active.length && (
-              <p className="muted">还没有参赛者。其他用户可自行报名，组织者也可以手动添加参赛者。</p>
-            )}
-            {rosterStatus === "waitlist" &&
-              waiting.map((en) => (
-                <RosterRow
-                  key={en.id}
-                  entry={en}
-                  remove={
-                    e.status === "signup" &&
-                    (owner || en.signup_user_id === auth.profile?.id)
-                      ? () =>
-                          setConfirm({
-                            title: "退出候补？",
-                            description:
-                              "将释放整个参赛单元，双打将同时退出两位参赛者。",
-                            run: () =>
-                              rpc("withdraw_entry", {
-                                p_event_id: id,
-                                p_entry_id: en.id,
-                              }),
-                          })
-                      : undefined
-                  }
-                />
-              ))}
-            {e.status !== "signup" && (
-              <p className="notice">名单已锁定，候补不再递补。</p>
-            )}
-          </>
-        )}
+
+        {tab === "info" && <>
+          <div className="event-facts">
+            <div><small>{t("matchDate")}</small><strong>{e.event_date || t("dateTbd")} {e.event_time?.slice(0, 5)}</strong></div>
+            <div><small>{t("venue")}</small><strong>{e.venue || t("venueTbd")}</strong></div>
+            <div><small>{t("scoringRules")}</small><strong>{e.best_of === 1 ? t("oneSet") : e.best_of === 3 ? t("bestOfThree") : t("bestOfFive")} · {labelFor(e.scoring_type, language)}</strong></div>
+            <div><small>{t("fee")}</small><strong>{feeText(e, active.length, language)}</strong></div>
+          </div>
+          {e.tiebreak_trigger && <p className="muted small">{e.tiebreak_trigger}:{e.tiebreak_trigger} {t("afterTiebreak")} · {t("traditionalAdvantage")}</p>}
+          {e.format === "group_knockout" && <div className="notice">{e.group_count} {t("group")} · {t("topPerGroup")} {e.qualifiers_per_group} {t("advanceKnockout")}</div>}
+          {owner && registrationOpen && <Link className="card row between" to={"/events/" + id + "/edit"}><div><strong>{t("eventSettings")}</strong><p className="muted small">{t("eventSettingsHint")}</p></div><span aria-hidden>›</span></Link>}
+        </>}
+
+        {tab === "roster" && <>
+          <div className="chips">
+            <button className={rosterStatus === "confirmed" ? "active" : ""} onClick={() => setRosterStatus("confirmed")}>{t("confirmedRoster")} {active.length}</button>
+            <button className={rosterStatus === "waitlist" ? "active" : ""} onClick={() => setRosterStatus("waitlist")}>{t("waitlistRoster")} {waiting.length}</button>
+          </div>
+          <div className="section-heading">
+            <h2>{rosterStatus === "confirmed" ? t("confirmedRoster") : t("waitlistRoster")} · {rosterStatus === "confirmed" ? active.length : waiting.length} {unit(e, language)}</h2>
+            {owner && registrationOpen && <button className="text-button" onClick={() => setSignup("manual")}><Plus size={16} />{txt("添加参赛者", "Add players")}</button>}
+          </div>
+          {rosterStatus === "confirmed" && active.map((entry) => (
+            <RosterRow
+              key={entry.id}
+              entry={entry}
+              language={language}
+              remove={registrationOpen && (owner || entry.id === own?.id) ? () => setConfirm({
+                title: owner ? txt("移出参赛名单？", "Remove from roster?") : txt("确认退出报名？", "Withdraw registration?"),
+                description: txt("退出后会自动递补最早报名的候补；重新报名将按新的时间排序。", "The earliest waitlisted entry will be promoted automatically. Registering again uses a new registration time."),
+                run: () => rpc("withdraw_entry", { p_event_id: id, p_entry_id: entry.id }),
+              }) : undefined}
+            />
+          ))}
+          {rosterStatus === "confirmed" && !active.length && <p className="muted">{txt("还没有参赛者。其他用户可自行报名，组织者也可以添加临时球搭子。", "No players yet. Other users can register themselves, and the organizer can add temporary partners.")}</p>}
+          {rosterStatus === "waitlist" && waiting.map((entry) => (
+            <RosterRow
+              key={entry.id}
+              entry={entry}
+              language={language}
+              remove={registrationOpen && (owner || entry.id === own?.id) ? () => setConfirm({
+                title: txt("退出候补？", "Leave the waitlist?"),
+                description: txt("将释放整个参赛单元，双打将同时退出两位参赛者。", "The whole entry will be released; a doubles team withdraws both players together."),
+                run: () => rpc("withdraw_entry", { p_event_id: id, p_entry_id: entry.id }),
+              }) : undefined}
+            />
+          ))}
+          {!registrationOpen && <p className="notice">{txt("名单已锁定，候补不再递补。", "The roster is locked and waitlist promotion has ended.")}</p>}
+        </>}
+
         {tab === "draw" && <DrawPanel s={s} />}
         {tab === "ranking" && <RankingPanel s={s} />}
-        {tab === "photo" && (
-          <PhotoPanel s={s} owner={owner} onDone={q.refresh} />
-        )}
-        {owner && e.status === "locked" && (
-          <div className="stack">
-            <button
-              disabled={busy}
-              onClick={() =>
-                setConfirm({
-                  title: e.draw_generated ? "重新生成对阵？" : "生成本场对阵？",
-                  description: e.draw_generated
-                    ? "将清空当前签表，按正式名单重新生成。自动轮空不算已经开赛。"
-                    : "按锁定的正式名单和赛制生成；此操作不会开始赛事。",
-                  run: () =>
-                    command(e.id, {
-                      type: "draw",
-                      event_version: e.version,
-                      confirmed: true,
-                    }),
-                })
-              }
-            >
-              {e.draw_generated ? "重新生成对阵" : "生成对阵"}
-            </button>
-            {e.draw_generated && (
-              <button
-                disabled={busy}
-                onClick={() =>
-                  setConfirm({
-                    title: "开始赛事？",
-                    description: "开始后开放记分，不能再改动参赛名单。",
-                    run: () =>
-                      command(e.id, {
-                        type: "start",
-                        event_version: e.version,
-                      }),
-                  })
-                }
-              >
-                开始赛事
-              </button>
-            )}
-            <button
-              className="text-button"
-              disabled={busy}
-              onClick={() =>
-                setConfirm({
-                  title: "解锁并清空对阵？",
-                  description:
-                    "将重新开放报名，清空当前所有对阵。已有正式比赛开始或结束时禁止解锁。",
-                  run: () =>
-                    command(e.id, {
-                      type: "unlock",
-                      event_version: e.version,
-                      confirmed: true,
-                    }),
-                })
-              }
-            >
-              解锁名单
-            </button>
-          </div>
-        )}
-        {owner && e.status === "ongoing" && (
-          <button
-            className="secondary full"
-            disabled={busy}
-            onClick={() =>
-              setConfirm({
-                title: "结束本场赛事？",
-                description:
-                  "必须完成所有比赛。结束后结果只读，不能再记分或更正；随后可以上传合影。",
-                run: () =>
-                  command(e.id, { type: "finish", event_version: e.version }),
-              })
-            }
+        {tab === "photo" && <PhotoPanel s={s} owner={owner} onDone={q.refresh} />}
+
+        {owner && e.status === "locked" && <div className="stack">
+          {!e.draw_generated ? <button disabled={busy} onClick={() => setConfirm({
+            title: txt("继续生成首次对阵？", "Retry the initial draw?"),
+            description: txt("名单已经锁定。继续只会按当前正式名单生成对阵，不会再次锁定或修改参赛名单。", "The roster is already locked. Retry only generates the draw from the confirmed roster; it does not lock or change the roster again."),
+            run: () => command(e.id, { type: "draw", event_version: e.version, confirmed: true }),
+          })}>{txt("继续生成对阵", "Retry draw")}</button> : <>
+            <button className="secondary" disabled={busy} onClick={() => setTab("draw")}>{txt("查看对阵", "View draw")}</button>
+            <button disabled={busy} onClick={() => setConfirm({
+              title: txt("开始赛事？", "Start the event?"),
+              description: txt("开始后开放记分，不能再改动参赛名单。", "Scoring opens after the event starts and the roster can no longer be changed."),
+              run: () => command(e.id, { type: "start", event_version: e.version }),
+            })}>{txt("开始赛事", "Start event")}</button>
+            <button className="text-button" disabled={busy} onClick={() => setConfirm({
+              title: txt("重新生成对阵？", "Regenerate the draw?"),
+              description: txt("将清空当前签表，按正式名单重新生成。自动轮空不算已经开赛。", "The current draw will be cleared and rebuilt from the confirmed roster. Automatic byes do not count as started matches."),
+              run: () => command(e.id, { type: "draw", event_version: e.version, confirmed: true }),
+            })}>{txt("重新生成对阵", "Regenerate draw")}</button>
+          </>}
+          <button className="text-button" disabled={busy} onClick={() => setConfirm({
+            title: txt("解锁并清空对阵？", "Unlock roster and clear the draw?"),
+            description: txt("将重新开放报名，清空当前所有对阵。已有正式比赛开始或结束时禁止解锁。", "Registration will reopen and the draw will be cleared. Unlocking is blocked after a real match has started or finished."),
+            run: () => command(e.id, { type: "unlock", event_version: e.version, confirmed: true }),
+          })}>{txt("解锁名单", "Unlock roster")}</button>
+        </div>}
+
+        {owner && e.status === "ongoing" && <button className="secondary full" disabled={busy} onClick={() => setConfirm({
+          title: txt("结束本场赛事？", "Finish this event?"),
+          description: txt("必须完成所有比赛。结束后结果只读，不能再记分或更正；随后可以上传合影。", "All matches must be completed. After finishing, results become read-only and the event photo can be uploaded."),
+          run: finishEvent,
+        })}>{txt("结束赛事", "Finish event")}</button>}
+
+        {manage && !owner && <ErrorNotice message={txt("仅赛事创建者可以管理。", "Only the event organizer can manage this event.")} />}
+
+        <div className="action-bar"><div className="row">
+          {registrationOpen && !own && (e.visibility === "public" || e.link_signup_enabled) && <button
+            className={owner ? "secondary grow" : "grow"}
+            disabled={!!e.entry_limit && active.length >= e.entry_limit && waiting.length >= 2}
+            onClick={join}
           >
-            结束赛事
-          </button>
-        )}
-        {manage && !owner && <ErrorNotice message="仅赛事创建者可以管理。" />}
-        <div className="action-bar">
-          <div className="row">
-            {e.status === "signup" &&
-              !own &&
-              (e.visibility === "public" || e.link_signup_enabled) && (
-                <button
-                  className={owner ? "secondary grow" : "grow"}
-                  disabled={
-                    !!e.entry_limit &&
-                    active.length >= e.entry_limit &&
-                    waiting.length >= 2
-                  }
-                  onClick={join}
-                >
-                  {e.entry_limit && active.length >= e.entry_limit
-                    ? waiting.length >= 2
-                      ? "报名已满"
-                      : "加入候补"
-                    : owner ? "我也参赛" : "立即报名"}
-                </button>
-              )}
-            {own && (
-              <button
-                className="secondary grow"
-                onClick={() => {
-                  setTab("roster");
-                  setRosterStatus(own.status);
-                }}
-              >
-                {own.status === "waitlist"
-                  ? "已候补 · 查看/退出"
-                  : "已报名 · 查看/退出"}
-              </button>
-            )}
-            {owner && e.status === "signup" && (
-              <button
-                className="grow"
-                disabled={busy}
-                onClick={() =>
-                  setConfirm({
-                    title: "锁定参赛名单？",
-                    description:
-                      "锁定后不能继续报名、退出或递补。请确认正式名单和小组人数设置无误；锁定不会自动生成对阵。",
-                    run: () =>
-                      rpc("lock_event_roster", {
-                        p_event_id: id,
-                        p_version: e.version,
-                      }),
-                  })
-                }
-              >
-                锁定名单
-              </button>
-            )}
-            {e.status !== "signup" && (
-              <button className="secondary full" onClick={share}>
-                分享赛事
-              </button>
-            )}
-          </div>
-        </div>
+            {e.entry_limit && active.length >= e.entry_limit
+              ? waiting.length >= 2 ? txt("报名已满", "Registration full") : txt("加入候补", "Join waitlist")
+              : owner ? txt("我也参赛", "Register myself") : txt("立即报名", "Register now")}
+          </button>}
+          {own && <button className="secondary grow" onClick={() => { setTab("roster"); setRosterStatus(own.status); }}>
+            {registrationOpen
+              ? own.status === "waitlist" ? txt("已候补 · 查看/退出", "Waitlisted · view / withdraw") : txt("已报名 · 查看/退出", "Registered · view / withdraw")
+              : own.status === "waitlist" ? txt("已候补 · 查看名单", "Waitlisted · view roster") : txt("已报名 · 查看名单", "Registered · view roster")}
+          </button>}
+          {owner && e.status === "signup" && <button className="grow" disabled={busy} onClick={() => setConfirm({
+            title: txt("锁定参赛名单并生成对阵？", "Lock the roster and generate the draw?"),
+            description: txt("锁定后不能继续报名、退出或递补。请确认正式名单和小组人数设置无误；确认后系统会立即自动生成首次对阵。", "After locking, registration, withdrawal and waitlist promotion stop. Check the confirmed roster and group settings first; the initial draw is generated automatically after confirmation."),
+            run: lockRosterAndDraw,
+          })}>{txt("锁定名单", "Lock roster")}</button>}
+          {e.status !== "signup" && <button className="secondary full" onClick={share}>{t("shareEvent")}</button>}
+        </div></div>
       </main>
-      {signup && (
-        <SignupSheet
-          snapshot={s}
-          manual={signup === "manual"}
-          onClose={() => setSignup(null)}
-          onDone={() => {
-            setSignup(null);
-            setTab("roster");
-            q.refresh();
-          }}
-        />
-      )}
-      {confirm && (
-        <Confirm
-          {...confirm}
-          busy={busy}
-          onCancel={() => setConfirm(null)}
-          onConfirm={() => run(confirm.run)}
-        />
-      )}
+
+      {signup && <SignupSheet
+        snapshot={s}
+        manual={signup === "manual"}
+        onClose={() => setSignup(null)}
+        onDone={() => {
+          setSignup(null);
+          setTab("roster");
+          void Promise.all([q.refresh(), myEntryQ.refresh()]);
+        }}
+      />}
+      {confirm && <Confirm title={confirm.title} description={confirm.description} busy={busy} onCancel={() => setConfirm(null)} onConfirm={() => run(confirm.run)} />}
     </>
   );
 }
-function RosterRow({ entry, remove }: { entry: Entry; remove?: () => void }) {
-  return (
-    <div className="card row">
-      <Avatar path={entry.players[0]?.avatar_url} size={38} />
-      <div className="grow">
-        <strong>{entryName(entry)}</strong>
-        {entry.team_name && (
-          <p className="small muted">
-            {entry.players.map((p) => p.name).join(" / ")}
-          </p>
-        )}
-        {entry.status === "waitlist" && (
-          <small className="muted">候补第 {entry.waitlist_order} 位</small>
-        )}
-      </div>
-      {remove && (
-        <button className="text-button" onClick={remove}>
-          退出
-        </button>
-      )}
+
+function RosterRow({ entry, remove, language }: { entry: Entry; remove?: () => void; language: "zh-CN" | "en" }) {
+  const en = language === "en";
+  return <div className="card row">
+    <Avatar path={entry.players[0]?.avatar_url} size={38} />
+    <div className="grow">
+      <strong>{entryName(entry)}</strong>
+      {entry.team_name && <p className="small muted">{entry.players.map((p) => p.name).join(" / ")}</p>}
+      {entry.status === "waitlist" && <small className="muted">{en ? `Waitlist position ${entry.waitlist_order}` : `候补第 ${entry.waitlist_order} 位`}</small>}
     </div>
-  );
+    {remove && <button className="text-button" onClick={remove}>{en ? "Withdraw" : "退出"}</button>}
+  </div>;
 }
-function SignupSheet({
-  snapshot: s,
-  manual,
-  onClose,
-  onDone,
-}: {
-  snapshot: Snapshot;
-  manual: boolean;
-  onClose: () => void;
-  onDone: () => void;
-}) {
+
+function SignupSheet({ snapshot: s, manual, onClose, onDone }: { snapshot: Snapshot; manual: boolean; onClose: () => void; onDone: () => void }) {
   type Connection = { connection_id: string; id: string; nickname: string | null; avatar_url: string | null };
   type PartnerInvite = { id: string; invitee_user_id: string; nickname: string | null; avatar_url: string | null; status: "pending" | "accepted" | "declined" | "cancelled" | "expired"; self_player_id: string | null };
   type EventInvite = { invitee_user_id: string; status: "pending" | "accepted" | "declined" | "cancelled" | "expired"; created_at: string };
+  const { language } = useLanguage();
+  const en = language === "en";
+  const txt = (zh: string, english: string) => (en ? english : zh);
   const count = s.event.match_type === "doubles" ? 2 : 1;
   const [players, setPlayers] = useState<Player[]>([]),
     [selected, setSelected] = useState<string[]>([]),
@@ -541,22 +352,25 @@ function SignupSheet({
     [eventInvites, setEventInvites] = useState<EventInvite[]>([]),
     [partnerBusy, setPartnerBusy] = useState<string | null>(null),
     [eventInviteBusy, setEventInviteBusy] = useState<string | null>(null);
+
   const loadPartnerInvites = () => rpc<PartnerInvite[]>("list_sent_doubles_partner_invites", { p_event_id: s.event.id }).then(setPartnerInvites);
   const loadEventInvites = () => rpc<EventInvite[]>("list_sent_event_invites", { p_event_id: s.event.id }).then(setEventInvites);
+
   useEffect(() => {
     repository.players().then((ps) => {
       setPlayers(ps);
       if (!manual) {
         const self = ps.find((p) => p.player_type === "self");
         if (self) setSelected([self.id]);
-        else setError("请先完成我的打球档案，再报名参赛。");
+        else setError(txt("请先完成我的打球档案，再报名参赛。", "Complete your tennis profile before registering."));
       } else setSelected([]);
     }).catch((e) => setError(explainError(e)));
     if (manual || count === 2) rpc<Connection[]>("list_connections").then(setConnections).catch((e) => setError(explainError(e)));
     if (!manual && count === 2) loadPartnerInvites().catch((e) => setError(explainError(e)));
     if (manual) loadEventInvites().catch((e) => setError(explainError(e)));
-  }, [manual, count]);
-  const taken = new Set(s.entries.filter((e) => e.status !== "withdrawn").flatMap((e) => e.players.map((p) => p.id)));
+  }, [manual, count, language]);
+
+  const taken = new Set(s.entries.filter((entry) => entry.status !== "withdrawn").flatMap((entry) => entry.players.map((p) => p.id)));
   const selfPlayer = players.find((p) => p.player_type === "self");
   const temporaryPlayers = players.filter((p) => p.player_type === "manual" && !p.linked_user_id);
   const selectedOwned = players.filter((p) => selected.includes(p.id));
@@ -564,6 +378,7 @@ function SignupSheet({
   const hasProxyPlayer = manual && selectedOwned.some((p) => p.player_type === "manual");
   const selectedAccepted = partnerInvites.find((i) => i.status === "accepted" && i.self_player_id && selected.includes(i.self_player_id));
   const selectedTemporary = temporaryPlayers.find((p) => selected.includes(p.id));
+
   async function add() {
     if (!newName.trim()) return;
     setBusy(true);
@@ -583,6 +398,7 @@ function SignupSheet({
       setBusy(false);
     }
   }
+
   async function invitePartner(profileId: string) {
     setPartnerBusy(profileId);
     setError("");
@@ -595,6 +411,7 @@ function SignupSheet({
       setPartnerBusy(null);
     }
   }
+
   async function inviteToEvent(profileId: string) {
     setEventInviteBusy(profileId);
     setError("");
@@ -607,6 +424,7 @@ function SignupSheet({
       setEventInviteBusy(null);
     }
   }
+
   function choosePartner(i: PartnerInvite) {
     if (selfPlayer && i.self_player_id) setSelected([selfPlayer.id, i.self_player_id]);
     setConsent(false);
@@ -628,75 +446,82 @@ function SignupSheet({
       setBusy(false);
     }
   }
+
   const invitedIds = new Set(partnerInvites.filter((i) => i.status === "pending" || i.status === "accepted").map((i) => i.invitee_user_id));
   const eventInviteByUser = new Map(eventInvites.map((i) => [i.invitee_user_id, i]));
-  return <Sheet open title={manual ? (count === 2 ? "添加双打队伍" : "添加参赛者") : count === 2 ? "双打报名" : "确认报名"} onClose={onClose}>
+
+  return <Sheet open title={manual ? (count === 2 ? txt("添加双打队伍", "Add doubles team") : txt("添加参赛者", "Add player")) : count === 2 ? txt("双打报名", "Doubles registration") : txt("确认报名", "Confirm registration")} onClose={onClose}>
     <p>{s.event.name}</p>
-    <p className="muted small">{s.event.event_date || "日期待定"} · {s.event.venue || "场地待定"} · {feeText(s.event, s.entries.filter((e) => e.status === "confirmed").length)}</p>
-    {count === 2 && <label>队伍名称（可选）<input maxLength={60} value={team} onChange={(e) => setTeam(e.target.value)} /></label>}
+    <p className="muted small">{s.event.event_date || txt("日期待定", "Date TBD")} · {s.event.venue || txt("场地待定", "Venue TBD")} · {feeText(s.event, s.entries.filter((entry) => entry.status === "confirmed").length, language)}</p>
+    {count === 2 && <label>{txt("队伍名称（可选）", "Team name (optional)")}<input maxLength={60} value={team} onChange={(e) => setTeam(e.target.value)} /></label>}
+
     {manual ? <>
       <div className="card">
-        <strong>我的球搭子</strong>
-        <p className="muted small">真实球搭子由本人完成报名。你可以直接邀请 TA 参加这场赛事，不替 TA 创建新的参赛身份。</p>
+        <strong>{txt("我的球搭子", "My partners")}</strong>
+        <p className="muted small">{txt("真实球搭子由本人完成报名。你可以邀请 TA 参加这场赛事，不替 TA 创建新的参赛身份。", "Connected partners register themselves. You can invite them to this event without creating another player identity for them.")}</p>
         <div className="stack">
           {connections.map((c) => {
             const invite = eventInviteByUser.get(c.id);
             const alreadyInRoster = s.entries.some((entry) => entry.status !== "withdrawn" && entry.players.some((p) => p.linked_user_id === c.id));
             return <div className="row" key={c.connection_id}>
-              <Avatar path={c.avatar_url} name={c.nickname || "球搭子"} size={36} />
-              <span className="grow">{c.nickname || "球搭子"}</span>
-              {alreadyInRoster ? <span className="muted small">已报名</span> : invite?.status === "pending" ? <span className="muted small">等待回应</span> : invite?.status === "accepted" ? <span className="muted small">已接受邀请</span> : <button className="secondary" disabled={eventInviteBusy === c.id} onClick={() => inviteToEvent(c.id)}>{eventInviteBusy === c.id ? "发送中…" : "邀请参赛"}</button>}
+              <Avatar path={c.avatar_url} name={c.nickname || txt("球搭子", "Partner")} size={36} />
+              <span className="grow">{c.nickname || txt("球搭子", "Partner")}</span>
+              {alreadyInRoster ? <span className="muted small">{txt("已报名", "Registered")}</span>
+                : invite?.status === "pending" ? <span className="muted small">{txt("等待回应", "Awaiting response")}</span>
+                  : invite?.status === "accepted" ? <span className="muted small">{txt("已接受邀请", "Invitation accepted")}</span>
+                    : <button className="secondary" disabled={eventInviteBusy === c.id} onClick={() => inviteToEvent(c.id)}>{eventInviteBusy === c.id ? txt("发送中…", "Sending…") : txt("邀请参赛", "Invite")}</button>}
             </div>;
           })}
-          {!connections.length && <p className="muted small">还没有我的球搭子。真实用户先在“球搭子们”建立关系，再邀请参赛。</p>}
+          {!connections.length && <p className="muted small">{txt("还没有我的球搭子。真实用户先在“球搭子们”建立关系，再邀请参赛。", "No connected partners yet. Connect in Partners first, then invite them to the event.")}</p>}
         </div>
       </div>
       <div className="card">
-        <strong>临时球搭子</strong>
-        <p className="muted small">对方还没使用球搭子时，可以直接从已有临时档案中选择并代为报名。</p>
+        <strong>{txt("临时球搭子", "Temporary partners")}</strong>
+        <p className="muted small">{txt("对方还没使用球搭子时，可以直接从已有临时档案中选择并代为报名。", "If the person is not using Qiu Dazi yet, choose an existing temporary profile and register on their behalf.")}</p>
         <div className="stack">
-          {temporaryPlayers.map((p) => <label className="check" key={p.id}><input type="checkbox" checked={selected.includes(p.id)} disabled={taken.has(p.id)} onChange={(e) => setSelected((x) => e.target.checked ? (x.length < count ? [...x, p.id] : x) : x.filter((id) => id !== p.id))} /><span>{p.name}{taken.has(p.id) ? " · 已在名单中" : ""}</span></label>)}
-          {!temporaryPlayers.length && <p className="muted small">还没有临时球搭子。</p>}
+          {temporaryPlayers.map((p) => <label className="check" key={p.id}><input type="checkbox" checked={selected.includes(p.id)} disabled={taken.has(p.id)} onChange={(e) => setSelected((x) => e.target.checked ? (x.length < count ? [...x, p.id] : x) : x.filter((playerId) => playerId !== p.id))} /><span>{p.name}{taken.has(p.id) ? txt(" · 已在名单中", " · already on roster") : ""}</span></label>)}
+          {!temporaryPlayers.length && <p className="muted small">{txt("还没有临时球搭子。", "No temporary partners yet.")}</p>}
         </div>
       </div>
       <div className="card">
-        <strong>列表里没有这个人？</strong>
-        <p className="muted small">新建后会保存为临时球搭子，之后其他比赛可以继续复用，不需要重复录入。</p>
-        <label>姓名 / 昵称<input maxLength={40} value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="输入姓名或昵称" /></label>
-        <button className="secondary full" disabled={busy || !newName.trim()} onClick={add}>添加临时球搭子</button>
+        <strong>{txt("列表里没有这个人？", "Not on the list?")}</strong>
+        <p className="muted small">{txt("新建后会保存为临时球搭子，之后其他比赛可以继续复用，不需要重复录入。", "A new temporary partner can be reused in future events without creating duplicate player records.")}</p>
+        <label>{txt("姓名 / 昵称", "Name / nickname")}<input maxLength={40} value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={txt("输入姓名或昵称", "Enter a name or nickname")} /></label>
+        <button className="secondary full" disabled={busy || !newName.trim()} onClick={add}>{txt("添加临时球搭子", "Add temporary partner")}</button>
       </div>
     </> : count === 1 ? <>
-      <h3>我的报名</h3>
-      {selfPlayer && <div className="card row"><Avatar path={selfPlayer.avatar_url} name={selfPlayer.name} size={42} /><div><strong>{selfPlayer.name}</strong><p className="muted small">使用我的打球档案参赛</p></div></div>}
+      <h3>{txt("我的报名", "My registration")}</h3>
+      {selfPlayer && <div className="card row"><Avatar path={selfPlayer.avatar_url} name={selfPlayer.name} size={42} /><div><strong>{selfPlayer.name}</strong><p className="muted small">{txt("使用我的打球档案参赛", "Register with my tennis profile")}</p></div></div>}
     </> : <>
-      <h3>我和谁搭档？</h3>
-      {selfPlayer && <div className="card row"><Avatar path={selfPlayer.avatar_url} name={selfPlayer.name} size={42} /><div><strong>{selfPlayer.name}（我）</strong><p className="muted small">你已作为本队第一位参赛者</p></div></div>}
-      {selectedAccepted && <div className="notice">已选择 {selectedAccepted.nickname || "球搭子"} 作为搭档。</div>}
-      {selectedTemporary && <div className="notice">已选择临时球搭子 {selectedTemporary.name} 作为搭档。</div>}
+      <h3>{txt("我和谁搭档？", "Who is my partner?")}</h3>
+      {selfPlayer && <div className="card row"><Avatar path={selfPlayer.avatar_url} name={selfPlayer.name} size={42} /><div><strong>{selfPlayer.name}{txt("（我）", " (me)")}</strong><p className="muted small">{txt("你已作为本队第一位参赛者", "You are the first player on this team")}</p></div></div>}
+      {selectedAccepted && <div className="notice">{txt(`已选择 ${selectedAccepted.nickname || "球搭子"} 作为搭档。`, `${selectedAccepted.nickname || "Partner"} is selected as your partner.`)}</div>}
+      {selectedTemporary && <div className="notice">{txt(`已选择临时球搭子 ${selectedTemporary.name} 作为搭档。`, `${selectedTemporary.name} is selected as your temporary partner.`)}</div>}
       <div className="card">
-        <strong>我的球搭子</strong>
-        <p className="muted small">真实球搭子需要先接受双打组队邀请，接受后你再完成整队报名。</p>
+        <strong>{txt("我的球搭子", "My partners")}</strong>
+        <p className="muted small">{txt("真实球搭子需要先接受双打组队邀请，接受后你再完成整队报名。", "A connected partner must accept the doubles team invitation before you can submit the team registration.")}</p>
         <div className="stack">
-          {partnerInvites.filter((i) => i.status === "pending" || i.status === "accepted").map((i) => <div className="row" key={i.id}><Avatar path={i.avatar_url} name={i.nickname || "球搭子"} size={36} /><span className="grow">{i.nickname || "球搭子"}</span>{i.status === "accepted" ? <button className={selectedAccepted?.id === i.id ? "secondary" : ""} onClick={() => choosePartner(i)}>{selectedAccepted?.id === i.id ? "已选择" : "选择"}</button> : <span className="muted small">等待确认</span>}</div>)}
-          {connections.filter((c) => !invitedIds.has(c.id)).map((c) => <div className="row" key={c.connection_id}><Avatar path={c.avatar_url} name={c.nickname || "球搭子"} size={36} /><span className="grow">{c.nickname || "球搭子"}</span><button className="secondary" disabled={partnerBusy === c.id} onClick={() => invitePartner(c.id)}>{partnerBusy === c.id ? "发送中…" : "邀请组队"}</button></div>)}
-          {!connections.length && !partnerInvites.length && <p className="muted small">还没有可邀请的球搭子，可以先去“球搭子们”建立关系。</p>}
+          {partnerInvites.filter((i) => i.status === "pending" || i.status === "accepted").map((i) => <div className="row" key={i.id}><Avatar path={i.avatar_url} name={i.nickname || txt("球搭子", "Partner")} size={36} /><span className="grow">{i.nickname || txt("球搭子", "Partner")}</span>{i.status === "accepted" ? <button className={selectedAccepted?.id === i.id ? "secondary" : ""} onClick={() => choosePartner(i)}>{selectedAccepted?.id === i.id ? txt("已选择", "Selected") : txt("选择", "Select")}</button> : <span className="muted small">{txt("等待确认", "Awaiting confirmation")}</span>}</div>)}
+          {connections.filter((c) => !invitedIds.has(c.id)).map((c) => <div className="row" key={c.connection_id}><Avatar path={c.avatar_url} name={c.nickname || txt("球搭子", "Partner")} size={36} /><span className="grow">{c.nickname || txt("球搭子", "Partner")}</span><button className="secondary" disabled={partnerBusy === c.id} onClick={() => invitePartner(c.id)}>{partnerBusy === c.id ? txt("发送中…", "Sending…") : txt("邀请组队", "Invite to team")}</button></div>)}
+          {!connections.length && !partnerInvites.length && <p className="muted small">{txt("还没有可邀请的球搭子，可以先去“球搭子们”建立关系。", "No partners are available to invite yet. Connect with someone in Partners first.")}</p>}
         </div>
       </div>
       <div className="card">
-        <strong>临时球搭子</strong>
-        <p className="muted small">搭档还没使用球搭子时，优先选择已经存在的临时球搭子，避免重复创建比赛身份。</p>
+        <strong>{txt("临时球搭子", "Temporary partners")}</strong>
+        <p className="muted small">{txt("搭档还没使用球搭子时，优先选择已经存在的临时球搭子，避免重复创建比赛身份。", "If your partner is not using Qiu Dazi yet, choose an existing temporary partner to avoid duplicate player identities.")}</p>
         <div className="stack">
-          {temporaryPlayers.map((p) => <div className="row" key={p.id}><Avatar path={p.avatar_url} name={p.name} size={36} /><span className="grow">{p.name}</span>{taken.has(p.id) ? <span className="muted small">已在名单中</span> : <button className={selectedTemporary?.id === p.id ? "secondary" : ""} onClick={() => chooseTemporaryPartner(p)}>{selectedTemporary?.id === p.id ? "已选择" : "选择"}</button>}</div>)}
-          {!temporaryPlayers.length && <p className="muted small">还没有临时球搭子。</p>}
+          {temporaryPlayers.map((p) => <div className="row" key={p.id}><Avatar path={p.avatar_url} name={p.name} size={36} /><span className="grow">{p.name}</span>{taken.has(p.id) ? <span className="muted small">{txt("已在名单中", "Already on roster")}</span> : <button className={selectedTemporary?.id === p.id ? "secondary" : ""} onClick={() => chooseTemporaryPartner(p)}>{selectedTemporary?.id === p.id ? txt("已选择", "Selected") : txt("选择", "Select")}</button>}</div>)}
+          {!temporaryPlayers.length && <p className="muted small">{txt("还没有临时球搭子。", "No temporary partners yet.")}</p>}
         </div>
-        <label>添加新的临时球搭子<input maxLength={40} value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="列表里没有时再输入姓名或昵称" /></label>
-        <button className="secondary full" disabled={busy || !newName.trim()} onClick={add}>添加并选择</button>
+        <label>{txt("添加新的临时球搭子", "Add a new temporary partner")}<input maxLength={40} value={newName} onChange={(e) => setNewName(e.target.value)} placeholder={txt("列表里没有时再输入姓名或昵称", "Enter a name only if they are not already listed")} /></label>
+        <button className="secondary full" disabled={busy || !newName.trim()} onClick={add}>{txt("添加并选择", "Add and select")}</button>
       </div>
     </>}
-    {(hasTemporaryPartner || hasProxyPlayer) && <label className="check"><input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} /><span>我已获得临时球搭子本人同意，代其提交本次赛事报名信息。</span></label>}
-    <p className="muted small">名额以提交时数据库为准。正式名额已满将按顺序加入候补，最多候补2{unit(s.event)}。</p>
+
+    {(hasTemporaryPartner || hasProxyPlayer) && <label className="check"><input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} /><span>{txt("我已获得临时球搭子本人同意，代其提交本次赛事报名信息。", "I have this temporary partner's permission to submit this event registration on their behalf.")}</span></label>}
+    <p className="muted small">{txt(`名额以提交时数据库为准。正式名额已满将按顺序加入候补，最多候补2${unit(s.event, language)}。`, `Availability is checked when you submit. If confirmed places are full, up to 2 ${unit(s.event, language)} can join the waitlist.`)}</p>
     <ErrorNotice message={error} />
-    {manual && selected.length === 0 && <p className="muted small">邀请真实球搭子后由 TA 自行报名；选择临时球搭子后可在这里确认代报名。</p>}
-    {(!manual || selected.length > 0) && <button className="full" disabled={busy || selected.length !== count || ((hasTemporaryPartner || hasProxyPlayer) && !consent) || selected.some((id) => taken.has(id))} onClick={save}>{busy ? "正在提交…" : manual ? "确认代报名" : "确认报名"}</button>}
+    {manual && selected.length === 0 && <p className="muted small">{txt("邀请真实球搭子后由 TA 自行报名；选择临时球搭子后可在这里确认代报名。", "Connected partners register themselves after an invitation; select temporary partners here to register on their behalf.")}</p>}
+    {(!manual || selected.length > 0) && <button className="full" disabled={busy || selected.length !== count || ((hasTemporaryPartner || hasProxyPlayer) && !consent) || selected.some((playerId) => taken.has(playerId))} onClick={save}>{busy ? txt("正在提交…", "Submitting…") : manual ? txt("确认代报名", "Confirm proxy registration") : txt("确认报名", "Confirm registration")}</button>}
   </Sheet>;
 }

@@ -1,18 +1,20 @@
+const isEnglish=()=>typeof localStorage!=="undefined"&&localStorage.getItem("qiudazi-language")==="en";
 export async function imageBlob(
   file: File,
   maxDimension = 1800,
 ): Promise<Blob> {
+  const en=isEnglish();
   if (
     !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
     file.size > 10 * 1024 * 1024
   )
-    throw new Error("请选择10MB以内的JPG、PNG或WebP图片");
+    throw new Error(en?"Choose a JPG, PNG or WebP image under 10 MB.":"请选择10MB以内的JPG、PNG或WebP图片");
   const url = URL.createObjectURL(file);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const i = new Image();
       i.onload = () => resolve(i);
-      i.onerror = () => reject(new Error("图片无法读取"));
+      i.onerror = () => reject(new Error(en?"The image could not be read.":"图片无法读取"));
       i.src = url;
     });
     const ratio = Math.min(1, maxDimension / Math.max(img.width, img.height));
@@ -20,11 +22,11 @@ export async function imageBlob(
     canvas.width = Math.max(1, Math.round(img.width * ratio));
     canvas.height = Math.max(1, Math.round(img.height * ratio));
     const c = canvas.getContext("2d");
-    if (!c) throw new Error("浏览器不支持图片处理");
+    if (!c) throw new Error(en?"This browser does not support image processing.":"浏览器不支持图片处理");
     c.drawImage(img, 0, 0, canvas.width, canvas.height);
     return await new Promise<Blob>((resolve, reject) =>
       canvas.toBlob(
-        (b) => (b ? resolve(b) : reject(new Error("图片处理失败"))),
+        (b) => (b ? resolve(b) : reject(new Error(en?"Image processing failed.":"图片处理失败"))),
         "image/jpeg",
         0.88,
       ),
@@ -36,7 +38,9 @@ export async function imageBlob(
 
 import type { Snapshot } from "../domain/types";
 import { podium } from "../domain/RankingEngine";
+function podiumLabel(label:string,en:boolean){if(!en)return label;if(label==="冠军")return "Champion";if(label==="亚军")return "Runner-up";if(label.includes("季军"))return "Third place";return label;}
 export async function watermarkPhoto(blob: Blob, s: Snapshot): Promise<Blob> {
+  const en=isEnglish();
   const url = URL.createObjectURL(blob);
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -53,13 +57,13 @@ export async function watermarkPhoto(blob: Blob, s: Snapshot): Promise<Blob> {
       s.event.name,
       ...podium(s).map(
         (r) =>
-          r.label +
+          podiumLabel(r.label,en) +
           " · " +
           r.entries
             .map((e) => e.team_name || e.players.map((p) => p.name).join(" / "))
-            .join("、"),
+            .join(en?", ":"、"),
       ),
-      "比赛日期 · " +
+      (en?"Match date · ":"比赛日期 · ") +
         (s.event.event_date || s.event.finished_at?.slice(0, 10) || ""),
     ];
     const wrapped: string[] = [];
@@ -87,7 +91,7 @@ export async function watermarkPhoto(blob: Blob, s: Snapshot): Promise<Blob> {
     );
     return await new Promise<Blob>((resolve, reject) =>
       canvas.toBlob(
-        (b) => (b ? resolve(b) : reject(new Error("水印生成失败"))),
+        (b) => (b ? resolve(b) : reject(new Error(en?"Could not generate the watermark.":"水印生成失败"))),
         "image/jpeg",
         0.9,
       ),

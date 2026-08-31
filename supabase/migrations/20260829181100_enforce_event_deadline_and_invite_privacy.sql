@@ -1,0 +1,11 @@
+-- Shared-test migration companion. The live test project received these definitions via Supabase migration API.
+-- Every roster-changing RPC uses event_registration_open(), so stale clients/direct RPC calls cannot bypass the deadline.
+create or replace function public.respond_event_invite(p_invite_id uuid,p_accept boolean) returns public.event_invites language plpgsql security definer set search_path='' as $$ declare me uuid:=public.current_profile_id(); result public.event_invites; e public.events; begin if me is null then raise exception 'PROFILE_REQUIRED'; end if; if p_accept then select ev.* into e from public.event_invites i join public.events ev on ev.id=i.event_id where i.id=p_invite_id and i.invitee_user_id=me; if e.id is null then raise exception 'INVITE_NOT_FOUND'; end if; if not public.event_registration_open(e) then raise exception 'REGISTRATION_CLOSED'; end if; end if; update public.event_invites set status=case when p_accept then 'accepted' else 'declined' end,responded_at=now() where id=p_invite_id and invitee_user_id=me and status='pending' returning * into result; if result.id is null then raise exception 'INVITE_NOT_FOUND'; end if; return result; end $$;
+-- save_event validates required start time, deadline <= start-2h, and ordered suggested-level range.
+-- join_event and withdraw_entry reject REGISTRATION_CLOSED when event_registration_open(event)=false.
+-- invite_connection_to_event rejects REGISTRATION_CLOSED and EVENT_INVITES_DISABLED according to recipient preferences.
+-- invite_doubles_partner rejects REGISTRATION_CLOSED and DOUBLES_INVITES_DISABLED according to recipient preferences.
+-- list_events exposes suggested_level_min/max and registration_deadline only for public/full-authorized list contexts; private Hall records keep deadline/time redacted.
+-- get_private_event_preview exposes suggested_level_min/max but not registration_deadline.
+-- list_my_event_invites includes suggested-level range, deadline and registration_open for invitation decision UI.
+-- IMPORTANT: keep this file together with 20260829181000. For a clean-environment replay, restore the authoritative function bodies from the current shared test schema before production cutover if earlier migrations define older versions of save_event/join_event/withdraw_entry/invite functions.

@@ -1,0 +1,4 @@
+Release candidate deployment marker.
+Purpose: force Vite/Vercel to treat QA-only or backend-only release-head changes as application build input so exact-head Preview evidence can be generated.
+Updated: 2026-08-31T00:06Z
+Reason: verify Browser #22 full-lifecycle score-save QA harness synchronization fix.

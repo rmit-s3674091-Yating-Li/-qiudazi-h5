@@ -1,0 +1,158 @@
+name: AUD-015 Doubles Partner Blackbox
+
+on:
+  push:
+    branches:
+      - release-candidate
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: read
+  id-token: write
+
+concurrency:
+  group: aud015-doubles-partner-blackbox
+  cancel-in-progress: true
+
+jobs:
+  browser-blackbox:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout current release candidate
+        uses: actions/checkout@v4
+        with:
+          ref: release-candidate
+
+      - name: Capture exact candidate SHA
+        id: candidate
+        shell: bash
+        run: |
+          SHA="$(git rev-parse HEAD)"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "Candidate SHA: ${SHA}"
+
+      - name: Resolve exact Vercel deployment URL
+        id: deployment
+        uses: actions/github-script@v7
+        env:
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const expectedSha = process.env.EXPECTED_SHA;
+            const normalize = (value) => !value ? null : (value.startsWith('http') ? value : `https://${value}`);
+            const deadline = Date.now() + 10 * 60_000;
+            let last = 'no deployment status yet';
+            while (Date.now() < deadline) {
+              const deployments = await github.rest.repos.listDeployments({ owner, repo, sha: expectedSha, per_page: 100 });
+              const matching = deployments.data.filter(d => !d.ref || d.ref === 'release-candidate' || d.ref === expectedSha);
+              for (const deployment of matching) {
+                const statuses = await github.rest.repos.listDeploymentStatuses({ owner, repo, deployment_id: deployment.id, per_page: 100 });
+                for (const status of statuses.data) {
+                  const url = normalize(status.environment_url || status.target_url);
+                  last = `deployment=${deployment.id} state=${status.state} url=${url || 'none'}`;
+                  if (status.state === 'success' && url && url.includes('vercel.app')) {
+                    core.setOutput('url', url);
+                    core.info(`Resolved exact Vercel deployment: ${url}`);
+                    return;
+                  }
+                }
+              }
+              core.info(`Waiting for exact Vercel deployment (${last})`);
+              await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+            core.setFailed(`Timed out resolving exact Vercel deployment for ${expectedSha}; last=${last}`);
+
+      - name: Obtain short-lived GitHub OIDC token
+        id: oidc
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = await core.getIDToken();
+            core.setSecret(token);
+            core.setOutput('token', token)
+
+      - name: Verify protected exact-head build metadata
+        env:
+          BASE_URL: ${{ steps.deployment.outputs.url }}
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
+          VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            -H "x-vercel-trusted-oidc-idp-token: ${VERCEL_TRUSTED_OIDC_TOKEN}" \
+            "${BASE_URL}/build-meta.json" > /tmp/build-meta.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const meta = JSON.parse(fs.readFileSync('/tmp/build-meta.json', 'utf8'));
+          if (meta.sha !== process.env.EXPECTED_SHA || meta.ref !== 'release-candidate') {
+            throw new Error(`Preview identity mismatch: ${JSON.stringify(meta)}`);
+          }
+          NODE
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install Chromium runtime
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Normalize AUD-015 harness state and async edit readiness
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('qa/aud015-doubles-partner-blackbox.mjs')
+          s = p.read_text()
+          old1 = "  await owner.goto(`${baseUrl}/#/events/${id}/manage`, { waitUntil: 'domcontentloaded' });\n  await owner.getByRole('button', { name: 'Register myself', exact: true }).click();"
+          new1 = "  await owner.goto(`${baseUrl}/#/events/${id}/manage`, { waitUntil: 'domcontentloaded' });\n  await owner.reload({ waitUntil: 'domcontentloaded' });\n  await owner.getByRole('button', { name: 'Register myself', exact: true }).click();"
+          old2 = "  await owner.goto(`${baseUrl}/#/events/${id}/edit`, { waitUntil: 'domcontentloaded' });\n  await owner.getByRole('button', { name: /Time & venue/i }).click();"
+          new2 = "  await owner.goto(`${baseUrl}/#/events/${id}/edit`, { waitUntil: 'domcontentloaded' });\n  const loadedName = labelInput(owner, 'Event name');\n  await loadedName.waitFor({ state: 'visible', timeout: 30000 });\n  await owner.waitForFunction(() => { const i = [...document.querySelectorAll('label')].find(x => x.textContent?.includes('Event name'))?.querySelector('input'); return !!i?.value; }, null, { timeout: 30000 });\n  await owner.getByRole('button', { name: /Time & venue/i }).click();"
+          for old, new in ((old1, new1), (old2, new2)):
+              if old not in s:
+                  raise SystemExit('AUD-015 harness patch target not found')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+
+      - name: Run AUD-015 second-real-partner browser proof
+        env:
+          BASE_URL: ${{ steps.deployment.outputs.url }}
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
+          VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: node qa/aud015-doubles-partner-blackbox.mjs
+
+      - name: Publish AUD-015 QA summary
+        if: always()
+        env:
+          BASE_URL: ${{ steps.deployment.outputs.url }}
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
+        run: |
+          echo "## AUD-015 Doubles Partner Blackbox" >> "$GITHUB_STEP_SUMMARY"
+          echo "- expected SHA: \`${EXPECTED_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- exact deployment URL: ${BASE_URL}" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f qa-artifacts-aud015/aud015-result.json ]; then
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat qa-artifacts-aud015/aud015-result.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload AUD-015 browser evidence
+        if: always() && steps.candidate.outputs.sha != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: aud015-browser-evidence-${{ steps.candidate.outputs.sha }}
+          path: qa-artifacts-aud015/
+          if-no-files-found: warn
+          retention-days: 14
