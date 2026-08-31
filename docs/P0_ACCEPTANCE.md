@@ -1,6 +1,6 @@
 # 球搭子 H5 MVP｜P0 验收基线（Current）
 
-> 当前长期验收基线。照片专项以 `docs/PHOTO_ALBUM_BASELINE.md` 为准；Quick Start 专项以 `docs/QUICK_START_BASELINE.md` 为准。发布与候选部署顺序以 `docs/RELEASE_GOVERNANCE.md` 为准；真实浏览器黑盒证据以 `docs/BROWSER_BLACKBOX_BASELINE.md` 为准。快速开赛为 P1 新能力，不替代原 P0 标准赛事链路；其对既有 P0 能力造成的回归仍属于发布阻塞问题。
+> 当前长期验收基线。照片专项以 `docs/PHOTO_ALBUM_BASELINE.md` 为准；Quick Start 专项以 `docs/QUICK_START_BASELINE.md` 为准；赛事对阵/轮次展示以 `docs/TOURNAMENT_PRESENTATION_BASELINE.md` 为准。发布与候选部署顺序以 `docs/RELEASE_GOVERNANCE.md` 为准；真实浏览器黑盒证据以 `docs/BROWSER_BLACKBOX_BASELINE.md` 为准。快速开赛为 P1 新能力，不替代原 P0 标准赛事链路；其对既有 P0 能力造成的回归仍属于发布阻塞问题。
 
 ## A. 身份与档案
 - [ ] 首次访问可建立测试登录态并完成昵称资料；返回用户可恢复状态。
@@ -25,7 +25,7 @@
 - [ ] 大厅级别筛选为单项级别选择；赛事建议范围包含所选级别即可匹配，不把筛选变成报名资格。
 - [ ] 私有标准赛事大厅仅展示脱敏预览，不泄露组织者、参赛人、精确时间、场地、费用、人数、截止时间。
 - [ ] 正常 `event_mode=quick` 默认 public 并进入普通赛事大厅；卡片不得提供报名/候补入口。
-- [ ] 自动化 QA 组织者（当前 `QA-*` / `QA15-*`）创建的 standard/quick 赛事不得进入公共 Hall，无论赛事名称是否带 QA；测试数据仍可在测试账号自己的上下文访问。
+- [ ] 新自动化测试身份统一 `TST-*`；legacy `QA-* / QA15-* / EXP-*` 仅兼容过滤。受控测试组织者创建的 standard/quick 赛事不得进入普通 Hall，无论赛事名称是否带测试前缀。
 - [ ] 大厅可发现 ≠ 完整详情权限 ≠ 报名资格；已知 URL/ID 不能绕过。
 
 ## D. 报名截止与生命周期
@@ -53,6 +53,10 @@
 - [ ] 标准赛事组织者确认锁定名单后，系统立即自动调用权威 draw engine 生成首次对阵；正常路径不要求再点击一次“生成对阵”。锁定成功但首次 draw 临时失败时，页面刷新为真实 locked 状态并提供“继续生成对阵”恢复动作；恢复只重试 draw，不重复锁定或修改名单。
 - [ ] 首次对阵已生成后，主要动作是“查看对阵 / 开始赛事”；“重新生成对阵”和“解锁名单”为次级受保护动作。开赛前可解锁→清空对阵→调整名单→重新锁定并自动生成；已有真实比赛开始或结束后不得无保护重建签表。
 - [ ] 未生成真实对阵/赛果时不伪造选手、比分或排名。
+- [ ] standard/quick、singles/doubles 共用同一赛事轮次展示规则，不按模式分别造词。
+- [ ] 整个淘汰赛只有 2 个 Entry、1 场 Match 时显示“单场对决 / Single match”，不显示“决赛 / Final”。
+- [ ] 4/8/16 Entry 等多轮淘汰签表按网球常见“半决赛 / 1/4 决赛 / 1/8 决赛 / 决赛”等结构展示；循环赛继续使用“第 N 轮”。
+- [ ] Match 卡必须清晰显示 Entry A — VS — Entry B；双打时两名队友保持同一 Entry 分组，不得让四名球员视觉上混成独立个体。
 
 ## G. 设置、隐私与语言
 - [ ] 设置与隐私可真实保存档案字段可见性。
@@ -114,10 +118,11 @@
 - [ ] 375 / 390 / 430px 检查中文/英文赛事相册、多图上传、加入按钮、删除确认、个人相册、隐私设置、搭子相册，无溢出/遮挡/不可点击。
 - [ ] 赛事详情底部 CTA 不因 flex 挤压变成竖排文字。
 - [ ] 快速开赛中央按钮在 375 / 390 / 430px 与 iPhone safe-area 下不遮挡四导航；Quick player fallback avatar 保持圆形固定尺寸。
+- [ ] 375 / 390 / 430px 下 Match 卡两支 Entry 与 VS 关系清晰，双打队友不换组、不溢出。
 
 ## N. Release Gate
 - [ ] H5 Build Check 对**当前 PR exact head**全绿，包括 build、migration preflight 与 Supabase clean replay；不得沿用旧 SHA 的 green 结论。
-- [ ] PRD / PRODUCT / INTERACTION / QUICK_START / VISUAL / PHOTO_ALBUM / P0 / ENVIRONMENT_BASELINE / RELEASE_GOVERNANCE / BROWSER_BLACKBOX_BASELINE / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG 同步。
+- [ ] PRD / PRODUCT / INTERACTION / QUICK_START / TOURNAMENT_PRESENTATION / TEST_DATA_GOVERNANCE / VISUAL / PHOTO_ALBUM / P0 / ENVIRONMENT_BASELINE / RELEASE_GOVERNANCE / BROWSER_BLACKBOX_BASELINE / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG 同步。
 - [ ] 发布相关 P0/P1 已独立验证；明确延期且非 Gate 阻塞的 P2 可保留，但不得被误标为已修复。
 - [ ] Candidate Freeze 后 `release-candidate` 精确指向当前 PR exact head，且该分支不包含独立开发 commit。
 - [ ] Vercel candidate `READY`，`githubCommitRef=release-candidate`、`githubCommitSha=当前 PR exact head`，Preview `/build-meta.json` 返回相同 SHA/ref。
@@ -134,9 +139,10 @@
 - [ ] 快速流程最终主动作是“一键开赛”，正常流程自动 create + lock + first draw，不额外要求人工点击“生成对阵”。
 - [ ] `event_mode=quick` 创建后直接 locked；`locked` 表示名单已固定，不等于 draw 已完成。
 - [ ] 正常 Quick Event 默认 public 并进入公共 Hall，但无报名/候补 CTA。
-- [ ] QA-/QA15- 自动化组织者的 Quick/standard 赛事不得进入公共 Hall。
+- [ ] `TST-*` 与 legacy `QA-* / QA15-* / EXP-*` 自动化组织者的 Quick/standard 赛事不得进入普通 Hall。
 - [ ] DB → `list_events` / `get_event_snapshot` → TypeScript `Event` 显式保留 `event_mode`。
 - [ ] create_quick_event 已成功但首次 draw 失败时保存 event id/version 并进入“恢复开赛”；只重试已有 event draw，不重复创建。
 - [ ] alias 身份下 `list_quick_start_players` / create / tournament-command / commit 均解析同一 canonical profile，且不扩大 private alias 表客户端权限。
 - [ ] quick event 后续继续复用 viewer_role、Match、记分、排名、完赛、战绩与照片模型。
 - [ ] quick mode 不得改变标准赛事 deadline / waitlist / invite / Player / Storage 权限。
+- [ ] Quick Start 生成的淘汰赛也必须服从统一赛事展示：2 Entry 唯一一场显示“单场对决”，双打 Team A — VS — Team B。
