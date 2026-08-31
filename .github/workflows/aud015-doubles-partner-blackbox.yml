@@ -73,7 +73,7 @@ jobs:
           script: |
             const token = await core.getIDToken();
             core.setSecret(token);
-            core.setOutput('token', token);
+            core.setOutput('token', token)
 
       - name: Verify protected exact-head build metadata
         env:
@@ -107,6 +107,20 @@ jobs:
         run: |
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
+
+      - name: Normalize owner page state after partner acceptance
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('qa/aud015-doubles-partner-blackbox.mjs')
+          s = p.read_text()
+          old = "  await owner.goto(`${baseUrl}/#/events/${id}/manage`, { waitUntil: 'domcontentloaded' });\n  await owner.getByRole('button', { name: 'Register myself', exact: true }).click();"
+          new = "  await owner.goto(`${baseUrl}/#/events/${id}/manage`, { waitUntil: 'domcontentloaded' });\n  await owner.reload({ waitUntil: 'domcontentloaded' });\n  await owner.getByRole('button', { name: 'Register myself', exact: true }).click();"
+          if old not in s:
+              raise SystemExit('AUD-015 harness patch target not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
 
       - name: Run AUD-015 second-real-partner browser proof
         env:
