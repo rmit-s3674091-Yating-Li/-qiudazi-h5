@@ -49,11 +49,15 @@ assert_ge "$("${PSQL[@]}" "select count(*) from pg_proc p join pg_namespace n on
 
 # Behavioral privacy regression: an accepted partner whose avatar_visible=false must be returned with avatar_url=null.
 privacy_result="$("${PSQL[@]}" "begin;
+  insert into auth.users(id,email)
+  values
+    ('11111111-1111-4111-8111-111111111111','it-requester@example.invalid'),
+    ('22222222-2222-4222-8222-222222222222','it-hidden@example.invalid');
   select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',true);
   insert into public.profiles(id,auth_user_id,nickname,avatar_url,profile_status,public_code)
   values
-    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1','11111111-1111-4111-8111-111111111111','IT requester',null,'active','ITREQ001'),
-    ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2','22222222-2222-4222-8222-222222222222','IT hidden','https://example.invalid/avatar.png','active','ITHID002');
+    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1','11111111-1111-4111-8111-111111111111','IT requester',null,'completed','ITREQ001'),
+    ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2','22222222-2222-4222-8222-222222222222','IT hidden','https://example.invalid/avatar.png','completed','ITHID002');
   insert into public.profile_preferences(profile_id,avatar_visible,level_visible,city_visible,play_times_visible,play_preference_visible,allow_event_invites,allow_doubles_invites,participant_album_visibility)
   values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2',false,true,true,true,true,true,true,'private');
   insert into public.connections(id,requester_user_id,addressee_user_id,status,responded_at)
@@ -61,7 +65,7 @@ privacy_result="$("${PSQL[@]}" "begin;
   select case
     when jsonb_array_length(public.list_connections())=1
       and (public.list_connections()->0->>'id')='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2'
-      and not (public.list_connections()->0 ? 'avatar_url') is false
+      and (public.list_connections()->0 ? 'avatar_url')
       and public.list_connections()->0->'avatar_url'='null'::jsonb
     then 'ok' else 'bad' end;
   rollback;")"
