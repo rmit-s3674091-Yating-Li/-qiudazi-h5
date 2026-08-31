@@ -15,11 +15,11 @@ assert_eq() {
   echo "PASS: $label"
 }
 
-echo "== Event lifecycle started-match behavior =="
+echo "== Event lifecycle behavior =="
 
 # IT-03 behavioral regression: once a Match has started, owner-side cancel/delete
 # must be rejected by the server. The fixture is transaction-scoped and rolls back.
-result="$("${PSQL[@]}" "begin;
+started_result="$("${PSQL[@]}" "begin;
   insert into auth.users(id,email)
   values ('51111111-1111-4111-8111-111111111111','it-started-lifecycle-owner@example.invalid');
   select set_config('request.jwt.claim.sub','51111111-1111-4111-8111-111111111111',true);
@@ -57,6 +57,27 @@ result="$("${PSQL[@]}" "begin;
     then 'ok' else 'bad' end;
   rollback;" | grep -E '^(ok|bad)$' | tail -n 1)"
 
-assert_eq "$result" "ok" "started Match blocks event cancel/delete without mutating Event"
+assert_eq "$started_result" "ok" "started Match blocks event cancel/delete without mutating Event"
 
-echo "Event lifecycle started-match behavior passed."
+# IT-03 behavioral regression: delete_event must preserve an Event that has Entry history
+# by converting it to cancelled instead of physically deleting it.
+entry_history_result="$("${PSQL[@]}" "begin;
+  insert into auth.users(id,email)
+  values ('52222222-2222-4222-8222-222222222222','it-entry-history-owner@example.invalid');
+  select set_config('request.jwt.claim.sub','52222222-2222-4222-8222-222222222222',true);
+  insert into public.profiles(id,auth_user_id,nickname,avatar_url,profile_status,public_code)
+  values ('5bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2','52222222-2222-4222-8222-222222222222','IT entry history owner',null,'completed','ITHIST02');
+  insert into public.events(id,owner_user_id,name,visibility,match_type,format,best_of,scoring_type,tiebreak_trigger,fee_type,city,status,version)
+  values ('5fffffff-ffff-4fff-8fff-fffffffffff2','5bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2','IT entry history lifecycle','private','singles','knockout',1,'games_4',3,'free','Test City','signup',1);
+  insert into public.entries(id,event_id,entry_type,signup_user_id,status)
+  values ('5ccccccc-cccc-4ccc-8ccc-ccccccccccc2','5fffffff-ffff-4fff-8fff-fffffffffff2','singles','5bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2','withdrawn');
+  select public.delete_event('5fffffff-ffff-4fff-8fff-fffffffffff2',1);
+  select case
+    when exists(select 1 from public.events where id='5fffffff-ffff-4fff-8fff-fffffffffff2' and status='cancelled' and version=2 and cancelled_at is not null)
+      and exists(select 1 from public.entries where id='5ccccccc-cccc-4ccc-8ccc-ccccccccccc2' and event_id='5fffffff-ffff-4fff-8fff-fffffffffff2')
+    then 'ok' else 'bad' end;
+  rollback;" | grep -E '^(ok|bad)$' | tail -n 1)"
+
+assert_eq "$entry_history_result" "ok" "Entry history converts delete_event into cancelled while preserving history"
+
+echo "Event lifecycle behavior passed."
