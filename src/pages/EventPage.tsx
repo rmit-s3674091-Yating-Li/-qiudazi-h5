@@ -108,6 +108,16 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
     }
   }
 
+  async function finishEvent() {
+    const latest = await q.refresh();
+    if (latest.viewer_role !== "owner" || latest.event.status !== "ongoing") {
+      throw new Error(en
+        ? "The event changed before it could be finished. Review the latest state and try again."
+        : "赛事状态刚刚发生变化，请确认最新状态后再重试结束赛事。");
+    }
+    return command(latest.event.id, { type: "finish", event_version: latest.event.version });
+  }
+
   async function share() {
     const url = `${location.origin}${location.pathname}#/events/${id}`;
     try {
@@ -265,7 +275,7 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
         {owner && e.status === "ongoing" && <button className="secondary full" disabled={busy} onClick={() => setConfirm({
           title: txt("结束本场赛事？", "Finish this event?"),
           description: txt("必须完成所有比赛。结束后结果只读，不能再记分或更正；随后可以上传合影。", "All matches must be completed. After finishing, results become read-only and the event photo can be uploaded."),
-          run: () => command(e.id, { type: "finish", event_version: e.version }),
+          run: finishEvent,
         })}>{txt("结束赛事", "Finish event")}</button>}
 
         {manage && !owner && <ErrorNotice message={txt("仅赛事创建者可以管理。", "Only the event organizer can manage this event.")} />}
