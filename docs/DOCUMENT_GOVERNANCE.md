@@ -15,6 +15,7 @@
 - `docs/TOURNAMENT_PRESENTATION_BASELINE.md` — 赛事对阵、轮次命名、Match 卡 PK 展示专项真源
 - `docs/TEST_DATA_GOVERNANCE.md` — 自动化测试身份、命名、Hall 隔离与 cleanup 专项真源
 - `docs/VISUAL_DESIGN_BASELINE.md`
+- `docs/BRAND_ASSET_BASELINE.md` — Logo、品牌图标、Share Cover 与社交分享视觉专项真源
 - `docs/PHOTO_ALBUM_BASELINE.md`
 - `docs/P0_ACCEPTANCE.md`
 - `docs/ENVIRONMENT_BASELINE.md`
@@ -23,7 +24,7 @@
 - `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
 - 本文件 `docs/DOCUMENT_GOVERNANCE.md`
 
-这些文档可以互相引用，但不得在多个文件中独立维护同一条动态事实。专项规则优先放到专项基线，其它文档只做摘要和链接。User Story / AC 与黑盒场景派生以 `docs/USER_STORY_ACCEPTANCE_BASELINE.md` 为准；Quick Start 相关规则以 `docs/QUICK_START_BASELINE.md` 为准；赛事编辑/取消/删除以 `docs/EVENT_LIFECYCLE_BASELINE.md` 为准；赛事对阵/轮次展示以 `docs/TOURNAMENT_PRESENTATION_BASELINE.md` 为准；自动化测试数据命名与隔离以 `docs/TEST_DATA_GOVERNANCE.md` 为准；赛事照片权限与个人副本模型以 `docs/PHOTO_ALBUM_BASELINE.md` 为准。
+这些文档可以互相引用，但不得在多个文件中独立维护同一条动态事实。专项规则优先放到专项基线，其它文档只做摘要和链接。User Story / AC 与黑盒场景派生以 `docs/USER_STORY_ACCEPTANCE_BASELINE.md` 为准；Quick Start 相关规则以 `docs/QUICK_START_BASELINE.md` 为准；赛事编辑/取消/删除以 `docs/EVENT_LIFECYCLE_BASELINE.md` 为准；赛事对阵/轮次展示以 `docs/TOURNAMENT_PRESENTATION_BASELINE.md` 为准；自动化测试数据命名与隔离以 `docs/TEST_DATA_GOVERNANCE.md` 为准；赛事照片权限与个人副本模型以 `docs/PHOTO_ALBUM_BASELINE.md` 为准；Logo、品牌图标与社交分享封面以 `docs/BRAND_ASSET_BASELINE.md` 为准。
 
 ### B. Runtime truth
 用于回答“现在实际上是什么状态”。运行时事实优先于任何静态文档中的旧状态描述：
@@ -74,6 +75,7 @@ README 是入口和摘要，不承担所有详细规则的第二份维护。
 - 淘汰赛轮次命名、循环赛轮次话术、Match 卡 A-vs-B 关系、单场对决展示：TOURNAMENT_PRESENTATION + PRODUCT/INTERACTION/P0 必要摘要；同步对应 User Story / AC；若影响 Quick Start 同步 QUICK_START；写 CHANGELOG。
 - 自动化测试命名、test identity、Hall 隔离、cleanup/test marker：TEST_DATA_GOVERNANCE；影响 Browser runner 时同步 BROWSER_BLACKBOX / EXPLORATORY；影响 Hall 产品查询时同步 PRODUCT/INTERACTION/P0 必要摘要；写 CHANGELOG。
 - 视觉/移动端信息架构：VISUAL；影响交互则同步 INTERACTION；影响用户故事验收结果时同步相关 AC；写 CHANGELOG。
+- Logo、品牌图标、Share Cover、社交分享元数据或品牌视觉决策：BRAND_ASSET_BASELINE；影响页面视觉则同步 VISUAL；影响链接分享/Browser Visual 验收则同步 USER_STORY_ACCEPTANCE/BROWSER_BLACKBOX 必要 AC；写 CHANGELOG。AI 生成图中的新符号不得在未更新 BRAND_ASSET_BASELINE 的情况下升级为 Logo。
 - 赛事/个人照片模型或 viewer/participant/owner 入口权限：PHOTO_ALBUM + PRD/PRODUCT/INTERACTION/P0 必要摘要；同步对应 User Story / AC；写 CHANGELOG。
 - 环境身份、Supabase/Vercel/GitHub 配置：ENVIRONMENT；影响发布链则同步 RELEASE；写 CHANGELOG。
 - 发布分支、freeze、exact-head、Gate：RELEASE；影响浏览器证据则同步 BROWSER_BLACKBOX；写 CHANGELOG。
@@ -97,7 +99,7 @@ canonical 文档属于 release candidate 的一部分。Candidate Freeze 后：
 
 五个正式任务——`球搭子代码变更巡检`、`球搭子全功能测试`、`球搭子问题整改`、`球搭子部署前审计 V2`、`球搭子周安全审计 V2`——每轮都必须：
 1. 先读取本文件与 `docs/AUDIT_AUTOMATION_GOVERNANCE.md`；
-2. 根据任务主题读取对应专项 canonical baseline；所有全功能/Browser/Gate 测试必须读取 `docs/USER_STORY_ACCEPTANCE_BASELINE.md` 并以 User Story → AC → 场景矩阵组织覆盖；Quick Start 相关任务必须读取 `docs/QUICK_START_BASELINE.md`；赛事编辑/取消/删除相关任务必须读取 `docs/EVENT_LIFECYCLE_BASELINE.md`；对阵/签表/轮次/Match 卡相关任务必须读取 `docs/TOURNAMENT_PRESENTATION_BASELINE.md`；赛事照片与角色入口必须读取 `docs/PHOTO_ALBUM_BASELINE.md`；任何会创建测试 Profile/Event 的任务必须读取 `docs/TEST_DATA_GOVERNANCE.md`；
+2. 根据任务主题读取对应专项 canonical baseline；所有全功能/Browser/Gate 测试必须读取 `docs/USER_STORY_ACCEPTANCE_BASELINE.md` 并以 User Story → AC → 场景矩阵组织覆盖；Quick Start 相关任务必须读取 `docs/QUICK_START_BASELINE.md`；赛事编辑/取消/删除相关任务必须读取 `docs/EVENT_LIFECYCLE_BASELINE.md`；对阵/签表/轮次/Match 卡相关任务必须读取 `docs/TOURNAMENT_PRESENTATION_BASELINE.md`；赛事照片与角色入口必须读取 `docs/PHOTO_ALBUM_BASELINE.md`；Logo/Share Cover/社交分享视觉相关任务必须读取 `docs/BRAND_ASSET_BASELINE.md`；任何会创建测试 Profile/Event 的任务必须读取 `docs/TEST_DATA_GOVERNANCE.md`；
 3. 再读取 PR exact head 与相关 runtime truth；
 4. 不得从聊天记忆、历史 CHANGELOG、旧 artifact 或 snapshot 反推当前状态；
 5. 写 repo canonical 文件时使用最新 blob SHA + optimistic concurrency；
