@@ -19,8 +19,12 @@ Event 的 `game_scoring` 是普通局唯一规则源：
 ## 2. 轮次名称
 轮次名称由赛制与签表结构决定，不由 `event_mode` 决定。两个 Entry、全赛事仅一场淘汰赛显示 **单场对决 / Single match**，不显示“决赛 / Final”。正常多轮淘汰按 1/16、1/8、1/4、半决赛、决赛表达；循环赛按第 N 轮。
 
-## 3. Match 卡
-Match 卡必须明确 `Entry A — VS — Entry B`。双打保持队友分组：`A/B — VS — C/D`。比分存在时显示每盘局分，不能把盘分和局分混为一个数字。
+## 3. Match 卡与结果页
+Match 卡和比赛结果页必须明确 `Entry A — VS — Entry B`，不能把 VS 弱化到角落或让双方上下堆叠后失去 PK 关系。比分必须与对应 Entry/参赛者视觉绑定，左右顺序在同一页面保持稳定，不能让用户猜测某个 `6`/`4` 属于谁。
+
+单打每侧展示对应 Player；双打每侧两名队友使用**两个等权头像/身份位**，不得只突出其中一人或把第二名队友降成附属文本。双打关系表达固定为 `A/B — VS — C/D`。
+
+比分存在时按双方逐盘对齐显示局分，不把盘分、局分或抢七小分混为一个数字。结果页主视觉先回答“谁 vs 谁、每盘多少、谁赢了”，轮次和状态属于辅助信息。
 
 ## 4. 录入比分
 比赛详情主入口使用 **录入比分 / Record score**。产品提供两种模式：
@@ -28,7 +32,7 @@ Match 卡必须明确 `Entry A — VS — Entry B`。双打保持队友分组：
 2. **逐分实时记分**：按 point 逐分记录，由同一计分引擎自动累计 game / set / match。
 
 ### 4.1 实时记分版本同步与唯一真源
-逐分实时记分每一次 `point / undo / begin / score` 成功后，客户端立即采用服务端返回的最新 Snapshot，包括 `event.version`、`match.version`、point logs、set scores 和状态。Point Log 是 Live 模式唯一事实源；当前分、局分、盘分、Match/Event 结果只能由相同 Event Rules + ScoringEngine replay 推导，不得维护第二套可编辑局比分。
+逐分实时记分每一次 `point / undo / begin / score` 成功后，客户端立即采用服务端返回的最新 Snapshot，包括 `event.version`、`match.version`、point logs、set scores 和状态。**Point Log 是 Live 模式唯一计分事实源**；当前分、局分、盘分、Match/Event 结果只能由相同 Event Rules + ScoringEngine replay 推导，不得维护第二套可编辑局比分。
 
 ### 4.2 逐分裁判记分 UI
 - Advantage 普通局显示 `0 / 15 / 30 / 40 / AD`；40:40 为 Deuce。
@@ -38,6 +42,11 @@ Match 卡必须明确 `Entry A — VS — Entry B`。双打保持队友分组：
 - 每次“某方得分”只写一个 point log；局/盘/比赛结果自动派生。
 - 正常纠错只有“撤销上一分”；不得“删除上一局”或对已记局 `+/-`。已完成赛果走受保护的“更正比分”。
 - 达到 game/set/match 条件自动推进，不需要额外“确认结果”。
+
+### 4.3 更正比分与降级边界
+“更正比分 / Correct score”是已完成 Match 的受保护纠错入口，不是 Live 模式的第二计分真源。更正必须继续执行 owner/授权、Match/Event 生命周期与 optimistic version 校验。
+
+若当前赛事状态允许安全更正，则进入受保护的比分更正流程；若因为 Event 已进入不可直接改写的 finished 状态、后续轮次已经依赖原结果、或其它生命周期约束而不能安全更正，UI 必须**降级为明确的不可更正说明/恢复路径**，不得继续展示一个必然失败的主按钮，也不得通过删除 Point Log、放宽版本校验或直接改数据库绕过。单场 Quick Event 自动 finished 后也必须有一致、明确的更正策略。
 
 ## 5. Match 与 Event 完成
 Match `finished` 和 Event `finished` 是不同层级。Quick Event 若全赛事只有一个真实 Match，该 Match 完成时 Event 自动 `finished` 并写 `finished_at`；Hall、详情、结果、相册使用同一 Event 状态。
@@ -56,5 +65,7 @@ Match `finished` 和 Event `finished` 是不同层级。Quick Event 若全赛事
 7. 普通局不显示内部 point counter；抢七才显示连续数字；
 8. Live 仅“某方得分 + 撤销上一分”，无删除上一局/局分 +/-/额外确认结果；
 9. 同端连续记分不产生伪 VERSION_CONFLICT，真实并发仍被版本控制保护；
-10. 单场 Quick Match 完成后 Event 自动 finished，Hall/详情/结果/相册一致；
-11. 中文与 English 语义一致；375 / 390 / 430px 不溢出。
+10. Match/结果页使用稳定的 A—VS—B 结构，比分与对应参赛方绑定；双打每侧两名队友均使用等权头像/身份位；
+11. 已完成 Match 的比分更正只有在生命周期允许时可执行；不允许时展示明确降级状态，不通过弱化权限/version 或第二计分真源绕过；
+12. 单场 Quick Match 完成后 Event 自动 finished，Hall/详情/结果/相册一致；
+13. 中文与 English 语义一致；375 / 390 / 430px 不溢出。
