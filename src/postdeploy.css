@@ -62,6 +62,11 @@
   width: 100%;
 }
 
+/* The draw is already visible on the Draw tab, so do not repeat a large “View draw” action below it. */
+.page:has(.tab-strip > button:nth-child(3).active) > .stack > button.secondary {
+  display: none;
+}
+
 @media (max-width: 390px) {
   .match-versus-layout {
     grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr);
