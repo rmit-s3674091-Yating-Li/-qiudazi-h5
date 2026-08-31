@@ -1,6 +1,6 @@
 # 球搭子 H5 MVP｜P0 验收基线（Current）
 
-> 当前长期验收基线。专项真源：照片 `PHOTO_ALBUM_BASELINE.md`；Quick Start `QUICK_START_BASELINE.md`；赛事对阵/计分/轮次/完赛展示 `TOURNAMENT_PRESENTATION_BASELINE.md`；发布 `RELEASE_GOVERNANCE.md`；浏览器证据 `BROWSER_BLACKBOX_BASELINE.md`。
+> 当前长期验收基线。专项真源：照片 `PHOTO_ALBUM_BASELINE.md`；Quick Start `QUICK_START_BASELINE.md`；赛事编辑/取消/删除 `EVENT_LIFECYCLE_BASELINE.md`；赛事对阵/计分/轮次/完赛展示 `TOURNAMENT_PRESENTATION_BASELINE.md`；发布 `RELEASE_GOVERNANCE.md`；浏览器证据 `BROWSER_BLACKBOX_BASELINE.md`。
 
 ## A. 身份与档案
 - [ ] 测试登录态、canonical Profile alias、Player/Connection 分离正确。
@@ -11,12 +11,16 @@
 - [ ] 私有标准赛事 Hall 仅脱敏预览。
 - [ ] 正常 Quick Event 默认 public 进入 Hall，无报名/候补 CTA。
 - [ ] 新测试身份 `TST-*`；legacy `QA-* / QA15-* / EXP-*` 仅兼容过滤，测试赛事不污染普通 Hall。
-- [ ] 我的赛事有效赛事优先、过期赛事置后；各组按时间规则排序。
+- [ ] 我的赛事有效赛事优先、过期/结束/取消赛事置后；各组按时间规则排序。
 
 ## C. 标准赛事生命周期
 - [ ] 创建/编辑、报名、deadline、候补、锁定、自动首次 draw、开始赛事、记分、完赛链路完整。
+- [ ] owner 在 signup 或 locked 且真实比赛尚未开始时仍能进入赛事设置；开赛后普通编辑入口关闭且服务端拒绝直接 RPC 修改。
+- [ ] 未产生任何 Entry 历史的未开赛赛事可以物理删除；产生过报名历史后不得物理删除，只能在未开赛阶段取消并保留历史。
+- [ ] cancelled 赛事从公共 Hall 移除，但 owner/participant 的“我的赛事”保留并显示“已取消”；取消后不能继续报名、编排、开赛或记分。
+- [ ] 已有报名后，单/双打、赛制、计分规则等结构字段被保护；locked 后结构保护进一步收紧。
 - [ ] 锁定成功但 draw 失败只恢复同一 Event，不重复锁定/创建。
-- [ ] 已有真实比赛开始或结束后不得无保护重建签表。
+- [ ] 已有真实比赛开始或结束后不得无保护重建签表、普通取消或删除赛事。
 
 ## D. Quick Start
 - [ ] self、accepted partner、本人临时 Player 可选；陌生 Player 不可越权加入。
@@ -46,6 +50,7 @@
 ## G. 赛事相册
 - [ ] Event 未结束不可上传；finished 后 organizer 可上传 JPEG/PNG/WebP 多图。
 - [ ] participant 可查看受保护预览并主动加入个人赛事相册，但不能管理源照片。
+- [ ] viewer / invited 非 actual participant 的赛事详情不展示“合影” Tab；直接调用照片 RPC 仍应被服务端拒绝，而不是通过前端隐藏替代权限。
 - [ ] 源照片删除不级联删除已导入个人副本。
 - [ ] Storage private、短时授权、服务端权限校验保持有效。
 
