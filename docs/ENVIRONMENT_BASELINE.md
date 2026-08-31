@@ -7,16 +7,16 @@
 - Repository：`rmit-s3674091-Yating-Li/-qiudazi-h5`
 - canonical visibility：**Private**。运行时 `visibility` 必须为 `private`；H5 Build Check 会校验 `github.event.repository.private=true`，若意外变回 public 直接失败。
 - 默认分支：`main`
-- 当前大版本开发分支：`feature/20260829-event-lifecycle-privacy-i18n`
+- 当前 remediation 开发分支：`feature/20260831-postdeploy-ui-quickstart-filter-qa`
 - 发布候选分支：`release-candidate`。该分支不是长期开发分支，只在 Candidate Freeze 后由总控移动到已经通过 exact-head CI 的 PR head，用于触发一份可追溯 Vercel Preview；任何独立开发、cherry-pick 或额外内容 commit 都不得落在该分支。
-- 当前开发 PR：`#20`
-- PR #20 在开发与收口阶段保持 Draft；未通过 Release Gate 不 merge main。
+- 当前 remediation PR：`#22`；PR 编号、head SHA 与分支仍属于运行时事实，每轮必须重新读取，不得仅凭本文缓存。
+- PR #22 在整改与收口阶段保持 Draft；未通过 Release Gate 不 merge main。
 - GitHub Actions：`.github/workflows/build.yml` 的 `H5 Build Check` 是当前基础 CI。
 - GitHub Actions：`.github/workflows/candidate-browser-blackbox.yml` 是当前唯一正式候选真实浏览器执行器；仅针对 `release-candidate` exact head，使用 Playwright 启动 Chromium / WebKit，并上传 exact-SHA browser evidence artifact。
 - Browser Blackbox 使用 GitHub Actions `id-token: write` 获取短时 OIDC token 访问受保护 Vercel Preview，不在仓库保存长期 Vercel bypass secret。
 - 当前 GitHub 账号方案下，仓库转为 Private 后 repository ruleset API 返回“Upgrade to GitHub Pro or make this repository public to enable this feature”；因此**不得再声称 main 当前由 GitHub ruleset 平台强制保护**。
-- 当前 main 保护采用流程治理：所有开发只写 feature branch → PR #20 → exact-head CI → Candidate Freeze → `release-candidate` exact-head Preview + Candidate Browser Blackbox → 黑盒证据复核 → Release Gate → 人工 merge 决策；所有自动化均禁止直接 merge/push main。若未来升级 GitHub Pro 并重新启用 private-repo ruleset，必须运行时验证后再把“平台强制保护”写回本文。
-- Private 转换后已确认：ChatGPT GitHub connector 仍有 admin/push/pull 权限，PR #20 可正常读取；Vercel Git link 仍指向同一 repository。
+- 当前 main 保护采用流程治理：所有开发只写当前受控 feature branch → 当前 PR → exact-head CI → Candidate Freeze → `release-candidate` exact-head Preview + Candidate Browser Blackbox → 黑盒证据复核 → Release Gate → 人工 merge 决策；所有自动化均禁止直接 merge/push main。若未来升级 GitHub Pro 并重新启用 private-repo ruleset，必须运行时验证后再把“平台强制保护”写回本文。
+- Private 转换后已确认：ChatGPT GitHub connector 仍可正常读取当前 PR；Vercel Git link 仍指向同一 repository。连接器权限、PR 编号与 Git link 使用前仍应运行时复核。
 
 > 分支 head SHA、PR merge SHA、workflow run id 属于动态运行事实，不写成长期固定值；每轮工作必须实时读取。
 
