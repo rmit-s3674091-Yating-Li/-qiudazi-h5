@@ -23,35 +23,36 @@ result="$("${PSQL[@]}" "begin;
 
   select set_config('request.jwt.claim.sub','52222222-2222-4222-8222-222222222222',true);
 
-  with created as (
-    select public.create_quick_event(
-      jsonb_build_object(
-        'name','IT Quick contract',
-        'city','Test City',
-        'match_type','singles',
-        'format','knockout',
-        'scoring_type','games_4'
-      ),
-      jsonb_build_array(
-        jsonb_build_array('5bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1'::text),
-        jsonb_build_array('5bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2'::text)
-      )
-    ) e
-  ), unpacked as (
-    select (e).id event_id,(e).owner_user_id owner_user_id,(e).event_mode event_mode,(e).visibility visibility,(e).status status,(e).entry_limit entry_limit
-    from created
-  )
-  select case when
-    owner_user_id='5aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'::uuid
-    and event_mode='quick'
-    and visibility='public'
-    and status='locked'
-    and entry_limit=2
-    and (select count(*) from public.entries en where en.event_id=event_id and en.status='confirmed')=2
-    and (select count(*) from public.entry_players ep where ep.event_id=event_id and ep.active)=2
-    and (select count(distinct ep.player_id) from public.entry_players ep where ep.event_id=event_id and ep.active)=2
-  then 'ok' else 'bad' end
-  from unpacked;
+  -- Keep the RPC invocation and the behavior assertion as separate SQL statements.
+  -- create_quick_event() performs writes inside the function; sibling subqueries in the
+  -- same statement can retain the statement snapshot and miss those writes.
+  select (public.create_quick_event(
+    jsonb_build_object(
+      'name','IT Quick contract',
+      'city','Test City',
+      'match_type','singles',
+      'format','knockout',
+      'scoring_type','games_4'
+    ),
+    jsonb_build_array(
+      jsonb_build_array('5bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1'::text),
+      jsonb_build_array('5bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2'::text)
+    )
+  )).id;
+
+  select case when exists (
+    select 1
+    from public.events e
+    where e.owner_user_id='5aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'::uuid
+      and e.name='IT Quick contract'
+      and e.event_mode='quick'
+      and e.visibility='public'
+      and e.status='locked'
+      and e.entry_limit=2
+      and (select count(*) from public.entries en where en.event_id=e.id and en.status='confirmed')=2
+      and (select count(*) from public.entry_players ep where ep.event_id=e.id and ep.active)=2
+      and (select count(distinct ep.player_id) from public.entry_players ep where ep.event_id=e.id and ep.active)=2
+  ) then 'ok' else 'bad' end;
 
   rollback;" | grep -E '^(ok|bad)$' | tail -n 1)"
 
