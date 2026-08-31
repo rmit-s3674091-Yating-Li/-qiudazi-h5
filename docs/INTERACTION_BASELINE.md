@@ -1,6 +1,6 @@
 # 球搭子｜页面与交互一致性基线
 
-> 状态：当前 H5 MVP 的 IA / UX 约束。照片专项以 `docs/PHOTO_ALBUM_BASELINE.md` 为最终真源；Quick Start 专项以 `docs/QUICK_START_BASELINE.md` 为最终真源；赛事对阵与计分以 `docs/TOURNAMENT_PRESENTATION_BASELINE.md` 为最终真源。
+> 状态：当前 H5 MVP 的 IA / UX 约束。照片专项以 `docs/PHOTO_ALBUM_BASELINE.md` 为最终真源；Quick Start 专项以 `docs/QUICK_START_BASELINE.md` 为最终真源；赛事编辑/取消/删除以 `docs/EVENT_LIFECYCLE_BASELINE.md` 为最终真源；赛事对阵与计分以 `docs/TOURNAMENT_PRESENTATION_BASELINE.md` 为最终真源。
 
 ## 1. 页面职责
 - 赛事大厅：发现赛事。
@@ -26,25 +26,27 @@
 ## 2. 卡片、状态与动作
 卡片代表实体，按钮代表行为。赛事卡进入赛事详情；球搭子卡进入 TA 档案；战绩进入比赛/赛事上下文。编辑、删除、报名、邀请、加入相册、移出相册都必须是明确动作。
 
-**不可执行的业务状态不得伪装成 Button。** “已报名”“候补中”“已锁定”“已结束”等状态必须使用 badge / status row / 文本表达；只有能产生导航或业务变化的行为才使用按钮。
+**不可执行的业务状态不得伪装成 Button。** “已报名”“候补中”“已锁定”“已结束”“已取消”等状态必须使用 badge / status row / 文本表达；只有能产生导航或业务变化的行为才使用按钮。
 
 同一页面动作按以下层级组织：
 1. 状态：告诉用户“我现在在哪”，不可点击；
 2. Primary Action：当前最自然、最高频的下一步；
 3. Secondary Action：辅助查看/分享/管理；
-4. Destructive / consequential Action：退出、删除、重建等低频且有后果的操作，必须弱化并在需要时二次确认。
+4. Destructive / consequential Action：退出、取消赛事、删除赛事、重建等低频且有后果的操作，必须弱化并在需要时二次确认。
 
 风险操作不得与正常主任务使用相同视觉层级。
 
 ## 3. “我参与的”与权限
 “我参与的”按有效 Entry → active EntryPlayer → Player.linked_user_id 判断；双打两名真实搭档都属于参与者。仅接受邀请但未形成 Entry 不算参与。
 
-赛事详情、编排、记分、比分更正等身份敏感入口必须依赖服务端 `viewer_role` 等权威事实，前端隐藏按钮不能替代后端授权。
+赛事详情、编排、记分、比分更正、赛事照片等身份敏感入口必须依赖服务端 `viewer_role` 等权威事实，前端隐藏按钮不能替代后端授权；同时前端也不得把用户无权使用的入口暴露出来再依赖后端报错兜底。
 
 ## 4. 赛事卡、发现与报名截止
 公开/完整标准赛事卡优先展示状态、类型/建议级别、赛事名、组织者、赛制/计分、日期时间、城市+场地、报名/名额+费用。私有标准赛事大厅脱敏卡不得展示精确时间、场地、费用、组织者、参赛人、报名人数或截止时间。
 
 正常 `event_mode='quick'` 赛事进入普通赛事大厅卡片流，默认 public。Quick Event 卡不得提供报名/候补 CTA。自动化测试组织者创建的赛事不得污染公共大厅。
+
+`cancelled` 赛事不进入公共 Hall；但在创建人和实际参赛者的“我的赛事”中保留，以状态 badge 明确显示“已取消”。
 
 大厅级别筛选使用单项级别选择；赛事建议范围包含所选级别即可命中，不把筛选变成报名资格。截止提示只使用已加载 deadline + 本地时钟；真正可报名性由服务端决定。
 
@@ -75,6 +77,18 @@
 
 开赛前人员变化：解锁名单 → 清空对阵 → 调整 roster / waitlist → 重新锁定 → 自动重新生成。已有真实比赛开始或结束时禁止解锁或无保护重建签表。
 
+### 5.3 创建人修改、取消与删除
+赛事详情中的“赛事设置”是普通管理入口：
+- owner 在 `signup` 可以进入；
+- owner 在 `locked` 且真实 Match 尚未开始时仍可以进入，页面需提示结构字段受保护；
+- `ongoing / finished / cancelled` 不再提供普通编辑能力。
+
+设置页底部单独设置危险操作区，不和“保存修改”竞争主视觉：
+- 从未产生过任何 Entry 历史：显示 `删除赛事`，二次确认后物理删除；
+- 一旦产生过 Entry 历史：显示 `取消赛事`，二次确认后状态改为 `cancelled` 并保留历史；
+- locked 未开赛仍可取消；真实 Match 一旦开始则不允许普通取消或删除；
+- cancelled 详情展示只读状态说明，不继续显示报名/锁定/开赛类 CTA。
+
 ## 6. 移动端动作区
 一页原则上只有一个最明显 Primary Action。两个按钮只有在窄屏仍清晰时才横排；三个及以上动作不得连续大按钮矩阵。至少检查 375 / 390 / 430px，尤其是英文长文案、Tab、Sheet、确认框、照片按钮。
 
@@ -89,7 +103,12 @@
 设置页承载档案字段可见性、赛事邀请开关、双打邀请开关、参与赛事相册整体可见范围和语言。赛事源相册管理只在对应赛事页面。
 
 ## 9. 赛事相册交互
-赛事照片是受限内容，公开赛事也不等于照片公开。只有 organizer 和 actual participant 可以进入赛事相册内容。organizer 在赛事结束后可上传/删除源照片；participant 可查看受保护预览并主动加入个人赛事相册；普通 viewer/invited 无内容读取权。
+赛事照片是受限内容，公开赛事也不等于照片公开。只有 organizer 和 actual participant 可以进入赛事相册内容。organizer 在赛事结束后可上传/删除源照片；participant 可查看受保护预览并主动加入个人赛事相册。
+
+赛事详情 Tab 必须与权限一致：
+- owner / actual participant：显示 `合影 / Photo`；
+- invited 但未实际参赛、普通 viewer：不显示 `合影 / Photo`；
+- 后端仍必须继续拒绝非 owner/actual participant 的照片读取、导入、高清签发和删除请求，不能因为前端隐藏入口而放宽权限。
 
 ## 10. 我的 → 参与赛事相册
 这里只展示本人主动导入成功的个人副本，按赛事分组。个人副本生命周期与赛事源独立。
@@ -104,10 +123,10 @@
 “我的打球档案 → 编辑头像与昵称”保存成功后应回到明确来源页并替换当前 history entry；直接 URL 进入编辑页保留安全 fallback。
 
 ## 14. 错误文案
-用户错误提示结构：发生了什么 + 下一步。不要展示 Failed to fetch、JWT、SQL/RPC、RLS、Postgres constraint 或 raw stack。
+用户错误提示结构：发生了什么 + 下一步。不要展示 Failed to fetch、JWT、SQL/RPC、RLS、Postgres constraint 或 raw stack。权限上本就不应出现的入口，不应通过“操作没有完成”一类通用错误表达权限边界。
 
 ## 15. 数据字段全链路
-新增业务字段必须检查 DB schema → migration → RPC/Edge → TypeScript → 页面 → cache invalidation → P0 验收。`event_mode` 是明确业务字段，取值 `standard | quick`，不得靠 deadline/status/名称反推。
+新增业务字段必须检查 DB schema → migration → RPC/Edge → TypeScript → 页面 → cache invalidation → P0 验收。`event_mode` 是明确业务字段，取值 `standard | quick`，不得靠 deadline/status/名称反推；`cancelled` 是明确 Event 生命周期状态，必须在 TypeScript、卡片状态、详情、My Events 与服务端查询中一致支持。
 
 ## 16. 部署前审计
-发布前必须检查 PRD / PRODUCT / INTERACTION / QUICK_START / TOURNAMENT_PRESENTATION / PHOTO_ALBUM / P0 / CHANGELOG 一致性、核心 E2E、migration clean replay、repo/live migration exact version、RLS/RPC/Edge ACL、Storage private 边界、缓存、错误/空状态、英文和 375/390/430px。文档与代码不一致即阻塞发布。
+发布前必须检查 PRD / PRODUCT / INTERACTION / QUICK_START / EVENT_LIFECYCLE / TOURNAMENT_PRESENTATION / PHOTO_ALBUM / P0 / CHANGELOG 一致性、核心 E2E、migration clean replay、repo/live migration exact version、RLS/RPC/Edge ACL、Storage private 边界、缓存、错误/空状态、英文和 375/390/430px。文档与代码不一致即阻塞发布。
