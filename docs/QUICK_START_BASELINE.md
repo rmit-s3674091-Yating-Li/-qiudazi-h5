@@ -1,6 +1,6 @@
 # 球搭子｜Quick Start 快速开赛专项基线
 
-> 状态：Canonical product baseline。若 README、PRD V6、PRODUCT_BASELINE、INTERACTION_BASELINE、P0_ACCEPTANCE 或历史 CHANGELOG 中的 Quick Start 规则与本文冲突，以本文为准；后续应逐步删除旧冲突文案。
+> 状态：Canonical product baseline。若 README、PRD V6、PRODUCT_BASELINE、INTERACTION_BASELINE、P0_ACCEPTANCE 或历史 CHANGELOG 中的 Quick Start 规则与本文冲突，以本文为准；自动化测试数据命名与隔离以 `docs/TEST_DATA_GOVERNANCE.md` 为准。
 
 ## 1. 产品定位
 
@@ -58,38 +58,37 @@ Quick Start 可选择：
 
 Quick Event 不走报名、候补、报名截止、赛事邀请、双打组队邀请等标准招募流程。
 
-创建时名单已经确定，因此 Event 创建后直接进入 `locked` 是正确状态：
+创建时名单已经确定，因此 Event 创建后直接进入 `locked` 是正确底层状态：
 - `locked` 表示名单已固定、禁止普通报名变更；
 - `locked` 不等于已经生成对阵；
 - `draw_generated=false` 时应由自动编排/恢复机制完成首次 draw；
 - 正式比赛开始后再进入 `ongoing`；完赛后进入 `finished`。
 
-因此公共大厅中的正常 Quick Event 在开赛前可以显示“已锁定”，但这不是错误。
+Hall 用户侧可将 quick + locked 映射成更易理解的“待开赛”等产品文案；不得为了文案改变底层状态机。
 
 ## 7. 大厅发现
 
-当前产品决策：**正常用户创建的 Quick Event 是公共赛事发现的一部分。**
+当前产品决策：**正常用户创建的 Quick Event 是赛事大厅发现的一部分。**
 
 - 新建 Quick Event 默认 `visibility='public'`；
-- `event_mode='quick'` 必须进入公共 Hall 查询；
-- Hall 卡可以显示“快速赛事/已锁定”等状态，但不提供报名入口；
+- `event_mode='quick'` 必须进入 Hall 查询；
+- Hall 卡可显示“快速赛事/待开赛”等状态，但不提供报名入口；
 - Quick Event 不因进入 Hall 就重新启用报名、候补或标准赛事 deadline；
 - 实际详情权限继续服从服务端 viewer_role 与赛事权限模型。
 
-旧文档中“Quick Event 不进入普通赛事大厅”“quick 必须 private”的描述自 2026-08-31 起废止。
+同时必须保持全局赛事发现规则：**`event_mode=standard + visibility=private` 的标准私有赛事仍进入赛事大厅，但只能展示脱敏预览。** 未授权 viewer 不得得到 owner、精确日期时间、场地、费用、报名人数/候补人数、报名截止等敏感字段。private Hall 可发现、完整详情可见、报名资格是三件不同的事。
 
-## 8. QA 测试数据隔离
+因此，“测试赛事隔离”绝不能实现成 `Hall 只返回 visibility=public`；这种写法会误伤 private standard event，是发布回归。
 
-自动化测试使用共享 canonical Supabase 时，不得污染真实公共 Hall。
+## 8. 自动化测试数据隔离
 
-当前受控 QA 组织者命名规则：`QA-*` 与 `QA15-*`。公共 `list_events(false, ...)` 必须排除由这些 QA profile 创建的赛事，无论：
-- event_mode 是 standard 还是 quick；
--赛事名称是否以 QA 开头；
--赛事当前是 signup / locked / ongoing。
+自动化测试使用共享 canonical Supabase 时，不得污染真实 Hall。详细唯一规则以 `docs/TEST_DATA_GOVERNANCE.md` 为准。
 
-QA 隔离只能影响公共发现，不得删除测试证据，也不得导致 QA 组织者在“我的赛事”、直接 URL、专项测试中无法访问自己创建的数据。
+新自动化身份统一使用 `TST-<SUITE>-<ROLE>-<SHA6>-<RUN>`；历史 `QA-* / QA15-* / EXP-*` 只作为 legacy 兼容过滤，禁止新脚本继续发明新的根前缀。
 
-长期方向：优先为自动化测试引入显式 test marker / cleanup / 隔离环境，避免永远依赖昵称约定。
+Hall 隔离依据受控测试组织者身份/未来结构化 test marker，不依赖赛事名称。Quick Event 即使自动生成“08月31日 快速单打”之类自然语言名称，只要组织者属于受控测试身份，就不得进入普通 Hall。
+
+隔离只影响普通发现，不删除 Event/Entry/Match 证据，也不影响测试组织者在“我的赛事”、direct URL、Browser trace/artifact 中访问。
 
 ## 9. 身份与权限
 
@@ -120,7 +119,8 @@ QA 隔离只能影响公共发现，不得删除测试证据，也不得导致 Q
 4. alias 测试身份完成 create → draw；
 5. draw 首次失败后只恢复同一 event；
 6. 正常 Quick Event 出现在 Hall；
-7. QA-Quick / QA15 测试赛事不出现在公共 Hall；
-8. Quick Event Hall 卡无报名 CTA；
-9. fallback avatar 为正常圆形；
-10. 赛事创建后 Event/Entry/EntryPlayer/Match 与标准赛事后续管理兼容。
+7. `TST-*` 与 legacy `QA-* / QA15-* / EXP-*` 自动化赛事不出现在普通 Hall；
+8. private standard event 仍以脱敏卡出现在 Hall；
+9. Quick Event Hall 卡无报名 CTA；
+10. fallback avatar 为正常圆形；
+11. 赛事创建后 Event/Entry/EntryPlayer/Match 与标准赛事后续管理兼容。
