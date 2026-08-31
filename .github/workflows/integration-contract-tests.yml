@@ -1,0 +1,38 @@
+name: Integration Contract Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  integration-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+          cache: npm
+      - run: npm ci
+      - name: Verify repository migrations against canonical live manifest
+        run: node scripts/check-migration-parity.mjs
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Initialize local Supabase config
+        run: supabase init --force
+      - name: Start isolated local Supabase
+        run: supabase start
+      - name: Replay repository migrations from clean database
+        run: supabase db reset --local
+      - name: Run integration contract tests
+        run: npm run test:integration
+      - name: Stop isolated local Supabase
+        if: always()
+        run: supabase stop --no-backup
