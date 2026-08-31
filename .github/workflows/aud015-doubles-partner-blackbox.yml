@@ -108,18 +108,22 @@ jobs:
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
 
-      - name: Normalize owner page state after partner acceptance
+      - name: Normalize AUD-015 harness state and async edit readiness
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           p = Path('qa/aud015-doubles-partner-blackbox.mjs')
           s = p.read_text()
-          old = "  await owner.goto(`${baseUrl}/#/events/${id}/manage`, { waitUntil: 'domcontentloaded' });\n  await owner.getByRole('button', { name: 'Register myself', exact: true }).click();"
-          new = "  await owner.goto(`${baseUrl}/#/events/${id}/manage`, { waitUntil: 'domcontentloaded' });\n  await owner.reload({ waitUntil: 'domcontentloaded' });\n  await owner.getByRole('button', { name: 'Register myself', exact: true }).click();"
-          if old not in s:
-              raise SystemExit('AUD-015 harness patch target not found')
-          p.write_text(s.replace(old, new, 1))
+          old1 = "  await owner.goto(`${baseUrl}/#/events/${id}/manage`, { waitUntil: 'domcontentloaded' });\n  await owner.getByRole('button', { name: 'Register myself', exact: true }).click();"
+          new1 = "  await owner.goto(`${baseUrl}/#/events/${id}/manage`, { waitUntil: 'domcontentloaded' });\n  await owner.reload({ waitUntil: 'domcontentloaded' });\n  await owner.getByRole('button', { name: 'Register myself', exact: true }).click();"
+          old2 = "  await owner.goto(`${baseUrl}/#/events/${id}/edit`, { waitUntil: 'domcontentloaded' });\n  await owner.getByRole('button', { name: /Time & venue/i }).click();"
+          new2 = "  await owner.goto(`${baseUrl}/#/events/${id}/edit`, { waitUntil: 'domcontentloaded' });\n  const loadedName = labelInput(owner, 'Event name');\n  await loadedName.waitFor({ state: 'visible', timeout: 30000 });\n  await owner.waitForFunction(() => { const i = [...document.querySelectorAll('label')].find(x => x.textContent?.includes('Event name'))?.querySelector('input'); return !!i?.value; }, null, { timeout: 30000 });\n  await owner.getByRole('button', { name: /Time & venue/i }).click();"
+          for old, new in ((old1, new1), (old2, new2)):
+              if old not in s:
+                  raise SystemExit('AUD-015 harness patch target not found')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
           PY
 
       - name: Run AUD-015 second-real-partner browser proof
