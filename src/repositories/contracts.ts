@@ -31,5 +31,6 @@ export interface TournamentRepository {
     config: EventConfig,
     version?: number,
   ): Promise<Event>;
+  cancelEvent(id: string, version: number): Promise<Event>;
   deleteEvent(id: string, version: number): Promise<void>;
 }
