@@ -9,7 +9,8 @@
 - `docs/PRD_V6_EVENT_LIFECYCLE_PRIVACY_I18N.md`
 - `docs/PRODUCT_BASELINE.md`
 - `docs/INTERACTION_BASELINE.md`
-- `docs/QUICK_START_BASELINE.md` — 当前 Quick Start / 快速赛事专项真源
+- `docs/QUICK_START_BASELINE.md` — Quick Start / 快速赛事专项真源
+- `docs/TEST_DATA_GOVERNANCE.md` — 自动化测试身份、命名、Hall 隔离与 cleanup 专项真源
 - `docs/VISUAL_DESIGN_BASELINE.md`
 - `docs/PHOTO_ALBUM_BASELINE.md`
 - `docs/P0_ACCEPTANCE.md`
@@ -19,7 +20,7 @@
 - `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
 - 本文件 `docs/DOCUMENT_GOVERNANCE.md`
 
-这些文档可以互相引用，但不得在多个文件中独立维护同一条动态事实。专项规则优先放到专项基线，其它文档只做摘要和链接。Quick Start 相关规则若与旧 PRD / PRODUCT / INTERACTION / P0 / README 残留文案冲突，以 `docs/QUICK_START_BASELINE.md` 为准，并应在当前整改周期内清理旧冲突文案。
+这些文档可以互相引用，但不得在多个文件中独立维护同一条动态事实。专项规则优先放到专项基线，其它文档只做摘要和链接。Quick Start 相关规则以 `docs/QUICK_START_BASELINE.md` 为准；自动化测试数据命名与隔离以 `docs/TEST_DATA_GOVERNANCE.md` 为准。
 
 ### B. Runtime truth
 用于回答“现在实际上是什么状态”。运行时事实优先于任何静态文档中的旧状态描述：
@@ -65,6 +66,7 @@ README 是入口和摘要，不承担所有详细规则的第二份维护。
 发生以下变更时，提交前必须同步对应文档：
 - 产品行为/状态机/权限：PRD + PRODUCT；有页面行为则同步 INTERACTION；影响 P0/Gate 则同步 P0；写 CHANGELOG。
 - Quick Start 参赛者来源、双打组队、自动 draw、Hall 可见性、恢复语义：QUICK_START + PRD/PRODUCT/INTERACTION/P0 必要摘要；写 CHANGELOG。
+- 自动化测试命名、test identity、Hall 隔离、cleanup/test marker：TEST_DATA_GOVERNANCE；影响 Browser runner 时同步 BROWSER_BLACKBOX / EXPLORATORY；影响 Hall 产品查询时同步 PRODUCT/INTERACTION/P0 必要摘要；写 CHANGELOG。
 - 视觉/移动端信息架构：VISUAL；影响交互则同步 INTERACTION；写 CHANGELOG。
 - 赛事/个人照片模型：PHOTO_ALBUM + PRD/PRODUCT 必要摘要 + P0；写 CHANGELOG。
 - 环境身份、Supabase/Vercel/GitHub 配置：ENVIRONMENT；影响发布链则同步 RELEASE；写 CHANGELOG。
@@ -89,7 +91,7 @@ canonical 文档属于 release candidate 的一部分。Candidate Freeze 后：
 
 五个正式任务——`球搭子代码变更巡检`、`球搭子全功能测试`、`球搭子问题整改`、`球搭子部署前审计 V2`、`球搭子周安全审计 V2`——每轮都必须：
 1. 先读取本文件与 `docs/AUDIT_AUTOMATION_GOVERNANCE.md`；
-2. 根据任务主题读取对应专项 canonical baseline；Quick Start 相关任务必须读取 `docs/QUICK_START_BASELINE.md`；
+2. 根据任务主题读取对应专项 canonical baseline；Quick Start 相关任务必须读取 `docs/QUICK_START_BASELINE.md`；任何会创建测试 Profile/Event 的任务必须读取 `docs/TEST_DATA_GOVERNANCE.md`；
 3. 再读取 PR exact head 与相关 runtime truth；
 4. 不得从聊天记忆、历史 CHANGELOG、旧 artifact 或 snapshot 反推当前状态；
 5. 写 repo canonical 文件时使用最新 blob SHA + optimistic concurrency；
@@ -104,16 +106,12 @@ canonical 文档属于 release candidate 的一部分。Candidate Freeze 后：
 - 创建器异常时保留完整 `UNFILED_PENDING_DB_ACCESS` / allocator failure 证据，修复创建器后再正式登记；不得绕过 registry 直接伪造 AUD。
 - Issue #21 只做镜像和 append-only evidence，不替代 registry。
 
-## 7. 当前 Quick Start 治理说明
+## 7. 当前 Quick Start / Hall / 测试数据治理说明
 
-自 2026-08-31 post-deploy remediation 起，Quick Start 规则以 `docs/QUICK_START_BASELINE.md` 为专项真源。旧文档中的以下规则已经废止：
-- “Quick Event 不进入普通赛事大厅”；
-- “Quick Event 必须 visibility=private”；
-- “快速双打按勾选顺序自动每两人组队即可”；
-- 正常流程把“继续生成对阵 / Retry draw”作为常规第二步用户任务。
+自 2026-08-31 post-deploy remediation 起，Quick Start 规则以 `docs/QUICK_START_BASELINE.md` 为专项真源。正常 Quick Event 默认 public 并进入 Hall，但不开放报名；双打必须显式确认队友；创建后系统自动 draw；只有首次 draw 异常时进入“恢复开赛”并只重试同一 Event。`locked` 是 Quick Event 名单已经固定的底层状态，不代表 draw 已完成。
 
-当前规则摘要：正常 Quick Event 默认 public 并进入 Hall，但不开放报名；双打必须显式确认队友；创建后系统自动 draw；只有首次 draw 异常时进入“恢复开赛”并只重试同一 Event。`locked` 是 Quick Event 名单已经固定的正常创建状态，不代表 draw 已完成。
+**标准 private event 的产品规则没有改变：** `event_mode=standard + visibility=private` 仍进入赛事大厅发现流，但只返回脱敏卡。未授权用户不得看到 owner、精确日期时间、场地、费用、参赛人数、报名截止等敏感信息。大厅可发现、完整详情权限、报名资格必须分开判断。
 
-QA 自动化使用共享库时，公共 Hall 必须按受控测试组织者隔离，而不能依赖赛事名称也带 QA 前缀。当前 QA profile 约定至少包括 `QA-*` 与 `QA15-*`；测试赛事仍可保留为证据并在“我的赛事”/直接 URL/测试流程中访问。
+自动化测试隔离是独立治理规则，不能通过“只返回 public event”实现。新自动化 Profile 统一 `TST-<SUITE>-<ROLE>-<SHA6>-<RUN>`；历史 `QA-* / QA15-* / EXP-*` 仅作兼容过滤。详细规则见 `docs/TEST_DATA_GOVERNANCE.md`。
 
 身份方面，Quick Start 的 RPC、Edge Function 与 tournament commit 必须统一支持 current canonical profile + auth alias，且不得为方便 Edge 读取而扩大 `private.profile_auth_aliases` 对客户端角色的权限。
