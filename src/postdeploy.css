@@ -9,6 +9,35 @@
   flex: 1 1 0;
 }
 
+.registration-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface, #fff) 88%, #7f9b73 12%);
+  color: var(--text, #27312a);
+}
+
+.registration-status.waitlist {
+  background: color-mix(in srgb, var(--surface, #fff) 88%, #b28a55 12%);
+}
+
+.registration-status > div {
+  display: grid;
+  gap: 2px;
+}
+
+.registration-status strong {
+  font-size: 15px;
+}
+
+.registration-status small {
+  color: var(--muted, #7d867c);
+  line-height: 1.35;
+}
+
 .match-card-versus {
   display: block;
 }
