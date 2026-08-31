@@ -1,0 +1,157 @@
+name: Exploratory Browser Blackbox
+
+on:
+  push:
+    branches:
+      - release-candidate
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: read
+  id-token: write
+
+concurrency:
+  group: exploratory-browser-blackbox
+  cancel-in-progress: true
+
+jobs:
+  exploratory-browser-blackbox:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout current release candidate
+        uses: actions/checkout@v4
+        with:
+          ref: release-candidate
+
+      - name: Capture exact candidate SHA
+        id: candidate
+        shell: bash
+        run: |
+          SHA="$(git rev-parse HEAD)"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "Exploratory candidate SHA: ${SHA}"
+
+      - name: Resolve exact Vercel deployment URL
+        id: deployment
+        uses: actions/github-script@v7
+        env:
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const expectedSha = process.env.EXPECTED_SHA;
+            const normalize = (value) => {
+              if (!value) return null;
+              return value.startsWith('http://') || value.startsWith('https://') ? value : `https://${value}`;
+            };
+            const deadline = Date.now() + 10 * 60_000;
+            let last = 'no deployment status yet';
+            while (Date.now() < deadline) {
+              const deployments = await github.rest.repos.listDeployments({ owner, repo, sha: expectedSha, per_page: 100 });
+              const matching = deployments.data.filter((d) => !d.ref || d.ref === 'release-candidate' || d.ref === expectedSha);
+              for (const deployment of matching) {
+                const statuses = await github.rest.repos.listDeploymentStatuses({ owner, repo, deployment_id: deployment.id, per_page: 100 });
+                for (const status of statuses.data) {
+                  const url = normalize(status.environment_url || status.target_url);
+                  last = `deployment=${deployment.id} state=${status.state} url=${url || 'none'}`;
+                  if (status.state === 'success' && url && url.includes('vercel.app')) {
+                    core.setOutput('url', url);
+                    core.info(`Resolved exact exploratory Preview: ${url}`);
+                    return;
+                  }
+                }
+              }
+              core.info(`Waiting for exact Vercel deployment (${last})`);
+              await new Promise((resolve) => setTimeout(resolve, 5000));
+            }
+            core.setFailed(`Timed out resolving exact Vercel deployment for ${expectedSha}; last=${last}`);
+
+      - name: Obtain short-lived GitHub OIDC token
+        id: oidc
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = await core.getIDToken();
+            core.setSecret(token);
+            core.setOutput('token', token);
+
+      - name: Verify exact-head build metadata
+        env:
+          BASE_URL: ${{ steps.deployment.outputs.url }}
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
+          VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            -H "x-vercel-trusted-oidc-idp-token: ${VERCEL_TRUSTED_OIDC_TOKEN}" \
+            "${BASE_URL}/build-meta.json" > /tmp/build-meta.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const meta = JSON.parse(fs.readFileSync('/tmp/build-meta.json', 'utf8'));
+          if (meta.sha !== process.env.EXPECTED_SHA) throw new Error(`Preview SHA mismatch: ${meta.sha}`);
+          if (meta.ref !== 'release-candidate') throw new Error(`Preview ref mismatch: ${meta.ref}`);
+          console.log(`Exact exploratory candidate verified: ${meta.sha} (${meta.ref})`);
+          NODE
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+          cache: npm
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Install Playwright runtime
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium webkit
+
+      - name: Run non-fail-fast exploratory browser suite
+        env:
+          BASE_URL: ${{ steps.deployment.outputs.url }}
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
+          VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: node qa/exploratory-browser-blackbox.mjs
+
+      - name: Publish exploratory summary
+        if: always()
+        env:
+          BASE_URL: ${{ steps.deployment.outputs.url }}
+          EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
+        shell: bash
+        run: |
+          echo "## Exploratory Browser Blackbox" >> "$GITHUB_STEP_SUMMARY"
+          echo "- expected SHA: \`${EXPECTED_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- exact deployment URL: ${BASE_URL}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- behavior: non-fail-fast across independent scenarios" >> "$GITHUB_STEP_SUMMARY"
+          echo "- release semantics: findings do not replace Candidate Browser Blackbox Gate evidence" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f qa-artifacts-exploratory/exploratory-result.json ]; then
+            node - <<'NODE' >> "$GITHUB_STEP_SUMMARY"
+          const fs = require('fs');
+          const r = JSON.parse(fs.readFileSync('qa-artifacts-exploratory/exploratory-result.json','utf8'));
+          console.log(`- pass: **${r.passCount}**`);
+          console.log(`- fail/findings: **${r.failCount}**`);
+          console.log('');
+          console.log('| Scenario | Result |');
+          console.log('|---|---|');
+          for (const s of r.scenarios || []) console.log(`| ${s.name} | ${s.ok ? 'PASS' : 'FAIL'} |`);
+          if ((r.findings || []).length) {
+            console.log(''); console.log('### Findings');
+            for (const f of r.findings) console.log(`- **${f.scenario}**: ${String(f.error).split('\n')[0]}`);
+          }
+          NODE
+          fi
+
+      - name: Upload exploratory evidence
+        if: always() && steps.candidate.outputs.sha != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: exploratory-browser-evidence-${{ steps.candidate.outputs.sha }}
+          path: qa-artifacts-exploratory/
+          if-no-files-found: warn
+          retention-days: 14
