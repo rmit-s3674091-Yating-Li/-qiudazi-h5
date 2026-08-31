@@ -48,6 +48,8 @@ assert_ge "$("${PSQL[@]}" "select count(*) from pg_proc p join pg_namespace n on
 assert_ge "$("${PSQL[@]}" "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='list_connections' and position('avatar_visible' in pg_get_functiondef(p.oid))>0;")" "1" "list_connections consults avatar_visible"
 
 # Behavioral privacy regression: an accepted partner whose avatar_visible=false must be returned with avatar_url=null.
+# psql also prints transaction command-status lines for this multi-statement -c invocation;
+# retain only the explicit behavior probe result so BEGIN/INSERT/ROLLBACK chatter cannot false-fail the assertion.
 privacy_result="$("${PSQL[@]}" "begin;
   insert into auth.users(id,email)
   values
@@ -68,7 +70,7 @@ privacy_result="$("${PSQL[@]}" "begin;
       and (public.list_connections()->0 ? 'avatar_url')
       and public.list_connections()->0->'avatar_url'='null'::jsonb
     then 'ok' else 'bad' end;
-  rollback;")"
+  rollback;" | grep -E '^(ok|bad)$' | tail -n 1)"
 assert_eq "$privacy_result" "ok" "list_connections behavior hides avatar when avatar_visible=false"
 
 # Quick Start / identity contract
