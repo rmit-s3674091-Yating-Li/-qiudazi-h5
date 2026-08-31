@@ -71,9 +71,7 @@ async function connect(owner, partner, ownerName, partnerName) {
   const token = Array.isArray(payload) ? payload[0]?.token : payload?.token;
   record('AUD-015 real users create a partner connection invitation', response.ok() && !!token, `status=${response.status()}; token=${token || 'missing'}`);
   await partner.goto(`${baseUrl}/?connect=${encodeURIComponent(token)}`, { waitUntil: 'domcontentloaded' });
-  await partner.getByRole('heading', { name: new RegExp(`You and ${partnerName === ownerName ? 'this player' : ownerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} are already partners|already partners`, 'i') }).waitFor({ state: 'visible', timeout: 30000 }).catch(async () => {
-    await partner.getByText(/already partners/i).first().waitFor({ state: 'visible', timeout: 30000 });
-  });
+  await partner.getByText(/already partners/i).first().waitFor({ state: 'visible', timeout: 30000 });
   record('AUD-015 two real identities are connected before doubles invite', true, `${ownerName} <-> ${partnerName}`);
 }
 
@@ -81,7 +79,7 @@ async function createDoublesEvent(owner, name) {
   await owner.goto(`${baseUrl}/#/events/new`, { waitUntil: 'domcontentloaded' });
   await labelInput(owner, 'Event name').fill(name);
   await labelInput(owner, 'Match type').selectOption('doubles');
-  await owner.getByRole('button', { name: 'Time & venue', exact: true }).click();
+  await owner.getByRole('button', { name: /Time & venue/i }).click();
   await labelInput(owner, 'Entry limit').fill('2');
   await labelInput(owner, 'Match date').fill(futureDate(10));
   await labelInput(owner, 'Start time').fill('20:00');
@@ -117,20 +115,19 @@ async function registerRealDoublesTeam(owner, partner, id, eventName, partnerNam
   record('AUD-015 doubles entry signup_user is first real user', true, id);
 }
 
-async function verifySecondPartnerCta(owner, partner, id, eventName) {
+async function verifySecondPartnerCta(owner, partner, id) {
   await partner.goto(`${baseUrl}/#/events/${id}`, { waitUntil: 'domcontentloaded' });
   const openCta = partner.getByRole('button', { name: 'Registered · view / withdraw', exact: true });
   await openCta.waitFor({ state: 'visible', timeout: 30000 });
   record('AUD-015 non-signup second real partner receives pre-deadline registered/withdraw CTA', true, partner.url());
   await openCta.click();
-  const entryCard = partner.locator('.card.row').filter({ hasText: eventName }).first();
   const withdraw = partner.getByRole('button', { name: 'Withdraw', exact: true });
   await withdraw.waitFor({ state: 'visible', timeout: 20000 });
   record('AUD-015 second real partner can reach entry-level Withdraw control', true, 'Withdraw visible before deadline');
   await shot(partner, 'aud015-second-partner-withdraw-open');
 
   await owner.goto(`${baseUrl}/#/events/${id}/edit`, { waitUntil: 'domcontentloaded' });
-  await owner.getByRole('button', { name: 'Time & venue', exact: true }).click();
+  await owner.getByRole('button', { name: /Time & venue/i }).click();
   await labelInput(owner, 'Registration deadline').fill('2000-01-01T00:00');
   await owner.getByRole('button', { name: 'Save changes', exact: true }).click();
   await owner.waitForURL(new RegExp(`#\\/events\\/${id}\\/manage`), { timeout: 30000 });
@@ -163,7 +160,7 @@ try {
   const id = await createDoublesEvent(owner, eventName);
   result.evidence.eventId = id;
   await registerRealDoublesTeam(owner, partner, id, eventName, partnerName);
-  await verifySecondPartnerCta(owner, partner, id, eventName);
+  await verifySecondPartnerCta(owner, partner, id);
   result.ok = true;
 } catch (e) {
   result.ok = false;
