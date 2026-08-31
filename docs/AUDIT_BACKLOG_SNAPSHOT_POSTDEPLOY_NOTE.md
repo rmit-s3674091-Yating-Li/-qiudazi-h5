@@ -1,0 +1,1 @@
+Post-deploy remediation is in progress on `feature/20260831-postdeploy-ui-quickstart-filter-qa`. Formal live AUD truth remains in Supabase `audit_ops.issue_registry`; this note exists only to keep repository documentation synchronized during the remediation cycle and must not be treated as the backlog source of truth.
