@@ -9,7 +9,7 @@
 - `signup`：创建人可以进入赛事设置修改。
 - `locked` 且没有任何真实 Match 开始：创建人仍可修改非结构性信息。
 - 一旦存在真实 Match `ongoing` 或 `finished`：禁止通过普通赛事设置修改赛事规则。
-- 已有有效报名后，单/双打、赛制、盘数、计分类型、抢七规则、小组/晋级结构等会改变参赛预期或签表结构的字段锁定。
+- 已有有效报名后，单/双打、赛制、盘数、计分类型、抢七规则、**普通局平分规则（占先制 / 平分金球制）**、小组/晋级结构等会改变参赛预期或签表结构的字段锁定。
 - 名单已经 locked 后，名额上限也作为结构性字段锁定；需要调整人员时先走受保护的“解锁名单 → 清空对阵 → 调整 → 重新锁定并自动生成”。
 - 名称、公开/私有、建议级别、日期时间、城市/场地、费用说明等非结构字段在未开赛阶段可以修改，但仍必须满足字段校验和报名截止约束。
 
@@ -48,12 +48,13 @@
 - optimistic version 校验；
 - 真实 Match 已开始后拒绝 edit/cancel/delete；
 - 有 Entry 历史时 delete 语义必须转为 cancel 或拒绝物理删除；
-- Hall 必须排除 cancelled；My Events 保留 cancelled。
+- Hall 必须排除 cancelled；My Events 保留 cancelled；
+- `game_scoring` 只能为 `advantage` / `no_ad`；已有有效报名或 locked 后不得修改。
 
 ## 8. 发布验收
 至少独立验证：
 1. owner 创建空赛事 → 修改 → 删除，Hall/My Events 均消失；
-2. 另一用户报名后 → owner 修改非结构字段成功，结构字段被拒绝；
+2. 另一用户报名后 → owner 修改非结构字段成功，结构字段（含占先/金球规则）被拒绝；
 3. 有报名赛事 → owner 执行终止后状态为 cancelled，Hall 消失，双方 My Events 仍能看到取消记录；
 4. locked 未开赛赛事仍能取消；
 5. 任一真实 Match 开始后 edit/cancel/delete 均被服务端拒绝；
