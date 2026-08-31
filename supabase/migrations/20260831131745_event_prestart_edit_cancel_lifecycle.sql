@@ -38,6 +38,7 @@ begin
  delete from public.events where id=p_id;
 end $function$;
 
+-- Pre-start organizers may edit, but fields that would invalidate an existing roster/draw are protected.
 create or replace function public.save_event(p_id uuid, p_config jsonb, p_version integer default null)
 returns public.events
 language plpgsql
