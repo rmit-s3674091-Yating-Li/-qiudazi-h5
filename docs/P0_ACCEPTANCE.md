@@ -1,12 +1,13 @@
 # 球搭子 H5 MVP｜P0 验收基线（Current）
 
-> 当前长期验收基线。照片专项以 `docs/PHOTO_ALBUM_BASELINE.md` 为准。发布与候选部署顺序以 `docs/RELEASE_GOVERNANCE.md` 为准；真实浏览器黑盒证据以 `docs/BROWSER_BLACKBOX_BASELINE.md` 为准。快速开赛为 P1 新能力，不替代原 P0 标准赛事链路；其对既有 P0 能力造成的回归仍属于发布阻塞问题。
+> 当前长期验收基线。照片专项以 `docs/PHOTO_ALBUM_BASELINE.md` 为准；Quick Start 专项以 `docs/QUICK_START_BASELINE.md` 为准。发布与候选部署顺序以 `docs/RELEASE_GOVERNANCE.md` 为准；真实浏览器黑盒证据以 `docs/BROWSER_BLACKBOX_BASELINE.md` 为准。快速开赛为 P1 新能力，不替代原 P0 标准赛事链路；其对既有 P0 能力造成的回归仍属于发布阻塞问题。
 
 ## A. 身份与档案
 - [ ] 首次访问可建立测试登录态并完成昵称资料；返回用户可恢复状态。
 - [ ] 测试期昵称身份不展示 public ID，不误称正式安全登录。
 - [ ] Profile / Player / Connection 不混淆，昵称不做关联键。
 - [ ] 旧 auth session → canonical Profile alias 恢复时服务端仍正确识别赛事角色。
+- [ ] 身份敏感 RPC / Edge / tournament commit 不重新假设 `profiles.auth_user_id=auth.uid()` 是唯一映射；受控 alias 能解析到同一 canonical Profile。
 
 ## B. 导航与页面职责
 - [ ] 底部一级入口保持赛事大厅 / 我的赛事 / 球搭子们 / 我的，四者职责不被新功能改写。
@@ -15,13 +16,16 @@
 - [ ] 我的包含打球档案、战绩、参与赛事相册、邀请记录、设置与隐私；战绩不拆成新的一级导航。
 - [ ] “我参与的”按有效 Entry/Player 事实判断，双打两位真实搭档均正确出现。
 - [ ] 若当前候选包含中央“快速开赛”入口，它只能作为 action，不是第五个 Tab；不得遮挡、挤压或破坏四个既有一级导航。
+- [ ] “编辑头像与昵称”保存成功后回到明确来源页，不在 history 中重复 push “我的打球档案”导致返回循环。
 
 ## C. 赛事创建与发现
 - [ ] 创建/编辑支持单/双打、赛制、计分、名额、比赛日期、开赛时间、城市、场地、费用、公开/私有。
 - [ ] Event.city 独立必填，不从 venue 猜测。
 - [ ] 参赛建议级别支持不限、单边、同档、区间；只用于匹配，不作为硬资格。
+- [ ] 大厅级别筛选为单项级别选择；赛事建议范围包含所选级别即可匹配，不把筛选变成报名资格。
 - [ ] 私有标准赛事大厅仅展示脱敏预览，不泄露组织者、参赛人、精确时间、场地、费用、人数、截止时间。
-- [ ] `event_mode=quick` 不进入普通赛事大厅；只在创建人和实际参赛者自己的赛事上下文出现，不能复用私有赛事脱敏发现卡。
+- [ ] 正常 `event_mode=quick` 默认 public 并进入普通赛事大厅；卡片不得提供报名/候补入口。
+- [ ] 自动化 QA 组织者（当前 `QA-*` / `QA15-*`）创建的 standard/quick 赛事不得进入公共 Hall，无论赛事名称是否带 QA；测试数据仍可在测试账号自己的上下文访问。
 - [ ] 大厅可发现 ≠ 完整详情权限 ≠ 报名资格；已知 URL/ID 不能绕过。
 
 ## D. 报名截止与生命周期
@@ -37,9 +41,10 @@
 - [ ] 临时 Player 完整历史后台保留，但创建者前台只获得必要管理信息。
 - [ ] 单打 Entry 一人，双打 Entry 两人，不拆成两个 Entry。
 - [ ] 双打第二位真实搭档在报名开放期间能退出整个 Entry；截止/锁定后双方均不能退出。
-- [ ] 普通赛事邀请、双打组队邀请、球搭子关系邀请语义独立。
+- [ ] 普通赛事邀请、双打组队邀请、球搭子关系邀请、临时 Player claim invite 语义独立。
+- [ ] 临时 Player “邀请 TA 加入球搭子”的 create/get/accept claim invite 在测试 alias 身份下仍使用同一 canonical profile。
 - [ ] 正式名额、最多 2 Entry 候补、退赛和递补符合规则。
-- [ ] 组织者代报名在 confirmed 剩余名额内支持批量多选临时 Player；当前不得擅自让一个批次跨 confirmed → waitlist，候补继续保持既有单 Entry 规则，直到另有明确产品决策。
+- [ ] 组织者代报名在 confirmed 剩余名额内支持批量多选临时 Player；当前不得擅自让一个批次跨 confirmed → waitlist。
 
 ## F. 权威身份与比赛
 - [ ] EventPage / MatchPage 以服务端 `viewer_role` 等权威事实决定 owner/participant/invited/viewer。
@@ -65,7 +70,7 @@
 - [ ] stale version / 并发删除不能误删其他新照片或误报成功。
 - [ ] 公开赛事也不公开照片；匿名、普通 viewer、仅 invited 未报名用户均无读取权。
 - [ ] organizer / actual participant 默认只加载受保护水印预览；显式查看高清时重新授权并签短时 URL。
-- [ ] 用户侧不得直接暴露 Postgres/SQL/RPC 原始错误，如 ambiguous column、constraint、RLS 或 stack 文案。
+- [ ] 用户侧不得直接暴露 Postgres/SQL/RPC 原始错误。
 
 ## I. 主动加入参与赛事相册
 - [ ] 系统不因参赛自动导入任何赛事照片。
@@ -75,13 +80,13 @@
 - [ ] 导入成功形成该 Profile 自己的独立 private original + protected preview 个人资产，不是仅保存 EventPhoto 引用。
 - [ ] 同一用户同一源照片不能重复导入。
 - [ ] `source_event_photo_id` 源删除采用 SET NULL / 等价解耦，禁止级联删除个人资产。
-- [ ] organizer 后续删除赛事源照片后：赛事页源照片消失，其他用户不能再新导入；**此前已导入个人副本继续存在、可查看、可分享给搭子（若用户开启）**。
+- [ ] organizer 后续删除赛事源照片后：赛事页源照片消失，其他用户不能再新导入；此前已导入个人副本继续存在。
 
 ## J. 我的 → 参与赛事相册
 - [ ] 我的页面存在“参与赛事相册”入口。
 - [ ] 页面只显示本人主动导入成功的个人资产，按赛事分组。
 - [ ] 本人可以查看个人受保护水印预览。
-- [ ] 当前 P0 不要求本人在个人相册查看高清原图；若已有该能力，必须服务端重校验并签短时 URL，列表不得下发长期 URL 或 Storage path。
+- [ ] 当前 P0 不要求本人在个人相册查看高清原图；若已有该能力，必须服务端重校验并签短时 URL。
 - [ ] “移出我的相册”只删除本人个人 metadata + personal Storage copies，不影响赛事源或其他用户。
 - [ ] 个人删除失败不得误报成功，不能留下明显孤儿资产。
 
@@ -99,6 +104,7 @@
 - [ ] 客户端不能通过任意 path 删除他人对象。
 - [ ] SECURITY DEFINER RPC 均有显式调用 ACL + 业务身份校验；anon 不获得照片管理能力。
 - [ ] repository migrations 可从 fresh DB clean replay，并与 live schema / RPC / Edge Function 语义一致。
+- [ ] repo migration 文件名的 14 位 version 与 live `supabase_migrations.schema_migrations.version` 完全一致；同语义但不同 version 仍为 Gate blocker。
 - [ ] 内部审计 backlog 不向 H5 客户端暴露；`public.audit_issue_registry_readonly` 只用于 backend 受控读取，客户端无 SELECT。
 
 ## M. 分享、性能、错误与移动端
@@ -106,35 +112,31 @@
 - [ ] 稳定页面不固定 10/15 秒轮询；mutation 后精准刷新。
 - [ ] 用户错误不暴露 Supabase/JWT/SQL/RPC/RLS/Postgres 原始文本。
 - [ ] 375 / 390 / 430px 检查中文/英文赛事相册、多图上传、加入按钮、删除确认、个人相册、隐私设置、搭子相册，无溢出/遮挡/不可点击。
-- [ ] 若当前候选包含快速开赛中央按钮，375 / 390 / 430px 与 iPhone safe-area 下必须不遮挡四个既有导航；中文/English 文案不挤压导航。
+- [ ] 赛事详情底部 CTA 不因 flex 挤压变成竖排文字。
+- [ ] 快速开赛中央按钮在 375 / 390 / 430px 与 iPhone safe-area 下不遮挡四导航；Quick player fallback avatar 保持圆形固定尺寸。
 
 ## N. Release Gate
 - [ ] H5 Build Check 对**当前 PR exact head**全绿，包括 build、migration preflight 与 Supabase clean replay；不得沿用旧 SHA 的 green 结论。
-- [ ] PRD / PRODUCT / INTERACTION / VISUAL / PHOTO_ALBUM / P0 / ENVIRONMENT_BASELINE / RELEASE_GOVERNANCE / BROWSER_BLACKBOX_BASELINE / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG 同步。
+- [ ] PRD / PRODUCT / INTERACTION / QUICK_START / VISUAL / PHOTO_ALBUM / P0 / ENVIRONMENT_BASELINE / RELEASE_GOVERNANCE / BROWSER_BLACKBOX_BASELINE / AUDIT_AUTOMATION_GOVERNANCE / CHANGELOG 同步。
 - [ ] 发布相关 P0/P1 已独立验证；明确延期且非 Gate 阻塞的 P2 可保留，但不得被误标为已修复。
 - [ ] Candidate Freeze 后 `release-candidate` 精确指向当前 PR exact head，且该分支不包含独立开发 commit。
-- [ ] Vercel 正式 candidate 必须 `READY`，并同时满足 `githubCommitRef=release-candidate`、`githubCommitSha=当前 PR exact head`；Preview `/build-meta.json` 还必须返回相同 SHA 且 ref=`release-candidate`。旧 Preview、feature 相近 SHA、HTTP 200 或 CI 不能替代。
-- [ ] 同一 exact head 的 GitHub Actions `Candidate Browser Blackbox` 必须 `completed/success`；workflow 未完成时只等待 `WAITING_FOR_BROWSER_EVIDENCE`，runner/OIDC/DNS/Playwright 自身失败按 `BROWSER_INFRA_FAILURE` 处理，不登记产品 AUD。
-- [ ] artifact `candidate-browser-evidence-<same SHA>` 必须存在；`result.json.ok=true` 且 `full-lifecycle-result.json.ok=true`，并包含 mobile/English/双会话、标准赛事 create→signup→lock→auto draw→start→score→finish、deadline auto/custom、Settings/Privacy 持久化、Quick Start draw 故障恢复、赛事照片上传→participant 导入→源删除后个人副本保留的真实浏览器证据。
-- [ ] 黑盒 / Visual/UX / English QA 只针对该唯一 deployment id / URL / SHA 取证；测试过程中不得切换 Preview。HTTP fetch、源码、CI、Supabase SQL、Vercel metadata 仅作补充，不能替代 Playwright 页面交互。
-- [ ] Candidate Freeze 后若又提交代码、migration、测试基础设施或 canonical 文档，旧 candidate 与旧 Browser Blackbox 自动失效：必须暂停黑盒/Gate → 新 head CI → 重新移动 `release-candidate` → 测新 Preview → 新 browser artifact。
+- [ ] Vercel candidate `READY`，`githubCommitRef=release-candidate`、`githubCommitSha=当前 PR exact head`，Preview `/build-meta.json` 返回相同 SHA/ref。
+- [ ] 同一 exact head 的 Candidate Browser Blackbox completed/success，artifact 两个核心 JSON `ok=true`；Exploratory Browser 内部 FAIL 必须逐条分类。
+- [ ] Candidate Freeze 后任何代码/migration/测试基础设施/canonical docs commit 都使旧 candidate/browser/Gate 证据失效。
 - [ ] 不得为了触发 Vercel 而提前 merge/push main；main Production 不能替代 Preview 验证。
-- [ ] 真实黑盒、Visual/UX、English QA 通过后才进入最终 Gate / CloudBase；Preview 通过本身不等于 Gate PASS。
-- [ ] 快速开赛作为 P1 不因“尚未成为 P0”被机械判失败；但若它已进入候选且造成既有导航/P0 页面回归、权限扩大或标准赛事生命周期回归，则 Gate 必须阻塞。
-- [ ] 未通过 Gate 不自动 merge main；Gate PASS 也仍需用户/总控做最终 merge 决策。
+- [ ] live P0/P1 未关闭项为 0 后才可 Gate PASS；Gate PASS 后仍需用户明确授权 merge。
 
 ## O. 快速开赛 P1 独立验收（不重定义 P0）
-
-以下是当前分支已实现/正在收口的 P1 新能力，用于独立验证，不将其改写为原 P0 必备链路：
-
 - [ ] 中央凸起“快速开赛”是动作入口，不是第五个一级 Tab。
-- [ ] 快速流程：单打/双打 → 选择已有/临时 Player → 城市/可选场地/赛制/计分 → 确认并生成对阵。
-- [ ] 单打至少 2 人；双打至少 4 人且偶数；当前双打按选择顺序两两成队。
-- [ ] `event_mode=quick` 直接形成 locked Event/Entry/EntryPlayer，不走报名截止、候补、普通赛事邀请。
-- [ ] DB → `list_events` / `get_event_snapshot` → TypeScript `Event` 必须显式保留 `event_mode`，不得靠 status/deadline/name 反推模式。
-- [ ] quick event 不进入普通赛事大厅；owner / actual participant 仍能从“我的赛事”进入。
-- [ ] 首次对阵自动生成；用户不需要再寻找“生成对阵”才能进入下一步。
-- [ ] 若 create_quick_event 已成功但首次 draw 因网络/Edge 失败，页面保存该 event id/version 并进入恢复状态；刷新后仍可继续；“继续生成对阵”只重试已有 event 的 draw，不得再次创建赛事。
-- [ ] pending draw 状态下允许进入已创建赛事管理，但不能无提示创建第二个 quick event；恢复成功后清除 pending 状态。
+- [ ] 可选择本人、accepted real partner、本人临时 Player，也可现场新增临时 Player；不得加入陌生用户 Player。
+- [ ] 单打至少 2 人；双打至少 4 人且偶数。
+- [ ] 双打选择参赛者后必须明确确认每一队的两名队友，并可调整组合；不得以隐藏的勾选顺序作为最终组队规则。
+- [ ] 快速流程最终主动作是“一键开赛”，正常流程自动 create + lock + first draw，不额外要求人工点击“生成对阵”。
+- [ ] `event_mode=quick` 创建后直接 locked；`locked` 表示名单已固定，不等于 draw 已完成。
+- [ ] 正常 Quick Event 默认 public 并进入公共 Hall，但无报名/候补 CTA。
+- [ ] QA-/QA15- 自动化组织者的 Quick/standard 赛事不得进入公共 Hall。
+- [ ] DB → `list_events` / `get_event_snapshot` → TypeScript `Event` 显式保留 `event_mode`。
+- [ ] create_quick_event 已成功但首次 draw 失败时保存 event id/version 并进入“恢复开赛”；只重试已有 event draw，不重复创建。
+- [ ] alias 身份下 `list_quick_start_players` / create / tournament-command / commit 均解析同一 canonical profile，且不扩大 private alias 表客户端权限。
 - [ ] quick event 后续继续复用 viewer_role、Match、记分、排名、完赛、战绩与照片模型。
 - [ ] quick mode 不得改变标准赛事 deadline / waitlist / invite / Player / Storage 权限。
