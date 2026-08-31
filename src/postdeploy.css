@@ -8,3 +8,63 @@
   width: auto;
   flex: 1 1 0;
 }
+
+.match-card-versus {
+  display: block;
+}
+
+.match-card-meta {
+  margin-bottom: 12px;
+}
+
+.match-versus-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.match-side {
+  min-width: 0;
+}
+
+.match-side-name {
+  display: block;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.match-side-b {
+  text-align: right;
+}
+
+.match-vs {
+  align-self: center;
+  justify-self: center;
+  font-size: 13px;
+  letter-spacing: .08em;
+  color: var(--muted, #7d867c);
+}
+
+.match-side .score {
+  display: block;
+  margin-top: 6px;
+}
+
+.single-match-bracket {
+  grid-template-columns: minmax(0, 1fr);
+  overflow: visible;
+}
+
+.single-match-bracket .bracket-round {
+  min-width: 0;
+  width: 100%;
+}
+
+@media (max-width: 390px) {
+  .match-versus-layout {
+    grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr);
+    gap: 8px;
+  }
+}
