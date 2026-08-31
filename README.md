@@ -10,17 +10,19 @@
 3. `docs/PRD_V6_EVENT_LIFECYCLE_PRIVACY_I18N.md`
 4. `docs/INTERACTION_BASELINE.md`
 5. `docs/QUICK_START_BASELINE.md` — Quick Start / 快速赛事专项真源
-6. `docs/PHOTO_ALBUM_BASELINE.md`
-7. `docs/VISUAL_DESIGN_BASELINE.md`
-8. `docs/P0_ACCEPTANCE.md`
-9. `docs/ENVIRONMENT_BASELINE.md`
-10. `docs/RELEASE_GOVERNANCE.md`
-11. `docs/BROWSER_BLACKBOX_BASELINE.md`
-12. `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
-13. `CHANGELOG.md`
-14. 当前源码、migration、Edge Functions 与 CI / Browser evidence
+6. `docs/TOURNAMENT_PRESENTATION_BASELINE.md` — 对阵、轮次命名与 Match 卡展示专项真源
+7. `docs/TEST_DATA_GOVERNANCE.md` — 自动化测试身份/命名/隔离专项真源
+8. `docs/PHOTO_ALBUM_BASELINE.md`
+9. `docs/VISUAL_DESIGN_BASELINE.md`
+10. `docs/P0_ACCEPTANCE.md`
+11. `docs/ENVIRONMENT_BASELINE.md`
+12. `docs/RELEASE_GOVERNANCE.md`
+13. `docs/BROWSER_BLACKBOX_BASELINE.md`
+14. `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
+15. `CHANGELOG.md`
+16. 当前源码、migration、Edge Functions 与 CI / Browser evidence
 
-专项规则优先于通用摘要。Quick Start 规则若与旧 PRD/README/历史 CHANGELOG 冲突，以 `docs/QUICK_START_BASELINE.md` 为准。
+专项规则优先于通用摘要。Quick Start 规则以 `docs/QUICK_START_BASELINE.md` 为准；赛事对阵/轮次/Match 卡话术以 `docs/TOURNAMENT_PRESENTATION_BASELINE.md` 为准；自动化测试命名与 Hall 隔离以 `docs/TEST_DATA_GOVERNANCE.md` 为准。
 
 ## Product summary
 
@@ -30,6 +32,7 @@
 - 标准赛事比赛日期/时间必填；报名截止默认 T-2h 且只能提前；服务端强制 deadline。
 - 标准赛事：报名 → 锁定名单 → 自动生成首次对阵 → 查看/复核 → 开赛 → 记分 → 完赛。
 - 私有标准赛事大厅只给脱敏预览；详情与报名资格仍服从服务端权限。
+- 淘汰赛轮次展示不按 standard/quick 或单/双打分叉：只有两个 Entry、全赛事仅一场时显示“单场对决”，多轮签表再按网球常见 1/4 决赛、半决赛、决赛等术语展示；Match 卡明确 Entry A — VS — Entry B。
 - H5 MVP 支持简体中文 / English；375 / 390 / 430px 必须真实 Visual QA。
 
 ## Quick Start
@@ -44,10 +47,11 @@
 - 首次 draw 临时失败时保留已创建 Event，只允许对同一 event 执行“恢复开赛”，不得重复建赛；
 - 正常 Quick Event 默认 `visibility=public`，`event_mode=quick` **进入赛事大厅**，但不开放报名/候补；
 - `locked` 是 Quick Event 名单已固定的正常创建状态，不等于 draw 已完成；
-- 自动化 QA 组织者（当前 `QA-*` / `QA15-*`）创建的赛事不得进入公共 Hall，但仍保留为测试证据并可在测试上下文访问；
+- 新自动化测试身份统一 `TST-*`；legacy `QA-* / QA15-* / EXP-*` 仅兼容过滤，受控测试组织者赛事不得进入普通 Hall；
 - 测试 auth alias 必须在 Quick Start RPC、Edge `tournament-command` 与 commit 全链路解析成同一 canonical profile，不能重新假设 `profiles.auth_user_id = auth.uid()` 是唯一映射。
+- Quick Start 生成后的签表轮次和 Match 卡完全复用全局赛事展示规则，不另造一套话术。
 
-详细规则见 `docs/QUICK_START_BASELINE.md`。
+详细规则见 `docs/QUICK_START_BASELINE.md`、`docs/TOURNAMENT_PRESENTATION_BASELINE.md`。
 
 ## Player / tennis profile
 
@@ -92,6 +96,7 @@
 - `audit_ops.issue_registry` 是正式 backlog 唯一事实源。
 - `public.audit_issue_registry_readonly` 只是 backend-only 只读投影。
 - 新 AUD 必须通过 `audit_ops.create_issue(...)` 创建/去重，禁止手工编号。
+- 总控亲自实施的整改最多推进到 `FIXED_PENDING_VERIFY`；必须由独立巡检/黑盒/Gate 收尾验证。定时整改任务实施的修复可由未参与该次实现的总控独立复核。
 - `docs/AUDIT_BACKLOG_SNAPSHOT.json` 只是不可达时的 historical/degraded cache，不是 live truth。
 
 ## Development hygiene
@@ -99,5 +104,5 @@
 - migration 使用 `YYYYMMDDHHMMSS_snake_case.sql`，version 全局唯一；live/repo 必须 same version + same SQL semantics。
 - schema/RPC/Edge/Type/UI/权限必须全链路同步。
 - private Storage、RLS/RPC/SECURITY DEFINER ACL 与 alias 身份边界必须进入审计。
-- QA 自动化不得污染公共 Hall；应优先使用显式 test marker / cleanup / isolation，当前昵称约定只是过渡方案。
+- 自动化测试不得污染普通 Hall；新身份统一 `TST-*`，legacy 前缀只兼容，不再新增命名体系；长期优先显式 test marker / cleanup / isolation。
 - 用户错误不得暴露 JWT/SQL/RPC/RLS/Postgres/raw stack。
