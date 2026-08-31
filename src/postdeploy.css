@@ -1,0 +1,10 @@
+.action-bar > .row > button {
+  min-width: 0;
+  white-space: nowrap;
+  padding-inline: 14px;
+}
+
+.action-bar > .row > .full {
+  width: auto;
+  flex: 1 1 0;
+}
