@@ -33,6 +33,14 @@
 ### 普通 viewer / 非参赛者
 - 公开赛事也不会因此公开赛事照片。
 - 不得读取赛事照片或加入个人相册。
+- 赛事详情前端**不得展示可点击的“合影” Tab/入口**，避免用户进入一个后端必然拒绝的功能后看到伪装成系统失败的错误。
+
+### 赛事详情入口与后端权限必须双层一致
+- `owner`：显示“合影” Tab，可管理赛事源照片；
+- `participant`：显示“合影” Tab，可查看并主动加入个人相册；
+- `invited` 但尚未形成有效 Entry：不显示“合影” Tab；
+- `viewer`：不显示“合影” Tab；
+- 即使前端隐藏入口，`list_event_photos`、高清签发、导入、删除等服务端能力仍必须独立重新校验身份，前端隐藏不能代替授权。
 
 ## 3. 赛事源照片删除模型
 
@@ -154,6 +162,7 @@ ParticipantAlbumItem 可以记录 nullable `source_event_photo_id` 用于来源�
 - 一场赛事可存在多张赛事照片。
 - 只有 organizer 能上传和删除赛事源照片。
 - participant 能看自己赛事当前照片，但不能管理赛事源照片。
+- viewer / invited 非 actual participant 的赛事详情不展示“合影” Tab，且直接调用照片读取接口仍被服务端拒绝。
 - 系统不自动把赛事照片加入 participant 个人相册。
 - participant 可逐张主动加入个人相册；非 actual participant 不可导入。
 - 导入成功后形成独立个人受保护资产，而非仅保存源引用。
