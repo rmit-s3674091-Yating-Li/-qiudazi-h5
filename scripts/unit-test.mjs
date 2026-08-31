@@ -1,0 +1,126 @@
+import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import ts from "typescript";
+
+const root = new URL("../", import.meta.url);
+const tmp = await mkdtemp(join(tmpdir(), "qiudazi-unit-"));
+
+async function compile(sourcePath, outputName) {
+  const source = await readFile(new URL(sourcePath, root), "utf8");
+  const result = ts.transpileModule(source, {
+    compilerOptions: {
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.ES2022,
+      verbatimModuleSyntax: true,
+    },
+    fileName: sourcePath,
+  });
+  await writeFile(join(tmp, outputName), result.outputText, "utf8");
+}
+
+function rules(overrides = {}) {
+  return {
+    best_of: 1,
+    scoring_type: "games_6",
+    custom_games_target: null,
+    tiebreak_trigger: 6,
+    game_scoring: "advantage",
+    ...overrides,
+  };
+}
+
+function pointMany(engine, r, state, sides) {
+  return sides.reduce((s, side) => engine.addPoint(r, s, side), state);
+}
+
+function winGame(engine, r, state, side) {
+  return pointMany(engine, r, state, [side, side, side, side]);
+}
+
+let failures = 0;
+function test(name, fn) {
+  try {
+    fn();
+    console.log(`✓ ${name}`);
+  } catch (error) {
+    failures += 1;
+    console.error(`✗ ${name}`);
+    console.error(error);
+  }
+}
+
+try {
+  await compile("src/domain/types.ts", "types.js");
+  await compile("src/domain/ScoringEngine.ts", "ScoringEngine.js");
+  const engine = await import(pathToFileURL(join(tmp, "ScoringEngine.js")).href + `?v=${Date.now()}`);
+
+  test("advantage scoring returns from AD to deuce and requires two-point margin", () => {
+    const r = rules({ game_scoring: "advantage" });
+    let s = pointMany(engine, r, engine.initialScore(), ["A", "A", "A", "B", "B", "B"]);
+    assert.deepEqual(s.points, [3, 3]);
+    assert.deepEqual(engine.displayPoints(r, s), { a: "40", b: "40", label: "Deuce · 平分" });
+    s = engine.addPoint(r, s, "A");
+    assert.deepEqual(engine.displayPoints(r, s), { a: "AD", b: "40", label: "Advantage · 占先" });
+    s = engine.addPoint(r, s, "B");
+    assert.deepEqual(s.points, [4, 4]);
+    assert.equal(engine.displayPoints(r, s).label, "Deuce · 平分");
+    s = pointMany(engine, r, s, ["A", "A"]);
+    assert.deepEqual(s.games, [1, 0]);
+    assert.deepEqual(s.points, [0, 0]);
+  });
+
+  test("no-ad scoring uses one deciding point at 40:40", () => {
+    const r = rules({ game_scoring: "no_ad" });
+    let s = pointMany(engine, r, engine.initialScore(), ["A", "A", "A", "B", "B", "B"]);
+    assert.deepEqual(engine.displayPoints(r, s), { a: "40", b: "40", label: "平分 · 金球" });
+    s = engine.addPoint(r, s, "B");
+    assert.deepEqual(s.games, [0, 1]);
+    assert.deepEqual(s.points, [0, 0]);
+  });
+
+  test("no-ad affects normal games only; tiebreak still requires two-point margin", () => {
+    const r = rules({ game_scoring: "no_ad" });
+    let s = engine.initialScore();
+    for (let game = 0; game < 12; game += 1) s = winGame(engine, r, s, game % 2 === 0 ? "A" : "B");
+    assert.deepEqual(s.games, [6, 6]);
+    assert.equal(engine.contextFor(r, s), "tiebreak");
+    s = pointMany(engine, r, s, ["A", "A", "A", "A", "A", "A", "B", "B", "B", "B", "B"]);
+    assert.deepEqual(s.points, [6, 5]);
+    assert.equal(s.winner, null);
+    s = engine.addPoint(r, s, "A");
+    assert.equal(s.winner, "A");
+    assert.deepEqual(s.sets, [{ a: 7, b: 6, ta: 7, tb: 5 }]);
+  });
+
+  test("replay derives the same state from point log and ignores voided points", () => {
+    const r = rules({ game_scoring: "no_ad" });
+    const logs = [
+      { winner_side: "A", point_no: 1, voided_at: null },
+      { winner_side: "A", point_no: 2, voided_at: null },
+      { winner_side: "A", point_no: 3, voided_at: null },
+      { winner_side: "B", point_no: 4, voided_at: null },
+      { winner_side: "B", point_no: 5, voided_at: null },
+      { winner_side: "B", point_no: 6, voided_at: null },
+      { winner_side: "A", point_no: 7, voided_at: "2026-08-31T00:00:00Z" },
+      { winner_side: "B", point_no: 8, voided_at: null },
+    ];
+    const s = engine.replay(r, logs);
+    assert.deepEqual(s.games, [0, 1]);
+    assert.deepEqual(s.points, [0, 0]);
+    assert.equal(s.pointCount, 7);
+  });
+
+  test("direct final score validation shares the same set rules", () => {
+    assert.equal(engine.validateFinalScore(rules(), [{ a: 6, b: 3 }]), "A");
+    assert.throws(() => engine.validateFinalScore(rules(), [{ a: 6, b: 6 }]), /本盘尚未决出胜者/);
+    assert.equal(engine.validateFinalScore(rules(), [{ a: 7, b: 6, ta: 7, tb: 5 }]), "A");
+  });
+
+  if (failures) process.exitCode = 1;
+  else console.log("All domain unit tests passed.");
+} finally {
+  await rm(tmp, { recursive: true, force: true });
+}
