@@ -1,6 +1,6 @@
 # 球搭子｜Quick Start 快速开赛专项基线
 
-> 状态：Canonical product baseline。若 README、PRD V6、PRODUCT_BASELINE、INTERACTION_BASELINE、P0_ACCEPTANCE 或历史 CHANGELOG 中的 Quick Start 规则与本文冲突，以本文为准；自动化测试数据命名与隔离以 `docs/TEST_DATA_GOVERNANCE.md` 为准。
+> 状态：Canonical product baseline。若 README、PRD V6、PRODUCT_BASELINE、INTERACTION_BASELINE、P0_ACCEPTANCE 或历史 CHANGELOG 中的 Quick Start 规则与本文冲突，以本文为准；自动化测试数据命名与隔离以 `docs/TEST_DATA_GOVERNANCE.md` 为准；签表轮次与 Match 卡展示以 `docs/TOURNAMENT_PRESENTATION_BASELINE.md` 为准。
 
 ## 1. 产品定位
 
@@ -108,6 +108,9 @@ Hall 隔离依据受控测试组织者身份/未来结构化 test marker，不�
 - Quick player row 中真实头像和 fallback avatar 均必须保持圆形固定尺寸，不能被文本 flex selector 拉伸。
 - 真实 connected partner、临时 Player、本人应有清晰来源标签。
 - 双打组队确认必须一眼看出 Team 1 / Team 2 ... 的成员组合。
+- 赛事生成后的轮次标题和 Match 卡不允许为 Quick Start 单独造一套术语：统一服从 `TOURNAMENT_PRESENTATION_BASELINE`。
+- 只有两支 Entry 的淘汰赛是“单场对决”，不因它是淘汰树最终节点就展示成“决赛”。
+- 双打 Match 卡必须清楚呈现 Team A — VS — Team B，不能把四名球员堆叠成难以辨认的两行。
 - 375 / 390 / 430px 均不得出现头像拉伸、按钮遮挡、队伍卡溢出。
 
 ## 11. 验收
@@ -123,4 +126,5 @@ Hall 隔离依据受控测试组织者身份/未来结构化 test marker，不�
 8. private standard event 仍以脱敏卡出现在 Hall；
 9. Quick Event Hall 卡无报名 CTA；
 10. fallback avatar 为正常圆形；
-11. 赛事创建后 Event/Entry/EntryPlayer/Match 与标准赛事后续管理兼容。
+11. 两支 Entry 的 Quick knockout 显示“单场对决”，双打队伍以明确 VS 关系展示；
+12. 赛事创建后 Event/Entry/EntryPlayer/Match 与标准赛事后续管理兼容。
