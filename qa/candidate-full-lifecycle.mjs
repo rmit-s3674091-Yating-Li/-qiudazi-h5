@@ -166,8 +166,22 @@ async function standardLifecyclePhoto(browser) {
 
   await o.goto(`${baseUrl}/#/events/${id}/manage`, { waitUntil: 'domcontentloaded' }); await waitButton(o, 'Start event'); await o.getByRole('button', { name: 'Start event', exact: true }).click(); await confirm(o); await waitButton(o, 'Finish event', 30000);
   await o.getByRole('button', { name: 'Draw', exact: true }).click(); await o.locator('.match-card').filter({ hasNotText: 'Bye' }).first().click(); await o.getByRole('link', { name: 'Enter final score', exact: true }).click();
-  await o.getByLabel('Set 1 side A score').fill('6'); await o.getByLabel('Set 1 side B score').fill('0'); await o.getByRole('button', { name: 'Save final score', exact: true }).click(); await o.waitForURL(new RegExp(`#\\/events\\/${id}\\/matches\\/`), { timeout: 30000 });
-  record('P0 organizer saves real match score through browser UI', await o.getByText('6', { exact: true }).count() > 0, o.url());
+  const scoreUrl = o.url();
+  const matchId = scoreUrl.match(new RegExp(`#\\/events\\/${id}\\/matches\\/([^/]+)\\/score$`))?.[1];
+  record('P0 score form resolves a concrete match id', !!matchId, scoreUrl);
+  await o.getByLabel('Set 1 side A score').fill('6'); await o.getByLabel('Set 1 side B score').fill('0');
+  const [scoreResponse] = await Promise.all([
+    o.waitForResponse((response) => response.url().includes('/functions/v1/tournament-command') && response.ok(), { timeout: 30000 }),
+    o.getByRole('button', { name: 'Save final score', exact: true }).click(),
+  ]);
+  record('P0 score command returns successful tournament response', scoreResponse.status() >= 200 && scoreResponse.status() < 300, `status=${scoreResponse.status()}`);
+  await o.waitForURL(new RegExp(`#\\/events\\/${id}\\/matches\\/${matchId}$`), { timeout: 30000 });
+  await o.getByRole('heading', { name: 'Completed sets', exact: true }).waitFor({ state: 'visible', timeout: 30000 });
+  const scoreRows = o.locator('.score-table tbody tr');
+  const sideAScore = (await scoreRows.nth(0).locator('td').nth(1).innerText()).trim();
+  const sideBScore = (await scoreRows.nth(1).locator('td').nth(1).innerText()).trim();
+  record('P0 organizer saves real match score through browser UI', sideAScore === '6' && sideBScore === '0', `url=${o.url()}; set1=${sideAScore}:${sideBScore}`);
+  await shot(o, 'standard-score-saved');
 
   await o.goto(`${baseUrl}/#/events/${id}/manage`, { waitUntil: 'domcontentloaded' }); await o.getByRole('button', { name: 'Standings', exact: true }).click(); await shot(o, 'standard-standings-after-score');
   await o.getByRole('button', { name: 'Finish event', exact: true }).click(); await confirm(o); await o.getByText('Finished', { exact: true }).first().waitFor({ state: 'visible', timeout: 30000 }); record('P0 event reaches finished lifecycle', true, id);
