@@ -1,7 +1,3 @@
--- Reproduce the live Supabase Storage configuration required by the H5 MVP.
--- Idempotent by design so applying this migration to an environment where the
--- buckets/policies already exist converges to the same configuration.
-
 insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
 values
   ('avatars', 'avatars', true, 3145728, array['image/jpeg','image/png','image/webp']::text[]),

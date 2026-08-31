@@ -37,6 +37,8 @@ begin
       raise exception 'TEST_IDENTITY_UNAVAILABLE';
     end if;
 
+    -- Pending profiles have no usable history; remove the temporary shell first
+    -- so auth_user_id can be reassigned to the canonical test profile.
     delete from public.profiles where id = me.id and profile_status = 'pending';
 
     update public.profiles

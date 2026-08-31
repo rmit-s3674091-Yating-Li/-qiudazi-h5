@@ -28,7 +28,13 @@ begin
       case when p_mine or e.visibility='public' then owner.avatar_url else null end owner_avatar_url,
       case when p_mine or e.visibility='public' then(select count(*) from public.entries en where en.event_id=e.id and en.status='confirmed') else null end confirmed_count,
       case when p_mine or e.visibility='public' then(select count(*) from public.entries en where en.event_id=e.id and en.status='waitlist') else null end waitlist_count,
-      case when e.status='finished' then 1 when e.status='ongoing' then 0 when e.event_date is null then 0 when (e.event_date::timestamp + coalesce(e.event_time,time '23:59:59')) >= now() then 0 else 1 end as sort_expired,
+      case
+        when e.status='finished' then 1
+        when e.status='ongoing' then 0
+        when e.event_date is null then 0
+        when (e.event_date::timestamp + coalesce(e.event_time,time '23:59:59')) >= now() then 0
+        else 1
+      end as sort_expired,
       (e.event_date::timestamp + coalesce(e.event_time,time '23:59:59')) as sort_time,
       e.created_at as sort_created_at
     from public.events e join public.profiles owner on owner.id=e.owner_user_id
@@ -44,9 +50,24 @@ begin
     and(coalesce(p_filters->>'event_date','')='' or(e.visibility='public' and e.event_date::text=p_filters->>'event_date'))
     and(coalesce(p_filters->>'status','')='' or(case when e.status='signup' and not public.event_registration_open(e) then 'locked' else e.status end)=p_filters->>'status')
     order by
-      case when p_mine then case when e.status='finished' then 1 when e.status='ongoing' then 0 when e.event_date is null then 0 when (e.event_date::timestamp + coalesce(e.event_time,time '23:59:59')) >= now() then 0 else 1 end else 0 end asc,
-      case when p_mine and (case when e.status='finished' then 1 when e.status='ongoing' then 0 when e.event_date is null then 0 when (e.event_date::timestamp + coalesce(e.event_time,time '23:59:59')) >= now() then 0 else 1 end)=0 then (e.event_date::timestamp + coalesce(e.event_time,time '23:59:59')) end asc nulls last,
-      case when p_mine and (case when e.status='finished' then 1 when e.status='ongoing' then 0 when e.event_date is null then 0 when (e.event_date::timestamp + coalesce(e.event_time,time '23:59:59')) >= now() then 0 else 1 end)=1 then (e.event_date::timestamp + coalesce(e.event_time,time '23:59:59')) end desc nulls last,
+      case when p_mine then case
+        when e.status='finished' then 1
+        when e.status='ongoing' then 0
+        when e.event_date is null then 0
+        when (e.event_date::timestamp + coalesce(e.event_time,time '23:59:59')) >= now() then 0
+        else 1 end else 0 end asc,
+      case when p_mine and (case
+        when e.status='finished' then 1
+        when e.status='ongoing' then 0
+        when e.event_date is null then 0
+        when (e.event_date::timestamp + coalesce(e.event_time,time '23:59:59')) >= now() then 0
+        else 1 end)=0 then (e.event_date::timestamp + coalesce(e.event_time,time '23:59:59')) end asc nulls last,
+      case when p_mine and (case
+        when e.status='finished' then 1
+        when e.status='ongoing' then 0
+        when e.event_date is null then 0
+        when (e.event_date::timestamp + coalesce(e.event_time,time '23:59:59')) >= now() then 0
+        else 1 end)=1 then (e.event_date::timestamp + coalesce(e.event_time,time '23:59:59')) end desc nulls last,
       e.created_at desc,e.id
     limit 200
   ) t;

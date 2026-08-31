@@ -1,6 +1,4 @@
 -- Use server-authoritative viewer role for event management UI and simplify social-amateur level buckets.
-
--- Existing test data uses 2.0 as the lowest level; fold it into the new lower bucket.
 update public.players set level='2.0-' where level='2.0';
 update public.events set level='2.0-' where level='2.0';
 update public.players set level='4.5+' where level in ('4.5','5.0','5.0+');
@@ -45,16 +43,13 @@ declare e public.events; me uuid:=public.current_profile_id(); result jsonb; vie
 begin
  select * into e from public.events where id=p_event_id;
  if e.id is null then raise exception 'EVENT_NOT_FOUND'; end if;
-
  viewer_role := case
    when me is not null and e.owner_user_id=me then 'owner'
    when me is not null and exists(select 1 from public.event_invites i where i.event_id=e.id and i.invitee_user_id=me and i.status in ('pending','accepted')) then 'invited'
    when me is not null and exists(select 1 from public.entries en where en.event_id=e.id and en.signup_user_id=me and en.status<>'withdrawn') then 'participant'
    else 'viewer'
  end;
-
  if e.visibility<>'public' and viewer_role='viewer' then raise exception 'EVENT_NOT_FOUND'; end if;
-
  select jsonb_build_object(
  'viewer_role',viewer_role,
  'event',to_jsonb(e),

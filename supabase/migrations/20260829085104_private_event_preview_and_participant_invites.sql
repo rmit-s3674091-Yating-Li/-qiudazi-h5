@@ -1,6 +1,3 @@
--- Private events are discoverable in the hall, but hall/detail preview responses are privacy-redacted.
--- Public-event participants may invite their existing connections to join; private ordinary invites remain owner-controlled.
-
 create or replace function public.list_events(p_mine boolean default false,p_filters jsonb default '{}'::jsonb)
 returns jsonb
 language plpgsql stable security definer set search_path=''
@@ -38,29 +35,11 @@ begin
  return result;
 end $$;
 
-create or replace function public.get_private_event_preview(p_event_id uuid)
-returns jsonb
-language plpgsql stable security definer set search_path=''
-as $$
-declare e public.events; me uuid:=public.current_profile_id(); allowed boolean:=false;
-begin
- select * into e from public.events where id=p_event_id and visibility='private';
- if e.id is null then return null; end if;
- allowed:=me is not null and (
-   e.owner_user_id=me
-   or exists(select 1 from public.event_invites i where i.event_id=e.id and i.invitee_user_id=me and i.status in ('pending','accepted'))
-   or exists(select 1 from public.entries en where en.event_id=e.id and en.signup_user_id=me and en.status<>'withdrawn')
- );
- return jsonb_build_object('id',e.id,'name',e.name,'visibility',e.visibility,'status',e.status,'match_type',e.match_type,'format',e.format,'level',e.level,'city',e.city,'can_view_full',allowed);
-end $$;
-revoke all on function public.get_private_event_preview(uuid) from public,anon;
-grant execute on function public.get_private_event_preview(uuid) to authenticated,service_role;
-
 create or replace function public.get_event_snapshot(p_event_id uuid)
 returns jsonb
 language plpgsql stable security definer set search_path=''
 as $$
-declare e public.events; me uuid:=public.current_profile_id(); result jsonb; viewer_role text;
+declare e public.events; me uuid:=public.current_profile_id(); result jsonb; viewer_role text; preview_event jsonb;
 begin
  select * into e from public.events where id=p_event_id;
  if e.id is null then raise exception 'EVENT_NOT_FOUND'; end if;
@@ -69,7 +48,10 @@ begin
    when me is not null and exists(select 1 from public.event_invites i where i.event_id=e.id and i.invitee_user_id=me and i.status in ('pending','accepted')) then 'invited'
    when me is not null and exists(select 1 from public.entries en where en.event_id=e.id and en.signup_user_id=me and en.status<>'withdrawn') then 'participant'
    else 'viewer' end;
- if e.visibility<>'public' and viewer_role='viewer' then raise exception 'EVENT_NOT_FOUND'; end if;
+ if e.visibility='private' and viewer_role='viewer' then
+   preview_event:=jsonb_build_object('id',e.id,'name',e.name,'owner_user_id',null,'status',e.status,'visibility',e.visibility,'link_signup_enabled',false,'match_type',e.match_type,'format',e.format,'best_of',null,'scoring_type',null,'custom_games_target',null,'tiebreak_trigger',null,'level',e.level,'entry_limit',null,'event_date',null,'event_time',null,'city',e.city,'venue',null,'fee_type',null,'venue_fee_total',null,'ball_fee_total',null,'other_fee_total',null,'fixed_fee_per_entry',null,'group_count',null,'qualifiers_per_group',null,'version',null,'draw_generated',null,'created_at',null,'finished_at',null);
+   return jsonb_build_object('viewer_role','private_preview','event',preview_event,'entries','[]'::jsonb,'matches','[]'::jsonb,'set_scores','[]'::jsonb,'point_logs','[]'::jsonb,'photo',null);
+ end if;
  select jsonb_build_object(
  'viewer_role',viewer_role,'event',to_jsonb(e),
  'entries',coalesce((select jsonb_agg(to_jsonb(en)||jsonb_build_object('players',coalesce((select jsonb_agg(jsonb_build_object('id',p.id,'name',p.name,'avatar_url',p.avatar_url,'slot',ep.slot,'linked_user_id',p.linked_user_id,'player_type',p.player_type) order by ep.slot) from public.entry_players ep join public.players p on p.id=ep.player_id where ep.entry_id=en.id),'[]'::jsonb)) order by en.joined_at,en.id) from public.entries en where en.event_id=p_event_id),'[]'::jsonb),

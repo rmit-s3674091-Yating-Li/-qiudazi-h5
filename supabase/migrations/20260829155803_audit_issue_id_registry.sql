@@ -47,6 +47,7 @@ begin
     raise exception 'source must not be empty';
   end if;
 
+  -- Serialize allocation and semantic de-duplication for the same audit date.
   perform pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended('qiudazi-audit-id:' || p_audit_date::text, 0)
   );
@@ -86,6 +87,7 @@ $$;
 
 revoke all on function audit_ops.reserve_issue_id(text, text, text, date) from public, anon, authenticated;
 
+-- Bootstrap today's counter from the IDs already allocated in GitHub Issue #21.
 insert into audit_ops.issue_counters(audit_date, last_value, updated_at)
 values (date '2026-08-29', 17, now())
 on conflict (audit_date) do update

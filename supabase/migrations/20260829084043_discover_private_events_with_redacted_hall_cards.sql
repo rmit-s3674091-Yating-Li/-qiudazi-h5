@@ -23,7 +23,12 @@ begin
      case when p_mine or e.visibility='public' then (select count(*) from public.entries en where en.event_id=e.id and en.status='confirmed') else null end as confirmed_count,
      case when p_mine or e.visibility='public' then (select count(*) from public.entries en where en.event_id=e.id and en.status='waitlist') else null end as waitlist_count
    from public.events e join public.profiles owner on owner.id=e.owner_user_id
-   where (case when p_mine then case when p_filters->>'scope'='joined' then exists(select 1 from public.entries own_entry where own_entry.event_id=e.id and own_entry.signup_user_id=public.current_profile_id() and own_entry.status!='withdrawn') else e.owner_user_id=public.current_profile_id() end else e.status!='finished' end)
+   where (
+     case when p_mine then
+       case when p_filters->>'scope'='joined' then exists(select 1 from public.entries own_entry where own_entry.event_id=e.id and own_entry.signup_user_id=public.current_profile_id() and own_entry.status!='withdrawn')
+       else e.owner_user_id=public.current_profile_id() end
+     else e.status!='finished' end
+   )
    and (coalesce(p_filters->>'match_type','')='' or e.match_type=p_filters->>'match_type')
    and (coalesce(p_filters->>'level','')='' or e.level=p_filters->>'level')
    and (coalesce(p_filters->>'event_date','')='' or (e.visibility='public' and e.event_date::text=p_filters->>'event_date'))

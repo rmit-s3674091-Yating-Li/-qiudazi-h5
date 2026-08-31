@@ -51,22 +51,30 @@ player as (
 ),
 my_entries as (
   select distinct e.id as entry_id
-  from player p join public.entry_players ep on ep.player_id=p.player_id and ep.active=true join public.entries e on e.id=ep.entry_id
+  from player p
+  join public.entry_players ep on ep.player_id=p.player_id and ep.active=true
+  join public.entries e on e.id=ep.entry_id
 ),
 finished as (
-  select m.id as match_id,m.event_id,ev.name as event_name,ev.event_date,ev.match_type,m.stage,m.round_no,m.winner_entry_id,me.entry_id as my_entry_id,
+  select m.id as match_id,m.event_id,ev.name as event_name,ev.event_date,ev.match_type,m.stage,m.round_no,m.winner_entry_id,
+         me.entry_id as my_entry_id,
          case when m.entry_a_id=me.entry_id then m.entry_b_id else m.entry_a_id end as opponent_entry_id
-  from my_entries me join public.matches m on me.entry_id in (m.entry_a_id,m.entry_b_id) join public.events ev on ev.id=m.event_id
+  from my_entries me
+  join public.matches m on me.entry_id in (m.entry_a_id,m.entry_b_id)
+  join public.events ev on ev.id=m.event_id
   where m.status='finished' and not m.is_bye
 ),
 recent as (
   select f.*,coalesce((select jsonb_agg(jsonb_build_object('name',p.name,'avatar_url',p.avatar_url) order by ep.slot)
-    from public.entry_players ep join public.players p on p.id=ep.player_id where ep.entry_id=f.opponent_entry_id and ep.active=true),'[]'::jsonb) as opponents
+    from public.entry_players ep join public.players p on p.id=ep.player_id
+    where ep.entry_id=f.opponent_entry_id and ep.active=true),'[]'::jsonb) as opponents
   from finished f order by f.event_date desc nulls last,f.match_id desc limit 3
 ),
 summary as (
-  select count(*)::int as played,count(*) filter(where winner_entry_id=my_entry_id)::int as wins,
-         count(*) filter(where winner_entry_id is not null and winner_entry_id<>my_entry_id)::int as losses from finished
+  select count(*)::int as played,
+         count(*) filter(where winner_entry_id=my_entry_id)::int as wins,
+         count(*) filter(where winner_entry_id is not null and winner_entry_id<>my_entry_id)::int as losses
+  from finished
 )
 select case when not exists(select 1 from player) then null else jsonb_build_object(
   'profile',(select jsonb_build_object('player_id',player_id,'name',name,'avatar_url',avatar_url,'level',level,'city',city,'play_times',coalesce(play_times,'{}'::text[]),'play_preference',play_preference) from player),
