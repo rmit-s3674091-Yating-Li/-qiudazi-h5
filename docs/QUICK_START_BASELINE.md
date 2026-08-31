@@ -1,130 +1,65 @@
 # 球搭子｜Quick Start 快速开赛专项基线
 
-> 状态：Canonical product baseline。若 README、PRD V6、PRODUCT_BASELINE、INTERACTION_BASELINE、P0_ACCEPTANCE 或历史 CHANGELOG 中的 Quick Start 规则与本文冲突，以本文为准；自动化测试数据命名与隔离以 `docs/TEST_DATA_GOVERNANCE.md` 为准；签表轮次与 Match 卡展示以 `docs/TOURNAMENT_PRESENTATION_BASELINE.md` 为准。
+> 状态：Canonical product baseline。自动化测试数据命名与隔离以 `docs/TEST_DATA_GOVERNANCE.md` 为准；签表、计分层级、轮次、单场结果与完赛展示以 `docs/TOURNAMENT_PRESENTATION_BASELINE.md` 为准。
 
 ## 1. 产品定位
+“快速开赛”用于球友已经约好、无需再走报名/候补/招募，但仍希望使用编排、记分、结果、战绩和照片能力。创建后继续使用 Event / Entry / EntryPlayer / Match / scoring / photo 模型。
 
-“快速开赛”用于球友已经约好、无需再走报名/候补/招募，但仍希望使用球搭子的编排、记分、排名、完赛、战绩和照片能力。
-
-它是底部四个一级导航中央的高频主动作，不是第五个 Tab；赛事创建后仍使用同一套 Event / Entry / EntryPlayer / Match / viewer_role / scoring / photo 模型。
-
-## 2. 参赛者来源
-
-Quick Start 可选择：
-- 当前用户自己的 self Player；
-- 与当前用户存在 accepted Connection 的真实球搭子的 self Player；
-- 当前用户创建且尚未关联真实用户的临时 Player；
-- 现场新增临时 Player。
-
-不得允许任意陌生用户的 Player 通过前端参数或直接 RPC 被加入 Quick Event。
+## 2. 参赛者
+可选择本人 self Player、accepted Connection 的真实球搭子 self Player、本人未认领临时 Player，并可现场新增临时 Player。不得加入无授权陌生 Player。
 
 ## 3. 单打与双打
-
-### 单打
-- 至少 2 人。
-- 每个 Player 独立形成一个 Entry。
-
-### 双打
-- 至少 4 人且必须为偶数。
-- 选择参赛者后必须进入明确的“确认双打队友”步骤。
-- 用户必须能够清楚看到每队两名成员，并可在开赛前调整队伍组合。
-- 禁止仅依赖“勾选顺序每两人自动组队”作为最终不可见规则。
-- 确认后的每一队形成一个 doubles Entry，两个 Player 分别进入该 Entry 的两个 slot。
+单打至少2人，每个 Player 一个 Entry。双打至少4人且为偶数；必须显式确认队友并允许调整，不得把勾选顺序作为不可见最终规则。
 
 ## 4. 正常流程
+**选择单/双打 → 选择参赛者 →（双打）确认队友 → 设置城市/场地/赛制/计分 → 一键开赛 → 创建赛事并锁定名单 → 自动生成首次对阵 → 进入赛事管理。**
 
-正常流程固定为：
+首次 draw 失败时保留同一 Event，进入“开赛未完成 / 恢复开赛”；恢复只重试 draw，不重复创建 Event。
 
-**选择单/双打 → 选择参赛者 →（双打）确认队友 → 设置城市/场地/赛制/计分 → 一键开赛 → 服务端创建赛事并锁定名单 → 系统自动生成首次对阵 → 进入赛事管理**。
+## 5. 状态
+Quick Event 不走报名/候补/deadline。创建后 `locked` 表示名单固定；draw 后仍待用户正式开始赛事；开始后 `ongoing`。
 
-正常成功路径不得要求用户再点击一次“生成对阵”。“draw”是内部编排动作，不作为正常流程的第二个主任务暴露给用户。
+**单场 Quick Event 特例：若全赛事只有一个真实 Match，则该 Match 完成后 Event 自动进入 `finished` 并写入 `finished_at`。** 不要求用户再回赛事管理额外点击一次“结束赛事”。这样 Hall、赛事详情、结果和相册权限必须同时切换为已结束。
 
-最后主按钮统一表达为“一键开赛”或等价产品文案，不使用“确认并生成对阵”作为常规用户任务文案。
+多场 Quick Event 不因某一场 Match 完成而提前结束 Event；必须满足赛事级完赛条件。
 
-## 5. 恢复语义
+## 6. 网球计分语义
+Quick Start 不另造计分规则，统一遵循网球 point → game → set → match 层级。
 
-如果 Event / Entry / EntryPlayer 已经创建成功，但首次自动 draw 因网络、Edge Function 或事务临时失败：
-- 已创建 Event 必须保留；
-- 不得再次调用 create_quick_event 生成重复赛事；
-- 客户端保存 pending event id/version；
-- 页面进入“开赛未完成 / 恢复开赛”状态；
-- 恢复操作只重试同一 event 的 draw；
-- 恢复成功后进入赛事管理；
-- 刷新页面后仍应能识别并恢复当前 pending event。
+- `games_6` 对用户表达为“每盘先到6局”，不是“6轮制”。
+- `best_of=1` 表达为“1盘制”；一盘完成即 Match 完成。
+- 推荐完整表达：`1盘制 · 每盘先到6局 · 6:6抢七`。
+- 比赛详情主入口叫“录入比分”，并同时提供“逐分实时记分”；不以“直接录入最终比分”误导用户。
+- 已完成 Match 才进入“更正比分”；单场赛事的更正确认不展示无关的级联/其他参赛者话术。
 
-错误信息必须对用户说明“赛事已创建，开赛未完成”，不能暴露 JWT / SQL / RPC / RLS / Postgres raw stack。
+## 7. 单场赛事展示
+只有两支 Entry、唯一一个真实 Match 时：
+- 轮次叫“单场对决”，不叫“决赛”；
+- 完赛结果叫“本场胜方 / 另一方”，不叫“冠军 / 亚军”；
+- Match 完成后 Quick Event 自动 finished；
+- organizer 的赛事照片上传入口立即开放；
+- Hall 必须同步显示“已结束”，不得继续显示“进行中”。
 
-## 6. 赛事状态
+## 8. 大厅与测试隔离
+正常 Quick Event 默认 public 并进入 Hall，但无报名/候补 CTA。private standard event 仍以脱敏卡进入 Hall。自动化身份统一 `TST-<SUITE>-<ROLE>-<SHA6>-<RUN>`；legacy `QA-* / QA15-* / EXP-*` 仅兼容过滤。
 
-Quick Event 不走报名、候补、报名截止、赛事邀请、双打组队邀请等标准招募流程。
-
-创建时名单已经确定，因此 Event 创建后直接进入 `locked` 是正确底层状态：
-- `locked` 表示名单已固定、禁止普通报名变更；
-- `locked` 不等于已经生成对阵；
-- `draw_generated=false` 时应由自动编排/恢复机制完成首次 draw；
-- 正式比赛开始后再进入 `ongoing`；完赛后进入 `finished`。
-
-Hall 用户侧可将 quick + locked 映射成更易理解的“待开赛”等产品文案；不得为了文案改变底层状态机。
-
-## 7. 大厅发现
-
-当前产品决策：**正常用户创建的 Quick Event 是赛事大厅发现的一部分。**
-
-- 新建 Quick Event 默认 `visibility='public'`；
-- `event_mode='quick'` 必须进入 Hall 查询；
-- Hall 卡可显示“快速赛事/待开赛”等状态，但不提供报名入口；
-- Quick Event 不因进入 Hall 就重新启用报名、候补或标准赛事 deadline；
-- 实际详情权限继续服从服务端 viewer_role 与赛事权限模型。
-
-同时必须保持全局赛事发现规则：**`event_mode=standard + visibility=private` 的标准私有赛事仍进入赛事大厅，但只能展示脱敏预览。** 未授权 viewer 不得得到 owner、精确日期时间、场地、费用、报名人数/候补人数、报名截止等敏感字段。private Hall 可发现、完整详情可见、报名资格是三件不同的事。
-
-因此，“测试赛事隔离”绝不能实现成 `Hall 只返回 visibility=public`；这种写法会误伤 private standard event，是发布回归。
-
-## 8. 自动化测试数据隔离
-
-自动化测试使用共享 canonical Supabase 时，不得污染真实 Hall。详细唯一规则以 `docs/TEST_DATA_GOVERNANCE.md` 为准。
-
-新自动化身份统一使用 `TST-<SUITE>-<ROLE>-<SHA6>-<RUN>`；历史 `QA-* / QA15-* / EXP-*` 只作为 legacy 兼容过滤，禁止新脚本继续发明新的根前缀。
-
-Hall 隔离依据受控测试组织者身份/未来结构化 test marker，不依赖赛事名称。Quick Event 即使自动生成“08月31日 快速单打”之类自然语言名称，只要组织者属于受控测试身份，就不得进入普通 Hall。
-
-隔离只影响普通发现，不删除 Event/Entry/Match 证据，也不影响测试组织者在“我的赛事”、direct URL、Browser trace/artifact 中访问。
-
-## 9. 身份与权限
-
-当前测试身份支持 auth alias。Quick Start 全链路必须统一 canonical profile 解析：
-- `list_quick_start_players`；
-- `create_quick_event`；
-- `tournament-command` Edge Function；
-- `commit_tournament`；
-- 相关 viewer / snapshot RPC。
-
-不得在链路中再次直接假设 `profiles.auth_user_id = auth.uid()` 是唯一身份映射。
-
-服务端 alias 解析不得扩大 `private.profile_auth_aliases` 对客户端角色的访问权；私有 alias 表继续保持受控边界。
+## 9. 身份
+Quick Start 全链路统一 canonical profile 解析：`list_quick_start_players`、`create_quick_event`、`tournament-command`、`commit_tournament`、viewer/snapshot。不得重新假设 `profiles.auth_user_id = auth.uid()` 是唯一身份映射。
 
 ## 10. UI / Visual
-
-- Quick player row 中真实头像和 fallback avatar 均必须保持圆形固定尺寸，不能被文本 flex selector 拉伸。
-- 真实 connected partner、临时 Player、本人应有清晰来源标签。
-- 双打组队确认必须一眼看出 Team 1 / Team 2 ... 的成员组合。
-- 赛事生成后的轮次标题和 Match 卡不允许为 Quick Start 单独造一套术语：统一服从 `TOURNAMENT_PRESENTATION_BASELINE`。
-- 只有两支 Entry 的淘汰赛是“单场对决”，不因它是淘汰树最终节点就展示成“决赛”。
-- 双打 Match 卡必须清楚呈现 Team A — VS — Team B，不能把四名球员堆叠成难以辨认的两行。
-- 375 / 390 / 430px 均不得出现头像拉伸、按钮遮挡、队伍卡溢出。
+头像保持圆形固定尺寸；双打明确队友组合；Match 卡清楚 Team A — VS — Team B；375/390/430px 不溢出。计分、轮次、结果和生命周期展示统一服从 `TOURNAMENT_PRESENTATION_BASELINE.md`。
 
 ## 11. 验收
-
-至少覆盖：
-1. self + 临时 Player 单打创建并自动 draw；
-2. self + accepted real partners 快速开赛；
-3. 双打 4 人明确确认两队后自动 draw；
-4. alias 测试身份完成 create → draw；
-5. draw 首次失败后只恢复同一 event；
-6. 正常 Quick Event 出现在 Hall；
-7. `TST-*` 与 legacy `QA-* / QA15-* / EXP-*` 自动化赛事不出现在普通 Hall；
-8. private standard event 仍以脱敏卡出现在 Hall；
-9. Quick Event Hall 卡无报名 CTA；
-10. fallback avatar 为正常圆形；
-11. 两支 Entry 的 Quick knockout 显示“单场对决”，双打队伍以明确 VS 关系展示；
-12. 赛事创建后 Event/Entry/EntryPlayer/Match 与标准赛事后续管理兼容。
+1. self + 临时 Player 单打自动 draw；
+2. accepted partner 可快速开赛；
+3. 双打明确组队；
+4. alias create → draw；
+5. draw 失败恢复同一 event；
+6. 正常 Quick Event 出 Hall，测试 Event 不污染 Hall；
+7. private standard event 仍脱敏可发现；
+8. 两 Entry 显示单场对决；
+9. `1盘制 + 每盘先到6局` 文案无“6轮”歧义；
+10. 单场 Match 完成后 Event 自动 finished；
+11. Hall/详情/结果/照片状态一致；
+12. 单场结果不显示冠亚军；
+13. 完赛后 organizer 可上传赛事照片。
