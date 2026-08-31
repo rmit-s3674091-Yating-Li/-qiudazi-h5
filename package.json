@@ -9,7 +9,7 @@
     "pack": "node scripts/pack-source.mjs",
     "dev": "vite --host 0.0.0.0",
     "test:unit": "node scripts/unit-test.mjs",
-    "test:integration": "bash scripts/integration-contract-tests.sh",
+    "test:integration": "bash scripts/integration-contract-tests.sh && bash scripts/integration-quick-start-behavior.sh",
     "build": "node scripts/write-build-meta.mjs && tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0"
   },
