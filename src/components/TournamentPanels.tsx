@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Camera, Trophy, GitBranch, ListOrdered, ImagePlus } from "lucide-react";
 import type { Match, Snapshot } from "../domain/types";
@@ -75,7 +75,8 @@ type EventPhoto={id:string;event_id:string;original_url:string;watermarked_url:s
 export function PhotoPanel({ s, owner, onDone }: { s: Snapshot; owner: boolean; onDone: () => void; }) {
   const {language}=useLanguage();const en=language==="en";
   const [photos,setPhotos]=useState<EventPhoto[]|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(""),[deleting,setDeleting]=useState<EventPhoto|null>(null);
-  const load=async()=>{try{setPhotos(await rpc<EventPhoto[]>("list_event_photos",{p_event_id:s.event.id}));}catch(e){setPhotos([]);setError(explainError(e));}};
+  const loadSeq=useRef(0);
+  const load=async()=>{const seq=++loadSeq.current;try{const next=await rpc<EventPhoto[]>("list_event_photos",{p_event_id:s.event.id});if(seq===loadSeq.current){setPhotos(next);setError("");}}catch(e){if(seq===loadSeq.current){setPhotos([]);setError(explainError(e));}}};
   useEffect(()=>{void load();},[s.event.id]);
   async function upload(file:File){setBusy(true);setError("");const paths:string[]=[];let saved=false;try{const original=await imageBlob(file),marked=await watermarkPhoto(original,s);const{data}=await supabase!.auth.getSession();if(!data.session)throw new Error(en?"Restore your sign-in state first.":"请先恢复登录状态");const folder=data.session.user.id+"/"+s.event.id+"/"+crypto.randomUUID();paths.push(await uploadAsset(original,"event-photos",folder+"-original.jpg"));paths.push(await uploadAsset(marked,"event-photos",folder+"-watermark.jpg"));const{error:invokeError}=await supabase!.functions.invoke("photo-management",{body:{action:"finalize_upload",event_id:s.event.id,original_path:paths[0],preview_path:paths[1]}});if(invokeError)throw invokeError;saved=true;await load();onDone();}catch(e){setError(explainError(e));}finally{if(!saved&&paths.length)await supabase!.storage.from("event-photos").remove(paths);setBusy(false);}}
   async function importPersonal(photo:EventPhoto){setBusy(true);setError("");try{const{error:invokeError}=await supabase!.functions.invoke("photo-management",{body:{action:"import_personal",photo_id:photo.id}});if(invokeError)throw invokeError;await load();}catch(e){setError(explainError(e));}finally{setBusy(false);}}
