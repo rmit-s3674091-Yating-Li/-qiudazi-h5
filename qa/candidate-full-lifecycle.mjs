@@ -128,14 +128,28 @@ async function privacyPersistence(browser) {
 async function quickRecovery(browser) {
   const c = await englishContext(browser, 'quick-start-recovery-trace'); const p = await c.newPage();
   await identity(p, `QA-Quick-${expectedSha.slice(0,6)}`); await p.goto(`${baseUrl}/#/quick-start`, { waitUntil: 'domcontentloaded' });
-  await p.getByRole('button', { name: 'Choose players', exact: true }).click(); const add = p.getByPlaceholder('Add a temporary player');
-  await add.fill(`Temp-${expectedSha.slice(0,5)}`); await add.locator('xpath=following-sibling::button').click(); await add.waitFor({ state: 'visible' });
-  await p.getByRole('button', { name: 'Match setup', exact: true }).click(); await labelInput(p, 'City *').fill('QA City');
-  let aborted = false; await p.route('**/functions/v1/tournament-command', async route => { if (!aborted) { aborted = true; await route.abort('failed'); } else await route.continue(); });
-  await p.getByRole('button', { name: 'Create draw', exact: true }).click(); await p.getByRole('heading', { name: 'Event created', exact: true }).waitFor({ state: 'visible', timeout: 30000 });
+  await p.getByRole('button', { name: 'Choose players', exact: true }).click();
+  const add = p.getByPlaceholder('Add a temporary player');
+  await add.waitFor({ state: 'visible', timeout: 20000 });
+  const selfChoice = p.locator('.quick-player.selected').first();
+  await selfChoice.waitFor({ state: 'visible', timeout: 20000 });
+  await add.fill(`Temp-${expectedSha.slice(0,5)}`);
+  await add.locator('xpath=following-sibling::button').click();
+  const setup = p.getByRole('button', { name: 'Match setup', exact: true });
+  await setup.waitFor({ state: 'visible', timeout: 20000 });
+  await p.waitForFunction(() => {
+    const button = [...document.querySelectorAll('button')].find(el => el.textContent?.trim() === 'Match setup');
+    return !!button && !button.disabled;
+  }, null, { timeout: 20000 });
+  await setup.click();
+  await labelInput(p, 'City *').fill('QA City');
+  let aborted = false;
+  await p.route('**/functions/v1/tournament-command', async route => { if (!aborted) { aborted = true; await route.abort('failed'); } else await route.continue(); });
+  await p.getByRole('button', { name: 'Start now', exact: true }).click();
+  await p.getByRole('heading', { name: 'Start not completed', exact: true }).waitFor({ state: 'visible', timeout: 30000 });
   const pending = await p.evaluate(() => sessionStorage.getItem('qiudazi-pending-quick-draw')); const parsed = pending ? JSON.parse(pending) : null;
   record('AUD-006 draw failure preserves already-created quick event', !!parsed?.id && typeof parsed.version === 'number', pending || 'missing'); results.evidence.quickRecoveryEventId = parsed?.id;
-  await shot(p, 'quick-start-draw-failure'); await p.unroute('**/functions/v1/tournament-command'); await p.getByRole('button', { name: 'Retry draw', exact: true }).click();
+  await shot(p, 'quick-start-draw-failure'); await p.unroute('**/functions/v1/tournament-command'); await p.getByRole('button', { name: 'Recover start', exact: true }).click();
   await p.waitForURL(new RegExp(`#\\/events\\/${parsed.id}\\/manage`), { timeout: 30000 }); const after = await p.evaluate(() => sessionStorage.getItem('qiudazi-pending-quick-draw'));
   record('AUD-006 retry reuses same event and clears recovery key', after === null && p.url().includes(parsed.id), `url=${p.url()}, pending=${after}`); await waitButton(p, 'Start event'); await noLeak(p, 'Quick Start recovery');
   await shot(p, 'quick-start-recovered'); await closeContext(c);
