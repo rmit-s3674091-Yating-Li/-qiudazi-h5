@@ -57,7 +57,7 @@ scoring_result="$("${PSQL[@]}" "begin;
       'game_no',1,
       'point_no',1,
       'winner_side','A',
-      'scoring_context','game',
+      'scoring_context','normal_game',
       'created_at',clock_timestamp(),
       'voided_at',null
     )),true);
