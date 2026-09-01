@@ -111,15 +111,17 @@ async function registerRealDoublesTeam(owner, partner, id, eventName, partnerNam
   const acceptedRow = owner.locator('.row').filter({ hasText: partnerName }).filter({ has: owner.getByRole('button', { name: 'Select', exact: true }) }).first();
   await acceptedRow.getByRole('button', { name: 'Select', exact: true }).click();
   await owner.getByRole('button', { name: 'Confirm registration', exact: true }).click();
-  await owner.getByText('Registered · view / withdraw', { exact: true }).waitFor({ state: 'visible', timeout: 30000 });
+  await owner.getByRole('status').filter({ hasText: 'Registered' }).waitFor({ state: 'visible', timeout: 30000 });
+  await owner.getByRole('button', { name: 'View roster', exact: true }).waitFor({ state: 'visible', timeout: 30000 });
   record('AUD-015 doubles entry signup_user is first real user', true, id);
 }
 
 async function verifySecondPartnerCta(owner, partner, id) {
   await partner.goto(`${baseUrl}/#/events/${id}`, { waitUntil: 'domcontentloaded' });
-  const openCta = partner.getByRole('button', { name: 'Registered · view / withdraw', exact: true });
+  await partner.getByRole('status').filter({ hasText: 'Registered' }).waitFor({ state: 'visible', timeout: 30000 });
+  const openCta = partner.getByRole('button', { name: 'View roster', exact: true });
   await openCta.waitFor({ state: 'visible', timeout: 30000 });
-  record('AUD-015 non-signup second real partner receives pre-deadline registered/withdraw CTA', true, partner.url());
+  record('AUD-015 non-signup second real partner receives registered status and roster CTA', true, partner.url());
   await openCta.click();
   const withdraw = partner.getByRole('button', { name: 'Withdraw', exact: true });
   await withdraw.waitFor({ state: 'visible', timeout: 20000 });
@@ -133,10 +135,10 @@ async function verifySecondPartnerCta(owner, partner, id) {
   await owner.waitForURL(new RegExp(`#\\/events\\/${id}\\/manage`), { timeout: 30000 });
 
   await partner.goto(`${baseUrl}/#/events/${id}`, { waitUntil: 'domcontentloaded' });
-  const closedCta = partner.getByRole('button', { name: 'Registered · view roster', exact: true });
+  await partner.getByRole('status').filter({ hasText: 'Registered' }).waitFor({ state: 'visible', timeout: 30000 });
+  const closedCta = partner.getByRole('button', { name: 'View roster', exact: true });
   await closedCta.waitFor({ state: 'visible', timeout: 30000 });
-  record('AUD-015 deadline-closed CTA changes to view-only for second real partner', true, partner.url());
-  record('AUD-015 deadline-closed action bar no longer offers withdraw CTA', await partner.getByRole('button', { name: 'Registered · view / withdraw', exact: true }).count() === 0, 'withdraw CTA absent');
+  record('AUD-015 deadline-closed registered status remains view-only for second real partner', true, partner.url());
   await closedCta.click();
   record('AUD-015 roster-level Withdraw is absent after deadline closes', await partner.getByRole('button', { name: 'Withdraw', exact: true }).count() === 0, 'Withdraw absent after deadline');
   await shot(partner, 'aud015-second-partner-deadline-closed');
