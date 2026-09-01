@@ -53,11 +53,12 @@
 总控只有在以下条件满足后才能移动 `release-candidate`：
 
 - 当前 PR exact head 已实时读取，不使用缓存 SHA。
-- 发布相关 P0/P1 不存在 `OPEN` / `IN_PROGRESS`；明确延期且非 Gate 阻塞的 P2 可保留。
+- release-blocking P0/P1 仅指有明确 same-head 证据的 PRODUCT / SECURITY / DATA 一致性缺陷、repo/live migration parity 失败，或会直接阻塞 Gate 的 canonical 规则冲突；这些问题不得处于 `OPEN` / `IN_PROGRESS`。明确延期且非 Gate 阻塞的 P2 可保留。
+- QA/HARNESS_FAILURE、测试身份命名、测试覆盖完整度、一般技术债及其它不证明产品失败的测试治理事项，在 exact-head Domain Unit + Integration + H5 Build/clean replay 全绿且不存在对应 PRODUCT / SECURITY / DATA / parity failure 时，不得仅因其 `OPEN` / `IN_PROGRESS` 状态机械阻止 Candidate Freeze。`FIXED_PENDING_VERIFY` 本身也不是再次整改或阻止独立验证的理由。
 - H5 Build Check 对该 exact head `completed/success`，包括前端 build、migration preflight 与 Supabase clean replay。
 - repo/live migration version 与 SQL 语义一致；关键 RPC/RLS/Storage/Edge Function 无已知发布阻塞漂移。
 - canonical 文档已经同步到准备冻结的同一 PR head。
-- Browser Blackbox workflow / Playwright 脚本本身已通过静态/CI 基础校验，不能在明知测试执行器损坏时冻结候选并伪称可测。
+- Browser Blackbox workflow / Playwright 若存在已由发布总控或独立验证明确分类、可复现的 QA/HARNESS_FAILURE，必须先做最小 harness 修复，之后才能接受该新 exact head 的 Browser/Gate 证据；该类 harness failure 不得改记为 PRODUCT failure，也不得借机扩大到产品代码。legacy test identity naming、覆盖广度等非阻塞测试治理债不得机械阻止 Freeze。
 - 自动整改任务暂停或处于不会继续推产品改动的状态，避免 freeze 后 head 持续移动。
 
 Candidate Freeze 后，任何新的代码、migration、canonical 文档或测试基础设施提交都会产生新的 PR head，并自动使旧 candidate 失去 exact-head 资格。此时必须：暂停黑盒/Gate → 完成新 head CI → 再移动 `release-candidate` → 只测试新的 Preview。
