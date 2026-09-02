@@ -17,10 +17,12 @@ function labelInput(page, text) { return page.locator('label').filter({ hasText:
 async function shot(page, name) { await page.screenshot({ path: path.join(outDir, `${name}.png`), fullPage: true }); }
 async function waitForLoadedInput(page, text) { const input = labelInput(page, text); await input.waitFor({ state: 'visible', timeout: 30000 }); await page.waitForFunction((labelText) => { const i = [...document.querySelectorAll('label')].find(x => x.textContent?.includes(labelText))?.querySelector('input,select'); return !!i?.value; }, text, { timeout: 30000 }); return input; }
 
+const evidenceId = 'SK:legacy-015-doubles-withdrawal [AUD-20260829-015]';
+
 async function exactHead() {
   const r = await fetch(new URL('/build-meta.json', baseUrl), { cache: 'no-store', headers: vercelProtectionHeaders });
   const meta = await r.json();
-  record('AUD-015 exact-head release-candidate Preview', r.ok && meta.sha === expectedSha && meta.ref === 'release-candidate', JSON.stringify(meta));
+  record(`${evidenceId} exact-head release-candidate Preview`, r.ok && meta.sha === expectedSha && meta.ref === 'release-candidate', JSON.stringify(meta));
   result.evidence.buildMeta = meta;
 }
 
@@ -70,10 +72,10 @@ async function connect(owner, partner, ownerName, partnerName) {
   const response = await responsePromise;
   const payload = await response.json();
   const token = Array.isArray(payload) ? payload[0]?.token : payload?.token;
-  record('AUD-015 real users create a partner connection invitation', response.ok() && !!token, `status=${response.status()}; token=${token || 'missing'}`);
+  record(`${evidenceId} real users create a partner connection invitation`, response.ok() && !!token, `status=${response.status()}; token=${token || 'missing'}`);
   await partner.goto(`${baseUrl}/?connect=${encodeURIComponent(token)}`, { waitUntil: 'domcontentloaded' });
   await partner.getByText(/already partners/i).first().waitFor({ state: 'visible', timeout: 30000 });
-  record('AUD-015 two real identities are connected before doubles invite', true, `${ownerName} <-> ${partnerName}`);
+  record(`${evidenceId} two real identities are connected before doubles invite`, true, `${ownerName} <-> ${partnerName}`);
 }
 
 async function createDoublesEvent(owner, name) {
@@ -89,7 +91,7 @@ async function createDoublesEvent(owner, name) {
   await owner.getByRole('button', { name: 'Create event', exact: true }).click();
   await owner.waitForURL(/#\/events\/[0-9a-f-]+\/manage/, { timeout: 30000 });
   const id = owner.url().match(/#\/events\/([0-9a-f-]+)\/manage/)?.[1];
-  record('AUD-015 doubles event created through real UI', !!id, owner.url());
+  record(`${evidenceId} doubles event created through real UI`, !!id, owner.url());
   return id;
 }
 
@@ -103,7 +105,7 @@ async function registerRealDoublesTeam(owner, partner, id, eventName, partnerNam
   const inviteCard = partner.locator('article.event-invite-card').filter({ hasText: eventName }).first();
   await inviteCard.getByRole('button', { name: 'Accept team', exact: true }).click();
   await inviteCard.getByText(/Team request accepted/i).waitFor({ state: 'visible', timeout: 30000 });
-  record('AUD-015 second real partner accepts doubles team invite', true, eventName);
+  record(`${evidenceId} second real partner accepts doubles team invite`, true, eventName);
   await owner.goto(`${baseUrl}/#/events/${id}/manage`, { waitUntil: 'domcontentloaded' });
   await owner.reload({ waitUntil: 'domcontentloaded' });
   await owner.getByRole('button', { name: 'Register myself', exact: true }).click();
@@ -113,7 +115,7 @@ async function registerRealDoublesTeam(owner, partner, id, eventName, partnerNam
   await owner.getByRole('button', { name: 'Confirm registration', exact: true }).click();
   await owner.getByRole('status').filter({ hasText: 'Registered' }).waitFor({ state: 'visible', timeout: 30000 });
   await owner.getByRole('button', { name: 'View roster', exact: true }).waitFor({ state: 'visible', timeout: 30000 });
-  record('AUD-015 doubles entry signup_user is first real user', true, id);
+  record(`${evidenceId} doubles entry signup_user is first real user`, true, id);
 }
 
 async function verifySecondPartnerCta(owner, partner, id) {
@@ -121,11 +123,11 @@ async function verifySecondPartnerCta(owner, partner, id) {
   await partner.getByRole('status').filter({ hasText: 'Registered' }).waitFor({ state: 'visible', timeout: 30000 });
   const openCta = partner.getByRole('button', { name: 'View roster', exact: true });
   await openCta.waitFor({ state: 'visible', timeout: 30000 });
-  record('AUD-015 non-signup second real partner receives registered status and roster CTA', true, partner.url());
+  record(`${evidenceId} non-signup second real partner receives registered status and roster CTA`, true, partner.url());
   await openCta.click();
   const withdraw = partner.getByRole('button', { name: 'Withdraw', exact: true });
   await withdraw.waitFor({ state: 'visible', timeout: 20000 });
-  record('AUD-015 second real partner can reach entry-level Withdraw control', true, 'Withdraw visible before deadline');
+  record(`${evidenceId} second real partner can reach entry-level Withdraw control`, true, 'Withdraw visible before deadline');
   await shot(partner, 'aud015-second-partner-withdraw-open');
 
   await owner.goto(`${baseUrl}/#/events/${id}/edit`, { waitUntil: 'domcontentloaded' });
@@ -142,12 +144,12 @@ async function verifySecondPartnerCta(owner, partner, id) {
   await partner.getByRole('status').filter({ hasText: 'Registered' }).waitFor({ state: 'visible', timeout: 30000 });
   const closedCta = partner.getByRole('button', { name: 'View roster', exact: true });
   await closedCta.waitFor({ state: 'visible', timeout: 30000 });
-  record('AUD-015 deadline-closed registered status remains view-only for second real partner', true, partner.url());
+  record(`${evidenceId} deadline-closed registered status remains view-only for second real partner`, true, partner.url());
   await closedCta.click();
   const closedWithdraw = partner.getByRole('button', { name: 'Withdraw', exact: true });
   await closedWithdraw.waitFor({ state: 'detached', timeout: 10000 }).catch(() => {});
   const withdrawCount = await closedWithdraw.count();
-  record('AUD-015 roster-level Withdraw is absent after deadline closes', withdrawCount === 0, `withdrawCount=${withdrawCount}; registration-closed state confirmed`);
+  record(`${evidenceId} roster-level Withdraw is absent after deadline closes`, withdrawCount === 0, `withdrawCount=${withdrawCount}; registration-closed state confirmed`);
   await shot(partner, 'aud015-second-partner-deadline-closed');
 }
 
