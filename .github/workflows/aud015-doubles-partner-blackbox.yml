@@ -1,4 +1,4 @@
-name: AUD-015 Doubles Partner Blackbox
+name: AUD-20260829-015 Doubles Partner Blackbox
 
 on:
   push:
@@ -108,20 +108,21 @@ jobs:
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
 
-      - name: Run committed AUD-015 second-real-partner browser proof
+      - name: Run committed AUD-20260829-015 second-real-partner browser proof
         env:
           BASE_URL: ${{ steps.deployment.outputs.url }}
           EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
           VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: node qa/aud015-doubles-partner-blackbox.mjs
 
-      - name: Publish AUD-015 QA summary
+      - name: Publish AUD-20260829-015 QA summary
         if: always()
         env:
           BASE_URL: ${{ steps.deployment.outputs.url }}
           EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
         run: |
-          echo "## AUD-015 Doubles Partner Blackbox" >> "$GITHUB_STEP_SUMMARY"
+          echo "## AUD-20260829-015 Doubles Partner Blackbox" >> "$GITHUB_STEP_SUMMARY"
+          echo "- semantic key: \`legacy-015-doubles-withdrawal\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- expected SHA: \`${EXPECTED_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- exact deployment URL: ${BASE_URL}" >> "$GITHUB_STEP_SUMMARY"
           if [ -f qa-artifacts-aud015/aud015-result.json ]; then
@@ -130,11 +131,11 @@ jobs:
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Upload AUD-015 browser evidence
+      - name: Upload AUD-20260829-015 browser evidence
         if: always() && steps.candidate.outputs.sha != ''
         uses: actions/upload-artifact@v4
         with:
-          name: aud015-browser-evidence-${{ steps.candidate.outputs.sha }}
+          name: aud-20260829-015-browser-evidence-${{ steps.candidate.outputs.sha }}
           path: qa-artifacts-aud015/
           if-no-files-found: warn
           retention-days: 14
