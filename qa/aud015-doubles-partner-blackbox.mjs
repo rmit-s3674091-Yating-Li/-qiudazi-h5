@@ -36,7 +36,7 @@ async function context(browser, traceName) {
 }
 async function closeContext(c) { await c.tracing.stop({ path: path.join(outDir, `${c.__traceName}.zip`) }); await c.close(); }
 
-async function shellReady(page, timeout = 8000) {
+async function shellReady(page, timeout = 20000) {
   try {
     await page.locator('a[href="#/quick-start"]').first().waitFor({ state: 'visible', timeout });
     const body = await page.locator('body').innerText();
@@ -48,7 +48,6 @@ async function identity(page, nickname) {
   await page.goto(`${baseUrl}/#/events`, { waitUntil: 'domcontentloaded' });
   let lastBody = '';
   for (let attempt = 1; attempt <= 3; attempt++) {
-    await page.waitForTimeout(900);
     if (page.url().includes('/profile')) {
       const input = page.locator('input[autocomplete="nickname"]');
       await input.waitFor({ state: 'visible', timeout: 20000 });
@@ -57,11 +56,20 @@ async function identity(page, nickname) {
       await page.locator('button[type=submit], button.full').filter({ hasText: /Start playing|Continue/ }).first().click();
       try { await page.waitForURL(/#\/events(?:$|\?)/, { timeout: 30000 }); } catch {}
     }
-    if (await shellReady(page)) { record(`identity ready: ${nickname}`, true, `attempt=${attempt}`); return; }
+    if (await shellReady(page, 20000)) { record(`identity ready: ${nickname}`, true, `attempt=${attempt}`); return; }
     lastBody = await page.locator('body').innerText().catch(() => '');
     const retry = page.getByRole('button', { name: 'Retry connection' });
-    if (await retry.count()) await retry.first().click(); else if (attempt < 3) await page.reload({ waitUntil: 'domcontentloaded' });
+    if (await retry.count()) {
+      await shot(page, `identity-retry-${nickname}-${attempt}`).catch(() => {});
+      await retry.first().click();
+      await page.waitForTimeout(2000);
+      continue;
+    }
+    // Do not reload while guest-session/auth/profile recovery may still be in flight.
+    // Reloading can abort the exact request chain this specialist harness is verifying.
+    if (attempt < 3) await page.waitForTimeout(2500);
   }
+  await shot(page, `identity-failed-${nickname}`).catch(() => {});
   record(`identity ready: ${nickname}`, false, lastBody.slice(0, 220));
 }
 
