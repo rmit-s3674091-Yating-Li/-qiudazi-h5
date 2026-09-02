@@ -95,6 +95,20 @@ try {
     assert.deepEqual(s.sets, [{ a: 7, b: 6, ta: 7, tb: 5 }]);
   });
 
+  test("current set and game progress are derived from live state", () => {
+    const r = rules({ best_of: 3 });
+    let s = engine.initialScore();
+    assert.equal(engine.currentSetNumber(s), 1);
+    assert.equal(engine.currentGameNumber(s), 1);
+    s = winGame(engine, r, s, "A");
+    assert.equal(engine.currentSetNumber(s), 1);
+    assert.equal(engine.currentGameNumber(s), 2);
+    for (let game = 0; game < 5; game += 1) s = winGame(engine, r, s, "A");
+    assert.equal(engine.currentSetNumber(s), 2);
+    assert.equal(engine.currentGameNumber(s), 1);
+    assert.deepEqual(s.sets, [{ a: 6, b: 0 }]);
+  });
+
   test("replay derives the same state from point log and ignores voided points", () => {
     const r = rules({ game_scoring: "no_ad" });
     const logs = [
