@@ -2,13 +2,13 @@
 
 > 状态：APPROVED FOR DEVELOPMENT
 > 基线来源：2026-09-02 产品决策 + 现有 canonical baselines + 已确认可吸收的 PRD 规则。
-> 适用范围：下一版本开发分支及其后续 PR。若与旧版 Quick/Photo/Scoring 描述冲突，以本文件的新版本变更项为准；未明确变更的规则继续沿用既有 canonical baseline。
+> 适用范围：下一版本开发分支及其后续 PR。若与旧版 Quick/Photo/Scoring/Identity 描述冲突，以本文件的新版本变更项为准；未明确变更的规则继续沿用既有 canonical baseline。
 
 ## 1. 本版本目标与优先级
 
 P1：实时记分性能；网球计分规则与局/盘进度；Quick 比赛开赛前退出/取消生命周期。
 
-P2：移动端日期控件溢出；赛事相册导入我的参赛相册及保存手机；Quick 城市/场地 optional；无意义重新生成对阵；Hall 城市筛选；单循环轮次与跨页面状态一致性。
+P2：移动端日期控件溢出；赛事相册导入我的参赛相册及保存手机；Quick 城市/场地 optional；无意义重新生成对阵；Hall 城市筛选；单循环轮次与跨页面状态一致性；测试阶段账号切换/退出登录。
 
 ## 2. 网球计分模型
 
@@ -68,14 +68,36 @@ Hall 筛选维度扩展为 match type + city + level + date。city 过滤只在�
 
 修复 iPhone Safari / 微信 WebView 中筛选 Sheet 的 date input 溢出。统一审查 input[type=date]、datetime-local、select 等原生控件：容器 max-width、min-width:0、box-sizing、字体/appearance 和 flex/grid 收缩均不得导致横向溢出。
 
-## 9. PRD 规则吸收原则
+## 9. 测试阶段账号切换与退出登录
+
+当前版本的“昵称唯一”是测试阶段的用户可见身份入口，不等于可以只凭昵称无认证地冒用任意 Profile。底层 canonical identity 继续由 Supabase Auth user/session 与 Profile 绑定；昵称保持唯一约束，用于测试阶段的人类可读登录/切换入口。
+
+“我的”页面增加“切换账号 / 退出登录”。用户确认后必须：
+- 调用真实 sign-out，终止当前 Supabase session；
+- 清除当前 profile cache、当前设备保存的 guest/test credentials，以及属于当前身份的 pending/session 临时状态；
+- 清空客户端当前用户查询缓存，禁止 My Events / Partners / Photos / Profile 短暂显示上一账号数据；
+- 返回明确的 `/login` 登录页面，不允许 IdentityGate 立即静默创建新 guest identity 把用户重新登录。
+
+`/login` 为测试阶段显式身份入口。页面提供：已有昵称登录/切换，以及首次使用创建新昵称。已有昵称恢复必须由受控后端 identity exchange 完成：后端验证唯一 nickname 并签发/恢复对应测试 auth identity；前端不得查询到 Profile 后直接伪造登录态，也不得通过公开 RPC 返回其他用户的 secret/password/session token。
+
+若昵称不存在，用户可明确选择创建新昵称；若昵称已存在，则禁止创建第二个同名 Profile。昵称比较的规范化（至少 trim，并明确大小写/Unicode 策略）必须由数据库唯一约束和服务端逻辑共同保证，不能只靠前端校验。
+
+账号切换的产品流程统一为：“我的 → 切换账号 → 确认退出 → 登录页 → 输入/选择另一昵称 → 进入该账号”。不额外维护一套常驻多账号 token 列表，避免测试阶段在本机长期保存多个账户凭证。
+
+登录成功后所有身份相关数据必须按新 auth user/profile 重新读取。旧账号的 event ownership、报名、球搭子关系、个人参赛相册、隐私设置等数据不删除、不迁移、不共享给新账号。
+
+测试环境可使用专门的受控 Edge Function/RPC 完成 nickname → test identity exchange；该机制必须明确标记为 test-only，未来接入微信登录时替换认证入口，而 Profile/Event/Partner/Photo 等业务身份关系不推翻。
+
+验收至少覆盖：G → sign out → login as 老郑；老郑不得看到 G 的 private My Events/Partners/personal photos；刷新后仍是老郑；再退出回到 `/login`；不存在昵称创建；重复昵称拒绝；错误昵称/失败 exchange 不产生半登录状态；双设备登录不破坏 canonical Profile 绑定。
+
+## 10. PRD 规则吸收原则
 
 吸收成熟且与当前产品方向一致的内容：单循环按轮次组织；Match 状态明确；实时逐分记分；比赛结束后结果/对阵/排名一致；取消为只读终态；比赛和照片入口状态一致。
 
 不机械照搬旧 PRD 中与当前 canonical 冲突的账户、管理员、上传数量/大小、旧页面结构或旧权限模型。发生冲突时必须先做产品语义判断并更新 canonical，不允许测试脚本成为事实源。
 
-## 10. 测试与开发要求
+## 11. 测试与开发要求
 
-纯规则逻辑进入 Unit；RPC/RLS/Storage/事务/identity/幂等进入 Integration；真实移动端交互、弱网、快速连续记分、相册导入/保存、Quick 退出/取消进入 User Story Browser。谁实现谁不独立 VERIFIED。
+纯规则逻辑进入 Unit；RPC/RLS/Storage/事务/identity/幂等进入 Integration；真实移动端交互、弱网、快速连续记分、相册导入/保存、Quick 退出/取消、账号退出/切换进入 User Story Browser。谁实现谁不独立 VERIFIED。
 
 当前为开发迭代阶段，不运行 Release Gate 作为开发前置。形成稳定候选版本后再恢复 whitebox → blackbox → candidate → Gate。任何自动化不得自行 merge main 或触发 Production。
