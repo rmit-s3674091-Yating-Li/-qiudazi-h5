@@ -95,7 +95,9 @@
 - 记分必须通过页面 input/button 写入共享后端；
 - participant 访问 manage URL 时不能获得 organizer 管理 CTA。
 
-### 4.4 AUD-005 报名截止
+### 4.4 `event-form-registration-deadline-auto-vs-custom` 报名截止
+
+正式 AUD provenance：`AUD-20260830-005`。
 
 通过真实 EventForm 输入验证：
 
@@ -103,7 +105,9 @@
 - 开赛时间变化时 auto deadline 随之变化；
 - 用户手动设定更早截止后，再调整开赛时间，合法 manual 值保持。
 
-### 4.5 AUD-006 Quick Start 故障恢复
+### 4.5 `quick_start_event_creation_and_draw_are_not_atomic` Quick Start 故障恢复
+
+正式 AUD provenance：`AUD-20260830-006`。
 
 通过 Playwright 网络故障注入真实验证：
 
@@ -149,6 +153,13 @@ workflow 无论成功/失败均上传：
 - 默认保留 14 天。
 
 Release Gate 不能仅凭 workflow 绿色图标。至少应核对：run SHA、artifact 名、两个 JSON 的 `expectedSha`、`ok=true` 和关键检查项。
+
+### 5.1 Evidence 标识与 registry 映射规则
+
+- Browser baseline、harness `checks[].name`、verifier evidence mapping 使用同一策略：长期验收能力优先使用稳定 semantic key 或 `US/AC` 标识；若需要追溯历史整改项，另附完整 `AUD-YYYYMMDD-NNN` provenance。
+- 禁止把裸 `AUD-NNN` 作为可映射 live registry 的唯一标识；不同 `audit_date` 会重复使用相同 `sequence_no`。
+- 自动 verifier 只有在输入包含完整 `AUD-YYYYMMDD-NNN` 时才允许映射 registry issue；semantic key / `US/AC` 只能作为能力标识或去重键，不能被反向猜测成某个 sequence_no。
+- 自动 VERIFIED / reopen 禁止按裸 sequence_no、正则截取的末三位或历史顺序号推断 audit_id。
 
 ## 6. 失败分类
 
