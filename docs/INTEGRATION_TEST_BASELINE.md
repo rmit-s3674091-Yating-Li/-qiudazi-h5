@@ -20,6 +20,7 @@
 ### IT-01 Migration / schema clean replay
 - repo migration version 唯一且命名合法；live/repo parity 在候选阶段必须一致；clean DB 可完整 replay；
 - `events.event_mode`、`events.game_scoring`、`cancelled` 等现有结构继续存在；
+- V7 scoring persistence 新增 `events.tiebreak_target`、`events.tiebreak_win_by_two`、`events.games_win_by_two`，旧赛事/旧客户端必须通过兼容缺省值继续工作；
 - 下一版本新增 scoring persistence schema/RPC 时必须兼容旧赛事与旧 Point Log。
 
 ### IT-02 Scoring persistence / idempotency contract
@@ -33,8 +34,9 @@
 - 真实跨端并发使用旧 version 仍必须被服务端拒绝或按受控幂等路径收敛，不能为了性能跳过授权/version；
 - point 持久化失败时不得留下“只有前端存在”的永久比分；刷新必须能够完全由 Point Log replay 恢复；
 - Undo 只作用于最近有效 Point Log；重放 Undo 本身若支持 retry，也必须有明确幂等语义，不得连续 void 两分。
+- scoring rule 字段必须经 `save_event` 持久化并由 authoritative Event Snapshot/commit 原样返回；旧客户端不传新字段时采用 canonical 兼容默认值，不能产生 null/漂移规则。
 
-集成测试至少覆盖：首次 point 成功、相同 operation 重放、两个不同 operation 连续写入、旧 version 的真实并发冲突、超时语义可重试、刷新 snapshot/Point Log 一致、Undo 后 replay 一致。
+集成测试至少覆盖：首次 point 成功、相同 operation 重放、两个不同 operation 连续写入、旧 version 的真实并发冲突、超时语义可重试、刷新 snapshot/Point Log 一致、Undo 后 replay 一致，以及 scoring rule persistence/default compatibility。
 
 ### IT-03 Event lifecycle contract
 - `cancel_event` / `delete_event` 等终态 RPC 与 `cancelled` schema 同时存在；

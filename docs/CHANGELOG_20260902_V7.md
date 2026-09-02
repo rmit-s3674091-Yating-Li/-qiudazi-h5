@@ -14,10 +14,11 @@
 - point command 已建立稳定 operation UUID 链：用户 point 入队时生成一次，pending queue 与持久化请求复用；服务端要求 point 携带合法 `operation_id`，并以该 UUID 作为 authoritative Point Log id。
 - 重复 operation 对同一 match/side 幂等返回 authoritative snapshot；跨 point 复用返回 `OPERATION_CONFLICT`；并发 duplicate 在 version conflict 后重新按 operation 查询已提交事实，避免双记。
 - Scoring operation-id contract 已纳入 Integration 回归；纯 ScoringEngine 行为由 Domain Unit 覆盖。
+- V7 scoring 参数 persistence schema 已加入 `tiebreak_target`、`tiebreak_win_by_two`、`games_win_by_two`；`save_event` 接受并持久化这些字段，旧客户端缺省值保持 7 / true / true；Snapshot/commit 路径继续携带同一事件规则事实。
 
 ### In Progress
-- 完成 V7 approved scoring rule 参数化：盘数/先赢盘数、每盘先胜局数、是否净胜两局、抢七触发与目标分、Advantage/No-Ad，并保证旧事件兼容。
-- 补齐上述规则参数的 Unit/Integration 与持久化契约后，才可将 Scoring Core 标记为 Implemented。
+- 完成 V7 approved scoring rule 参数化的用户输入与校验收口，并保证旧事件兼容；当前 persistence 已落地，但尚未把整套参数化标记为完成。
+- 补齐上述规则参数的 Unit/Integration 与创建/编辑 UI 契约后，才可将 Scoring Core 标记为 Implemented。
 
 ### Verification pending
 - 弱网、请求超时但服务端已成功、连续快速点击、多端读取、刷新 replay、Undo 等真实交互留给后续独立 Browser/真机验证。
