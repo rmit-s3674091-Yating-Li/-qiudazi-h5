@@ -7,16 +7,15 @@
 - Repository：`rmit-s3674091-Yating-Li/-qiudazi-h5`
 - canonical visibility：**Private**。运行时 `visibility` 必须为 `private`；H5 Build Check 会校验 `github.event.repository.private=true`，若意外变回 public 直接失败。
 - 默认分支：`main`
-- 当前大版本开发分支：`feature/20260829-event-lifecycle-privacy-i18n`
+- 当前 remediation 开发分支、PR 编号与 exact head 均属于运行时事实；每轮必须直接读取当前受控 remediation PR 的 head branch / exact head，不在本文固化。
 - 发布候选分支：`release-candidate`。该分支不是长期开发分支，只在 Candidate Freeze 后由总控移动到已经通过 exact-head CI 的 PR head，用于触发一份可追溯 Vercel Preview；任何独立开发、cherry-pick 或额外内容 commit 都不得落在该分支。
-- 当前开发 PR：`#20`
-- PR #20 在开发与收口阶段保持 Draft；未通过 Release Gate 不 merge main。
+- 当前 remediation PR 在整改与收口阶段保持 Draft；未通过 Release Gate 不 merge main。
 - GitHub Actions：`.github/workflows/build.yml` 的 `H5 Build Check` 是当前基础 CI。
 - GitHub Actions：`.github/workflows/candidate-browser-blackbox.yml` 是当前唯一正式候选真实浏览器执行器；仅针对 `release-candidate` exact head，使用 Playwright 启动 Chromium / WebKit，并上传 exact-SHA browser evidence artifact。
 - Browser Blackbox 使用 GitHub Actions `id-token: write` 获取短时 OIDC token 访问受保护 Vercel Preview，不在仓库保存长期 Vercel bypass secret。
 - 当前 GitHub 账号方案下，仓库转为 Private 后 repository ruleset API 返回“Upgrade to GitHub Pro or make this repository public to enable this feature”；因此**不得再声称 main 当前由 GitHub ruleset 平台强制保护**。
-- 当前 main 保护采用流程治理：所有开发只写 feature branch → PR #20 → exact-head CI → Candidate Freeze → `release-candidate` exact-head Preview + Candidate Browser Blackbox → 黑盒证据复核 → Release Gate → 人工 merge 决策；所有自动化均禁止直接 merge/push main。若未来升级 GitHub Pro 并重新启用 private-repo ruleset，必须运行时验证后再把“平台强制保护”写回本文。
-- Private 转换后已确认：ChatGPT GitHub connector 仍有 admin/push/pull 权限，PR #20 可正常读取；Vercel Git link 仍指向同一 repository。
+- 当前 main 保护采用流程治理：所有开发只写当前受控 feature branch → 当前 PR → exact-head CI → Candidate Freeze → `release-candidate` exact-head Preview + Candidate Browser Blackbox → 黑盒证据复核 → Release Gate → 人工 merge 决策；所有自动化均禁止直接 merge/push main。若未来升级 GitHub Pro 并重新启用 private-repo ruleset，必须运行时验证后再把“平台强制保护”写回本文。
+- Private 转换后已确认：ChatGPT GitHub connector 仍可正常读取当前 PR；Vercel Git link 仍指向同一 repository。连接器权限、PR 编号与 Git link 使用前仍应运行时复核。
 
 > 分支 head SHA、PR merge SHA、workflow run id 属于动态运行事实，不写成长期固定值；每轮工作必须实时读取。
 
@@ -60,7 +59,7 @@
 - `vercel.json`：framework=`vite`、build=`npm run build`、output=`dist`。
 - Git deployment 采用**候选分支白名单**：`git.deploymentEnabled` 中 `** = false`，仅 `main = true` 与 `release-candidate = true`。使用 globstar 是为了覆盖 `feature/...` 等包含 `/` 的分支名；普通 feature/docs/fix push 不产生 Vercel deployment，从而控制 Hobby 配额。
 - 三层发布模型固定为：feature/docs/fix 只跑 CI → `release-candidate` 只触发唯一候选 Preview → `main` 只承担 Gate 通过后的正式发布语义。详细规则见 `docs/RELEASE_GOVERNANCE.md`。
-- `release-candidate` 是 Preview 触发器，不承载独立开发。总控只有在发布相关 P0/P1 收口、PR exact head CI green、repo/live 一致性满足候选条件、canonical 文档已同步后，才允许把 `release-candidate` 移动到该 exact head；移动后必须读取 Vercel deployment metadata，确认 `state=READY`、`githubCommitRef=release-candidate`、`githubCommitSha` 与 PR exact head 完全一致，且 Browser Blackbox 从 `/build-meta.json` 再次确认同一 SHA/ref，才视为正式可测 candidate。
+- `release-candidate` 是 Preview 触发器，不承载独立开发。总控只有在 release-blocking P0/P1（有明确 same-head 证据的 PRODUCT / SECURITY / DATA 一致性缺陷、repo/live migration parity 失败或会直接阻塞 Gate 的 canonical 规则冲突）不存在 `OPEN` / `IN_PROGRESS`、PR exact head CI green、repo/live 一致性满足候选条件、canonical 文档已同步后，才允许把 `release-candidate` 移动到该 exact head。QA/HARNESS_FAILURE、测试身份命名、测试覆盖完整度、一般技术债等不证明产品失败的测试治理项，在 exact-head Domain Unit + Integration + H5 Build/clean replay 全绿且不存在对应产品失败时，不得仅因其状态机械阻止 Freeze；已明确可复现的 QA/HARNESS_FAILURE 则必须在接受对应 Browser/Gate 证据前做最小 harness 修复。移动 candidate 后必须读取 Vercel deployment metadata，确认 `state=READY`、`githubCommitRef=release-candidate`、`githubCommitSha` 与 PR exact head 完全一致，且 Browser Blackbox 从 `/build-meta.json` 再次确认同一 SHA/ref，才视为正式可测 candidate。
 - Candidate Freeze 后任何代码、migration、测试基础设施或 canonical 文档提交都会使旧 Preview 失去 exact-head 资格。此时必须暂停黑盒/Gate，重新等待新 head CI，再移动 `release-candidate`；不得继续测试旧 SHA。
 - 若 `release-candidate` 产生的 deployment SHA 与 PR exact head 不一致，不得用于黑盒/Gate；应停止后续测试并调查 Git/Vercel integration，不得用旧 Preview 顶替。
 - Browser Blackbox 的 GitHub-hosted Playwright runner 是真实浏览器执行环境；ChatGPT/Vercel connector 的 HTTP fetch 能力不是浏览器执行环境，不能承担点击、输入、viewport、文件上传或双会话验收。

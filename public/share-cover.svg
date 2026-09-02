@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
+  <defs>
+    <linearGradient id="cream" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f8f2df"/><stop offset="1" stop-color="#ead8b7"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="18" stdDeviation="18" flood-opacity=".18"/></filter>
+  </defs>
+  <rect width="1200" height="1200" fill="url(#cream)"/>
+  <path d="M0 930 C260 820 500 990 760 900 S1040 770 1200 820 V1200 H0Z" fill="#234f36" opacity=".12"/>
+  <path d="M870 120 C1010 210 1110 320 1200 470" fill="none" stroke="#234f36" stroke-width="34" opacity=".08"/>
+  <g fill="#174b2b">
+    <text x="92" y="330" font-family="Noto Sans SC, PingFang SC, Microsoft YaHei, sans-serif" font-size="150" font-weight="800">球搭子</text>
+    <text x="98" y="420" font-family="Noto Sans SC, PingFang SC, Microsoft YaHei, sans-serif" font-size="46" font-weight="600" letter-spacing="7">一起打好每一场球</text>
+  </g>
+  <g transform="translate(770 640) rotate(-25)" filter="url(#shadow)">
+    <ellipse cx="0" cy="0" rx="175" ry="235" fill="none" stroke="#174b2b" stroke-width="28"/>
+    <path d="M0 230 L0 510" stroke="#174b2b" stroke-width="38" stroke-linecap="round"/>
+    <path d="M-125 -145 L125 145 M-155 -70 L155 70 M-165 10 L165 10 M-150 90 L150 -90 M-100 170 L100 -170" stroke="#174b2b" stroke-width="7" opacity=".45"/>
+  </g>
+  <g transform="translate(590 700) rotate(20)" filter="url(#shadow)">
+    <ellipse cx="0" cy="0" rx="175" ry="235" fill="#f6edd9" stroke="#b89d71" stroke-width="28"/>
+    <path d="M0 230 L0 510" stroke="#b89d71" stroke-width="38" stroke-linecap="round"/>
+    <path d="M-125 -145 L125 145 M-155 -70 L155 70 M-165 10 L165 10 M-150 90 L150 -90 M-100 170 L100 -170" stroke="#b89d71" stroke-width="7" opacity=".5"/>
+  </g>
+  <g transform="translate(940 830)" filter="url(#shadow)">
+    <circle r="82" fill="#d8e532"/>
+    <path d="M-74 -28 C-25 -5 15 -18 50 -70 M-72 34 C-20 8 28 20 70 52" fill="none" stroke="#f8f2df" stroke-width="12"/>
+  </g>
+  <g transform="translate(300 835)" filter="url(#shadow)">
+    <circle r="62" fill="#d8e532"/>
+    <path d="M-55 -20 C-18 -2 12 -12 38 -52 M-52 26 C-15 7 22 16 53 39" fill="none" stroke="#f8f2df" stroke-width="10"/>
+  </g>
+  <g opacity=".24" fill="#174b2b"><circle cx="110" cy="104" r="55"/><circle cx="178" cy="78" r="42"/><circle cx="232" cy="122" r="48"/></g>
+</svg>

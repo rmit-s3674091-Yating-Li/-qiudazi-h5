@@ -1,0 +1,104 @@
+.action-bar > .row > button {
+  min-width: 0;
+  white-space: nowrap;
+  padding-inline: 14px;
+}
+
+.action-bar > .row > .full {
+  width: auto;
+  flex: 1 1 0;
+}
+
+.registration-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface, #fff) 88%, #7f9b73 12%);
+  color: var(--text, #27312a);
+}
+
+.registration-status.waitlist {
+  background: color-mix(in srgb, var(--surface, #fff) 88%, #b28a55 12%);
+}
+
+.registration-status > div {
+  display: grid;
+  gap: 2px;
+}
+
+.registration-status strong {
+  font-size: 15px;
+}
+
+.registration-status small {
+  color: var(--muted, #7d867c);
+  line-height: 1.35;
+}
+
+.match-card-versus {
+  display: block;
+}
+
+.match-card-meta {
+  margin-bottom: 12px;
+}
+
+.match-versus-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.match-side {
+  min-width: 0;
+}
+
+.match-side-name {
+  display: block;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.match-side-b {
+  text-align: right;
+}
+
+.match-vs {
+  align-self: center;
+  justify-self: center;
+  font-size: 13px;
+  letter-spacing: .08em;
+  color: var(--muted, #7d867c);
+}
+
+.match-side .score {
+  display: block;
+  margin-top: 6px;
+}
+
+.single-match-bracket {
+  grid-template-columns: minmax(0, 1fr);
+  overflow: visible;
+}
+
+.single-match-bracket .bracket-round {
+  min-width: 0;
+  width: 100%;
+}
+
+/* The draw is already visible on the Draw tab, so do not repeat a large “View draw” action below it. */
+.page:has(.tab-strip > button:nth-child(3).active) > .stack > button.secondary {
+  display: none;
+}
+
+@media (max-width: 390px) {
+  .match-versus-layout {
+    grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr);
+    gap: 8px;
+  }
+}

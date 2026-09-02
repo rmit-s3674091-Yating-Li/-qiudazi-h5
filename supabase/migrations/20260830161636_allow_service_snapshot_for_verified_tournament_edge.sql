@@ -31,6 +31,9 @@ begin
     else 'viewer'
   end;
 
+  -- Service-role callers are trusted server-side components. They may load the
+  -- snapshot needed for authorization-aware command processing; end-user RPC
+  -- calls remain subject to the existing visibility rule below.
   if request_role <> 'service_role' and e.visibility<>'public' and viewer_role='viewer' then
     raise exception 'EVENT_NOT_FOUND';
   end if;

@@ -1,11 +1,17 @@
 {
-  "generated_at": "2026-08-31T06:58:00Z",
+  "generated_at": "2026-08-31T11:20:00Z",
   "source_path": "public.audit_issue_registry_readonly",
-  "source_head": "6bbc45cce58355aca2f206e4b5b4eb4b172a491a",
+  "source_head": "eebfb5a6ee83eda128d8669c7ab074419bd96c07",
   "note": "Read-only fallback snapshot. Supabase audit_ops.issue_registry remains the sole source of truth. This file must not be used to create AUD ids or mutate formal status.",
   "issues": [
     {"audit_id":"AUD-20260829-016","status":"OPEN","severity":"P2","module":"UX / 组织者参赛者选择","owner":null},
-    {"audit_id":"AUD-20260830-002","status":"DUPLICATE","severity":"P1","module":"Audit automation / backlog concurrency","owner":"球搭子问题整改"},
-    {"audit_id":"AUD-20260831-002","status":"OPEN","severity":"P1","module":"EventFormPage / EventRules / deadline editing","owner":null}
+    {"audit_id":"AUD-20260831-003","status":"FIXED_PENDING_VERIFY","severity":"P0","module":"Release governance","owner":null},
+    {"audit_id":"AUD-20260831-004","status":"FIXED_PENDING_VERIFY","severity":"P1","module":"TemporaryPartnerDetailPage / player claim RPCs","owner":null},
+    {"audit_id":"AUD-20260831-005","status":"FIXED_PENDING_VERIFY","severity":"P1","module":"PlayerFormPage / MyTennisProfilePage navigation","owner":null},
+    {"audit_id":"AUD-20260831-006","status":"FIXED_PENDING_VERIFY","severity":"P1","module":"Quick Start / tournament-command","owner":null},
+    {"audit_id":"AUD-20260831-007","status":"FIXED_PENDING_VERIFY","severity":"P2","module":"Quick Start UI","owner":null},
+    {"audit_id":"AUD-20260831-008","status":"FIXED_PENDING_VERIFY","severity":"P1","module":"QuickStartPage / doubles team setup","owner":null},
+    {"audit_id":"AUD-20260831-009","status":"FIXED_PENDING_VERIFY","severity":"P1","module":"create_quick_event / list_events","owner":null},
+    {"audit_id":"AUD-20260831-010","status":"FIXED_PENDING_VERIFY","severity":"P1","module":"Hall / QA test isolation","owner":null}
   ]
 }

@@ -82,6 +82,25 @@ export async function watermarkPhoto(blob: Blob, s: Snapshot): Promise<Blob> {
     canvas.width = width;
     canvas.height = img.naturalHeight + footer;
     ctx.drawImage(img, 0, 0);
+
+    const mark=en?"QIUDazi · Event album":"球搭子 · 赛事相册";
+    ctx.save();
+    ctx.translate(width/2,img.naturalHeight/2);
+    ctx.rotate(-Math.PI/7);
+    ctx.textAlign="center";
+    ctx.textBaseline="middle";
+    ctx.font=`600 ${Math.max(22,32*scale)}px sans-serif`;
+    const xGap=300*scale,yGap=210*scale;
+    for(let y=-img.naturalHeight;y<=img.naturalHeight;y+=yGap){
+      for(let x=-width*1.2;x<=width*1.2;x+=xGap){
+        ctx.fillStyle="rgba(255,255,255,.24)";
+        ctx.fillText(mark,x,y);
+        ctx.fillStyle="rgba(37,55,51,.10)";
+        ctx.fillText(mark,x+1*scale,y+1*scale);
+      }
+    }
+    ctx.restore();
+
     ctx.fillStyle = "#f4f1e7";
     ctx.fillRect(0, img.naturalHeight, width, footer);
     ctx.fillStyle = "#425652";

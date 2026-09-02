@@ -1,0 +1,3 @@
+create extension if not exists pg_cron with schema extensions;
+create or replace function public.lock_expired_event_registrations() returns integer language plpgsql security definer set search_path='' as $$ declare n integer; begin update public.events set status='locked',version=version+1 where status='signup' and registration_deadline is not null and registration_deadline <= (now() at time zone 'Asia/Shanghai'); get diagnostics n=row_count; return n; end $$;
+do $$ begin if not exists(select 1 from cron.job where jobname='lock-expired-event-registrations') then perform cron.schedule('lock-expired-event-registrations','*/5 * * * *','select public.lock_expired_event_registrations()'); end if; end $$;

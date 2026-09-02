@@ -1,6 +1,6 @@
 # 球搭子｜产品规则基线（Current Product Baseline）
 
-> 状态：当前 H5 MVP 产品真源之一。若旧 PRD / Demo 与本文冲突，以最新明确产品决策、PRD V6 和专项基线为准。照片专项以 `docs/PHOTO_ALBUM_BASELINE.md` 为最终真源。
+> 状态：当前 H5 MVP 产品真源之一。若旧 PRD / Demo 与本文冲突，以最新明确产品决策、PRD V6 和专项基线为准。照片专项以 `docs/PHOTO_ALBUM_BASELINE.md` 为最终真源；Quick Start 专项以 `docs/QUICK_START_BASELINE.md` 为最终真源。
 
 ## 1. 产品目标
 球搭子是面向真实网球爱好者的移动端赛事工具，P0 必须是可公网访问、多人共享同一份 Supabase 数据的真实 H5，而不是静态 Demo、IndexedDB 单机 Demo 或微信小程序。
@@ -27,12 +27,16 @@
 ## 4. 赛事发现与隐私
 公开标准赛事可正常发现和查看完整公开详情。私有标准赛事大厅仅展示脱敏预览：赛事名、城市、参赛建议级别、单/双打、赛制、状态和私有标识；不得泄露组织者、参赛人、具体日期时间、场地、费用、报名/候补人数和报名截止时间。
 
-`event_mode='quick'` 的快速开赛赛事不属于招募/发现流，**不得进入普通赛事大厅**；它只在赛事创建人和实际参赛者自己的赛事上下文中出现。quick event 即使内部使用 `visibility='private'`，也不能被当成普通私有赛事脱敏卡公开发现。
+正常用户创建的 `event_mode='quick'` 快速赛事属于公共赛事发现的一部分：默认 `visibility='public'` 并进入赛事大厅，但不重新开启报名、候补或标准赛事 deadline。Hall 可以展示“快速赛事 / 已锁定”等状态，详情权限继续由服务端 viewer_role 与赛事权限模型决定。
+
+自动化 QA 组织者（当前受控命名至少包括 `QA-*` 与 `QA15-*`）创建的 standard/quick 赛事不得进入公共 Hall，无论赛事名称是否带 QA 前缀；测试证据本身仍保留，可在“我的赛事”、直接 URL 和测试上下文访问。
 
 稳定原则：**大厅可发现 ≠ 获得完整详情权限 ≠ 获得报名资格。**
 
 ## 5. 参赛建议级别
 用户侧统一为区间型“参赛建议级别”：2.0及以下 / 2.5 / 3.0 / 3.5 / 4.0 / 4.5及以上。支持不限、单档、区间、仅最低、仅最高；最低不得高于最高。它只用于发现和匹配，不是硬报名资格。
+
+大厅筛选时用户选择的是**一个单项级别**；只要赛事建议区间包含该级别就匹配。例如筛选 2.5 时，2.0–3.0、2.5–4.0、≤2.5 均可匹配，3.0–4.0 不匹配；不限赛事也匹配。筛选能力不得反向变成报名资格限制。
 
 ## 6. 比赛时间、报名截止与名单锁定
 比赛日期和开赛时间为 P0 必填。最晚报名时间默认开赛前 2 小时；组织者只能设得更早。修改开赛时间导致截止非法时必须自动收紧并提示。
@@ -45,21 +49,26 @@
 底部现有四个主导航的信息架构保持不变；在导航中央增加凸起圆形主动作“快速开赛”。它是 action，不是第五个长期 Tab，也不得把“战绩”等既有“我的”能力拆出原有归属。
 
 快速开赛面向“人已约好，直接开打”场景：
-- 不经过公开/私有招募、报名截止、候补、赛事邀请、双打组队邀请等标准赛事流程，也不进入赛事大厅发现流；
-- 选择单打/双打后，从“我的打球档案 + 我创建的临时 Player”中选择参赛者，并允许现场新增临时 Player；
-- 单打至少 2 人；双打至少 4 人且为偶数，当前 MVP 按选择顺序每两人组成一队；
-- 设置城市、可选场地、赛制和计分后，服务端原子创建 Event + Entry + EntryPlayer，`event_mode='quick'`，名单直接进入 locked；
-- 创建成功后系统自动生成首次对阵，再进入赛事管理；首次生成对阵不要求用户额外寻找“生成对阵”按钮；
-- 如果 Event/Entry 已创建但首次生成对阵因网络或 Edge 调用临时失败，系统必须保留已创建赛事并进入恢复状态；后续“继续生成对阵”只能重试该赛事的 draw，**不得再次调用 create_quick_event 产生重复赛事**；刷新当前页面后也应能恢复该待生成赛事；
-- 恢复状态允许用户进入已经创建的赛事管理页，但创建新的快速赛事前必须先完成/处理当前 pending draw，避免重复建赛；
+- 不经过标准赛事的公开/私有招募、报名截止、候补、赛事邀请、双打组队邀请等流程；
+- 选择单打/双打后，可从“本人 self Player + accepted Connection 的真实球搭子 self Player + 本人创建的未认领临时 Player”中选择参赛者，并允许现场新增临时 Player；
+- 单打至少 2 人；双打至少 4 人且为偶数；双打选择参赛者后必须进入明确“确认双打队友”步骤，让用户看到并调整每队两人组合，不能把勾选顺序作为不可见最终组队规则；
+- 设置城市、可选场地、赛制和计分后，用户执行“一键开赛”；服务端创建 Event + Entry + EntryPlayer，`event_mode='quick'`，名单直接进入 locked；
+- 创建成功后系统自动生成首次对阵并进入赛事管理，正常路径不要求用户额外点击“生成对阵”；
+- `locked` 是 Quick Event 名单已固定的正确创建状态，不代表 draw 已完成；draw 完成前可以保持 locked + draw_generated=false；
+- 如果 Event/Entry 已创建但首次自动 draw 因网络、Edge 或事务临时失败，系统保留已创建赛事并进入“开赛未完成 / 恢复开赛”状态；恢复只能重试该赛事的 draw，**不得再次调用 create_quick_event 产生重复赛事**；刷新页面后也应能恢复该 pending event；
+- 新建正常 Quick Event 默认 public 并进入赛事大厅，但 Hall 不提供报名/候补入口；
 - 开赛前仍可通过赛事管理的调整/解锁能力修改人员后重新生成对阵；正式开赛后遵循普通赛事相同的记分、排名、完赛、战绩和照片规则。
 
 快速开赛不得为了复用标准赛事逻辑伪造未来开赛时间或报名截止时间。`registration_deadline` 对 quick event 不承担权限边界；quick event 的名单由创建动作直接锁定。
 
+Quick Start 的身份链必须统一支持 canonical profile + 受控 auth alias：`list_quick_start_players`、`create_quick_event`、`tournament-command`、`commit_tournament` 与 snapshot/viewer 链路不得再次假设 `profiles.auth_user_id = auth.uid()` 是唯一映射；同时不得扩大 private alias 表对客户端角色的访问权。
+
+详细规则见 `docs/QUICK_START_BASELINE.md`。
+
 ## 7. 球搭子、临时 Player 与邀请
 “球搭子们”分 accepted Connection 的真实球搭子和尚未关联真实用户的临时球搭子。临时 Player 后台持续保留历史，但创建者前台只看管理必要信息和“已有历史/加入后可解锁”提示。
 
-球搭子关系邀请、赛事邀请、双打组队邀请、临时 Player 加入/历史关联邀请必须保持独立语义。
+球搭子关系邀请、赛事邀请、双打组队邀请、临时 Player 加入/历史关联邀请必须保持独立语义。临时 Player claim invite 的 create/get/accept 同样必须使用 canonical current profile 解析，支持当前受控测试 alias。
 
 ## 8. 设置、隐私与语言
 “我的 → 设置与隐私”承载：
@@ -93,11 +102,15 @@ organizer 在赛事页执行“删除照片”是真删除源照片：删除源 
 ## 10. 我的信息架构
 “我的”承担个人资产入口：我的打球档案、我的战绩、参与赛事相册、球搭子邀请记录、设置与隐私。三类赛事/个人资产职责不能互相替代。
 
+“编辑头像与昵称”保存成功后应回到明确来源页并替换当前 history 记录；不得再次 push 一个新的“我的打球档案”导致左上返回重新进入编辑页。
+
 ## 11. 测试身份与未来登录
 当前受控测试阶段可使用昵称选择既有测试身份，公开 ID 不显示；该方案明确不是正式安全登录。后续接入可靠身份体系（如微信）时不得破坏 Profile / Player / 历史赛事关系，微信头像只能 optional 使用。
+
+测试 auth alias 是当前测试阶段兼容机制；所有身份敏感服务端链路必须通过统一 canonical profile 解析处理，而不是各自直接读取 auth_user_id。
 
 ## 12. 性能、缓存与错误
 稳定页面禁止默认 10–15 秒轮询；优先缓存、stale-while-revalidate、mutation 精准失效。身份/权限敏感页面不得只信本地缓存。用户错误不得暴露 JWT、SQL、RPC、RLS、Supabase raw stack。
 
 ## 13. 发布原则
-功能行为变化必须同步 PRD / PRODUCT / INTERACTION / P0 / CHANGELOG 和必要专项基线。正式候选需通过 build、Supabase clean replay、权限/Storage 审计、真实黑盒、English 375/390/430 Visual QA 和 Release Gate；不得自动 merge main，不得无节制触发 Vercel。
+功能行为变化必须同步 PRD / PRODUCT / INTERACTION / QUICK_START / P0 / CHANGELOG 和必要专项基线。正式候选需通过 build、Supabase clean replay、repo/live migration same-version、权限/Storage 审计、真实黑盒、English 375/390/430 Visual QA 和 Release Gate；不得自动 merge main，不得无节制触发 Vercel。

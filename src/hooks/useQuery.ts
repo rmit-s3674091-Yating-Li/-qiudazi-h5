@@ -14,6 +14,7 @@ export function useQuery<T>(key:string,load:()=>Promise<T>,interval=0){
   const cached=cache.get(key);
   const[data,setData]=useState<T|null>(()=>(cached?.data as T|undefined)??null),[error,setError]=useState(""),[loading,setLoading]=useState(!cached);
   const requestId=useRef(0);
+  const replace=useCallback((next:T)=>{requestId.current++;cache.set(key,{data:next,updatedAt:Date.now()});setData(next);setError("");setLoading(false);return next;},[key]);
   const refresh=useCallback(async(force=true)=>{
     const id=++requestId.current;const existing=cache.get(key);const staleMs=interval||DEFAULT_STALE_MS;
     if(!force&&existing&&Date.now()-existing.updatedAt<staleMs){setData(existing.data as T);setLoading(false);return existing.data as T;}
@@ -34,5 +35,5 @@ export function useQuery<T>(key:string,load:()=>Promise<T>,interval=0){
     const timer=interval?window.setInterval(()=>{if(!document.hidden)void refresh(false).catch(()=>{});},interval):null;
     return()=>{requestId.current++;window.removeEventListener("focus",focus);document.removeEventListener("visibilitychange",focus);if(timer)clearInterval(timer);};
   },[refresh,interval,key]);
-  return{data,error,loading,refresh:()=>refresh(true)};
+  return{data,error,loading,refresh:()=>refresh(true),replace};
 }

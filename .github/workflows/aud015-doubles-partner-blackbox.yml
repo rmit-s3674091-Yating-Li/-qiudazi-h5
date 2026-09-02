@@ -1,4 +1,4 @@
-name: AUD-015 Doubles Partner Blackbox
+name: AUD-20260829-015 Doubles Partner Blackbox
 
 on:
   push:
@@ -108,38 +108,21 @@ jobs:
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
 
-      - name: Normalize AUD-015 harness state and async edit readiness
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('qa/aud015-doubles-partner-blackbox.mjs')
-          s = p.read_text()
-          old1 = "  await owner.goto(`${baseUrl}/#/events/${id}/manage`, { waitUntil: 'domcontentloaded' });\n  await owner.getByRole('button', { name: 'Register myself', exact: true }).click();"
-          new1 = "  await owner.goto(`${baseUrl}/#/events/${id}/manage`, { waitUntil: 'domcontentloaded' });\n  await owner.reload({ waitUntil: 'domcontentloaded' });\n  await owner.getByRole('button', { name: 'Register myself', exact: true }).click();"
-          old2 = "  await owner.goto(`${baseUrl}/#/events/${id}/edit`, { waitUntil: 'domcontentloaded' });\n  await owner.getByRole('button', { name: /Time & venue/i }).click();"
-          new2 = "  await owner.goto(`${baseUrl}/#/events/${id}/edit`, { waitUntil: 'domcontentloaded' });\n  const loadedName = labelInput(owner, 'Event name');\n  await loadedName.waitFor({ state: 'visible', timeout: 30000 });\n  await owner.waitForFunction(() => { const i = [...document.querySelectorAll('label')].find(x => x.textContent?.includes('Event name'))?.querySelector('input'); return !!i?.value; }, null, { timeout: 30000 });\n  await owner.getByRole('button', { name: /Time & venue/i }).click();"
-          for old, new in ((old1, new1), (old2, new2)):
-              if old not in s:
-                  raise SystemExit('AUD-015 harness patch target not found')
-              s = s.replace(old, new, 1)
-          p.write_text(s)
-          PY
-
-      - name: Run AUD-015 second-real-partner browser proof
+      - name: Run committed AUD-20260829-015 second-real-partner browser proof
         env:
           BASE_URL: ${{ steps.deployment.outputs.url }}
           EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
           VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: node qa/aud015-doubles-partner-blackbox.mjs
 
-      - name: Publish AUD-015 QA summary
+      - name: Publish AUD-20260829-015 QA summary
         if: always()
         env:
           BASE_URL: ${{ steps.deployment.outputs.url }}
           EXPECTED_SHA: ${{ steps.candidate.outputs.sha }}
         run: |
-          echo "## AUD-015 Doubles Partner Blackbox" >> "$GITHUB_STEP_SUMMARY"
+          echo "## AUD-20260829-015 Doubles Partner Blackbox" >> "$GITHUB_STEP_SUMMARY"
+          echo "- semantic key: \`legacy-015-doubles-withdrawal\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- expected SHA: \`${EXPECTED_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- exact deployment URL: ${BASE_URL}" >> "$GITHUB_STEP_SUMMARY"
           if [ -f qa-artifacts-aud015/aud015-result.json ]; then
@@ -148,11 +131,11 @@ jobs:
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Upload AUD-015 browser evidence
+      - name: Upload AUD-20260829-015 browser evidence
         if: always() && steps.candidate.outputs.sha != ''
         uses: actions/upload-artifact@v4
         with:
-          name: aud015-browser-evidence-${{ steps.candidate.outputs.sha }}
+          name: aud-20260829-015-browser-evidence-${{ steps.candidate.outputs.sha }}
           path: qa-artifacts-aud015/
           if-no-files-found: warn
           retention-days: 14

@@ -33,6 +33,14 @@
 ### 普通 viewer / 非参赛者
 - 公开赛事也不会因此公开赛事照片。
 - 不得读取赛事照片或加入个人相册。
+- 赛事详情前端**不得展示可点击的“合影” Tab/入口**，避免用户进入一个后端必然拒绝的功能后看到伪装成系统失败的错误。
+
+### 赛事详情入口与后端权限必须双层一致
+- `owner`：显示“合影” Tab，可管理赛事源照片；
+- `participant`：显示“合影” Tab，可查看并主动加入个人相册；
+- `invited` 但尚未形成有效 Entry：不显示“合影” Tab；
+- `viewer`：不显示“合影” Tab；
+- 即使前端隐藏入口，`list_event_photos`、高清签发、导入、删除等服务端能力仍必须独立重新校验身份，前端隐藏不能代替授权。
 
 ## 3. 赛事源照片删除模型
 
@@ -129,7 +137,7 @@ ParticipantAlbumItem 可以记录 nullable `source_event_photo_id` 用于来源�
 - personal album visibility 为 Profile 级偏好，默认 private。
 - 赛事源和个人副本均保持 private Storage。
 
-## 9. UI 术语
+## 9. UI 术语与视觉交互
 
 赛事页组织者：
 - `上传照片`
@@ -149,11 +157,24 @@ ParticipantAlbumItem 可以记录 nullable `source_event_photo_id` 用于来源�
 
 不要把“删除赛事源照片”和“移出我的个人相册”混成同一种操作。
 
+### 9.1 水印预览
+- “受保护水印预览”必须让用户在**照片主体区域本身**可感知水印，不能只在图片下方附一条赛事信息而让用户看不出水印存在。
+- 预览图采用低干扰、重复或斜向的 `球搭子 · 赛事相册 / QIUDazi · Event album` 半透明覆盖，同时可保留底部赛事名称、赛果、日期等 provenance footer。
+- 水印不得遮挡主要人物到无法辨认，也不得影响 organizer / actual participant 通过受保护短时授权查看高清原图。
+- 已经上传的旧预览不会自动重绘；新上传和后续重新生成的 preview 必须遵循本规则。
+
+### 9.2 可点击性表达
+- **只有真实可执行控件才允许具有明显 Button / Dropzone / Pressable 视觉。** 纯说明卡、空状态插图、赛事照片本体不得用虚线框、强 hover/pressed、按钮底色等方式暗示“点这里会发生操作”。
+- organizer 上传入口应只有一个明确的 `上传照片` 操作；若未来把整个 dropzone 做成上传入口，则必须整块真实可点击，不能出现“看起来能点、实际不能点”的假交互。
+- 高清查看、删除照片、加入个人相册必须保持独立明确按钮；照片本体默认只负责展示，不暗示点击。
+- 空相册插图仅作状态说明，使用弱化无边框视觉，不与真正上传按钮争抢交互注意力。
+
 ## 10. P0 验收
 
 - 一场赛事可存在多张赛事照片。
 - 只有 organizer 能上传和删除赛事源照片。
 - participant 能看自己赛事当前照片，但不能管理赛事源照片。
+- viewer / invited 非 actual participant 的赛事详情不展示“合影” Tab，且直接调用照片读取接口仍被服务端拒绝。
 - 系统不自动把赛事照片加入 participant 个人相册。
 - participant 可逐张主动加入个人相册；非 actual participant 不可导入。
 - 导入成功后形成独立个人受保护资产，而非仅保存源引用。
@@ -166,4 +187,6 @@ ParticipantAlbumItem 可以记录 nullable `source_event_photo_id` 用于来源�
 - partner list 不下发 Storage path，partner 不获得高清。
 - public/private event 不扩大赛事源照片读取权限。
 - 个人相册本人高清不作为当前 P0；如已实现不得扩大权限或暴露长期 URL/path。
+- 水印必须在图片主体可见，同时不过度遮挡主体；底部 provenance footer 只能作为补充，不能代替水印。
+- 空相册插图、说明卡等非交互元素不得表现为假按钮/假上传区；真实可点击区域必须与视觉 affordance 一致。
 - zh/en 与 375/390/430px 下赛事相册、加入操作、个人相册和隐私设置可用。

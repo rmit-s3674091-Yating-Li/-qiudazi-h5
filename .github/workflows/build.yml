@@ -91,6 +91,8 @@ jobs:
           fi
 
           echo "Migration preflight passed: ${#files[@]} unique versioned files."
+      - name: Verify repository migrations against canonical live manifest
+        run: node scripts/check-migration-parity.mjs
       - uses: supabase/setup-cli@v1
         with:
           version: latest
