@@ -29,7 +29,15 @@ const schema = z.object({
     tb: z.number().int().min(0).max(100000).nullable().optional(),
   }).strict()).max(5).optional(),
   confirmed: z.boolean().optional(),
-}).strict();
+}).strict().superRefine((cmd, ctx) => {
+  if (cmd.type === "point" && !cmd.operation_id) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["operation_id"],
+      message: "point 命令必须提供 operation_id",
+    });
+  }
+});
 type Command = z.infer<typeof schema>;
 
 async function findPointOperation(client: ReturnType<typeof createClient>, cmd: Command) {
