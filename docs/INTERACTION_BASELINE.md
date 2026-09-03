@@ -48,7 +48,7 @@
 
 `cancelled` 赛事不进入公共 Hall；但在创建人和实际参赛者的“我的赛事”中保留，以状态 badge 明确显示“已取消”。
 
-大厅级别筛选使用单项级别选择；赛事建议范围包含所选级别即可命中，不把筛选变成报名资格。截止提示只使用已加载 deadline + 本地时钟；真正可报名性由服务端决定。
+大厅筛选固定支持 **match type + city + level + date** 联合筛选。city 只在用户明确输入/选择非空城市时生效；城市比较使用与 Hall Domain helper 一致的规范化语义（Unicode NFKC、trim、大小写折叠）。city filter 为空时不得因为赛事自身 city 为空而隐藏该赛事；显式筛选城市后，空城市赛事和其他城市赛事不命中。清空筛选恢复未按城市过滤的可发现集合。大厅级别筛选仍使用单项级别选择；赛事建议范围包含所选级别即可命中，不把筛选变成报名资格。截止提示只使用已加载 deadline + 本地时钟；真正可报名性由服务端决定。
 
 ## 5. 报名与邀请
 接受普通赛事邀请后仍需完成报名；接受双打组队邀请也不等于最终 Entry 已建立。截止后所有改变名单的入口和服务端写入都必须同步关闭。
@@ -95,6 +95,8 @@
 赛事详情底部 CTA 必须保持可读，按钮文字不得因 flex 挤压变成竖排。报名状态应在 CTA 上方作为独立 status row，不占用按钮槽位。
 
 快速开赛中央圆按钮应突出但不遮挡左右导航文字/图标；Quick player row 的真实头像与 fallback avatar 都必须保持圆形固定尺寸。
+
+Hall 筛选 Sheet 及其他移动端表单中的 `input[type=date]`、`input[type=datetime-local]`、`select` 必须允许在 flex/grid/label 容器内收缩：控件及直接容器不得超过可用宽度，至少具备 `max-width:100%`、`min-width:0` 与 `box-sizing:border-box` 等等价约束；Sheet 内容自身不得产生页面级横向滚动。iPhone Safari / 微信 WebView 是本规则的真实设备验收目标，CSS 自检只记 Implemented/SELF-CHECKED，不替代后续 Browser 验证。
 
 ## 7. Loading / Cache / Refresh
 有缓存时不要清空成全屏 Loading。稳定页面不固定 10/15 秒轮询；mutation 成功后精准 invalidate；实时比分才允许高频更新。
