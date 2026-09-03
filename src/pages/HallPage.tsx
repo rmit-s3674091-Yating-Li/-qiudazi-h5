@@ -6,15 +6,13 @@ import { useQuery } from "../hooks/useQuery";
 import { Header, Sheet, ErrorNotice, Loading, Empty, EventCard, isRegistrationOpenClient, levelLabel } from "../components/UI";
 import { EventInviteInboxLink } from "../components/EventInviteUI";
 import { useLanguage } from "../i18n";
-
-const normalizeCity=(value:string|null|undefined)=>value?.normalize("NFKC").trim().toLocaleLowerCase()??"";
+import { matchesHallFilters } from "../domain/HallFilters";
 
 export function Hall({mine=false}:{mine?:boolean}){
   const{t,language}=useLanguage();const en=language==="en";
   const[scope,setScope]=useState("created");const[type,setType]=useState(""),[city,setCity]=useState(""),[level,setLevel]=useState(""),[date,setDate]=useState(""),[status,setStatus]=useState(""),[filter,setFilter]=useState(false);
   const q=useQuery("events"+JSON.stringify({mine,scope,type,level,date,status}),()=>repository.events({mine,scope,match_type:type,level,event_date:date,status}));
-  const normalizedCity=normalizeCity(city);
-  const visibleEvents=q.data?.filter(event=>!normalizedCity||normalizeCity(event.city)===normalizedCity);
+  const visibleEvents=q.data?.filter(event=>matchesHallFilters(event,{city}));
   const statusFilters=[["",t("all")],["signup",t("signup")],["locked",t("locked")],["ongoing",t("ongoing")],["finished",t("finished")]];
   const typeFilters=[["",t("all")],["singles",t("singles")],["doubles",t("doubles")]];
   const levelFilters=[["",t("all")],["≤2.0",levelLabel("≤2.0",language)],["2.5","2.5"],["3.0","3.0"],["3.5","3.5"],["4.0","4.0"],["≥4.5",levelLabel("≥4.5",language)]];
