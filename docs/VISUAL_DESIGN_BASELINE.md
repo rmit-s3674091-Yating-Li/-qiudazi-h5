@@ -52,6 +52,13 @@ Bottom Sheet 是辅助操作容器，不是第二个完整页面。
 ### 10.1 赛事大厅
 赛事大厅只负责发现赛事。公开赛事卡优先回答：什么比赛、谁组织、什么水平、哪个城市、什么时候、什么赛制、多少人、当前状态。
 
+Hall 筛选 Sheet 的 V7 视觉/移动端 AC：
+- 筛选维度为 match type + city + level + date，city 与其他维度保持同一筛选层级，不额外制造第二套城市入口；
+- city 未填写/未选择时不得用空城市占位制造“未知城市即不可发现”的视觉暗示；空城市赛事在未筛 city 时仍可正常出现在结果列表；
+- `input[type=date]`、`input[type=datetime-local]`、`select` 以及 city 输入在 Sheet / Bottom Sheet / Modal 内必须可随容器收缩，等价实现至少保证 `max-width:100%`、`min-width:0`、`box-sizing:border-box`，不得撑破 375 / 390 / 430px 视口；
+- Sheet/Bottom Sheet/Modal 本身不得产生非业务需要的横向滚动；原生控件的字体、appearance 与 flex/grid 收缩不得造成 iPhone Safari / 微信 WebView 横向溢出；
+- 上述 CSS/Unit 自检只能记为 Implemented / SELF-CHECKED；真实 iPhone Safari / 微信 WebView 必须留到后续 Browser/真机验证，验证前不得标 Verified。
+
 **公开赛事与私有赛事必须在整张卡片的视觉语言上可一眼区分，不能只改两个文字。**
 
 公开赛事保持更开放、信息充分的常规赛事卡。私有赛事发现卡使用克制的“受限感”：
