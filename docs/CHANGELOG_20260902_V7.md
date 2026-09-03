@@ -24,11 +24,23 @@
 - 弱网、请求超时但服务端已成功、连续快速点击、多端读取、刷新 replay、Undo 等真实交互留给后续独立 Browser/真机验证。
 - 当前开发阶段不运行 Release Gate；本文件不得把 self-check 或 CI 直接记为 Verified。
 
-## Quick lifecycle / Identity / Hall / Photo / Quick UX / Brand-share
+## Hall / mobile
+
+状态：**In Progress**
+
+### Implemented
+- Hall 筛选 Sheet 已增加 city 输入，并与现有 match type、level、date 结果组合生效。
+- city 比较在客户端按 Unicode NFKC + trim + case normalization 处理；仅在用户明确输入 city 时启用，因此 city 为空的赛事在未筛城市时仍正常可见。
+
+### In Progress
+- iPhone Safari / 微信 WebView 的 date / datetime-local / select 与 bottom sheet 横向溢出仍需完成实现级审计和低层回归。
+- Hall city filter 的真实移动端交互与组合筛选留待后续独立 Browser/真机验证；当前不得标记 Verified。
+
+## Quick lifecycle / Identity / Photo / Quick UX / Brand-share
 
 状态：**Planned / In Progress（以各专项 canonical 与当前实现为准）**
 
-这些工作属于并行 Product Interaction 工作区。本文件不复制其动态实现细节，避免与专项文档形成第二真源。完成状态应由对应实现者在读取最新 exact head 后增量更新。
+这些工作继续以对应专项 canonical 与 current exact-head 为事实依据；本文件只记录版本级摘要，避免复制动态实现细节形成第二真源。
 
 ## CI 解释约束
 
