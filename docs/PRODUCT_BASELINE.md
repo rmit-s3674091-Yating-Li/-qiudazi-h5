@@ -33,10 +33,14 @@
 
 稳定原则：**大厅可发现 ≠ 获得完整详情权限 ≠ 获得报名资格。**
 
-## 5. 参赛建议级别
+## 5. 参赛建议级别与 Hall 筛选
 用户侧统一为区间型“参赛建议级别”：2.0及以下 / 2.5 / 3.0 / 3.5 / 4.0 / 4.5及以上。支持不限、单档、区间、仅最低、仅最高；最低不得高于最高。它只用于发现和匹配，不是硬报名资格。
 
 大厅筛选时用户选择的是**一个单项级别**；只要赛事建议区间包含该级别就匹配。例如筛选 2.5 时，2.0–3.0、2.5–4.0、≤2.5 均可匹配，3.0–4.0 不匹配；不限赛事也匹配。筛选能力不得反向变成报名资格限制。
+
+V7 Hall 筛选维度统一为 **match type + city + level + date**，四个维度可组合生效。city 只有在用户明确填写/选择非空城市时才参与过滤；未筛 city 时，赛事自身 city 为空不得成为不可发现理由。城市比较统一执行 Unicode NFKC、trim 与大小写归一化，避免全半角、首尾空格或大小写差异造成同城赛事误漏。
+
+Hall 的筛选 Sheet / Bottom Sheet / Modal 以及其中 `input[type=date]`、`input[type=datetime-local]`、`select`、city 输入必须适配移动端窄屏：控件和容器允许 flex/grid 收缩，等价满足 `max-width:100%`、`min-width:0`、`box-sizing:border-box` 等 containment 要求，不得在 iPhone Safari / 微信 WebView 形成横向溢出。CSS/Unit 自检只能证明实现存在；真实 iPhone Safari / 微信 WebView 行为留给后续 Browser/真机独立验证。
 
 ## 6. 比赛时间、报名截止与名单锁定
 比赛日期和开赛时间为 P0 必填。最晚报名时间默认开赛前 2 小时；组织者只能设得更早。修改开赛时间导致截止非法时必须自动收紧并提示。
@@ -52,8 +56,8 @@
 - 不经过标准赛事的公开/私有招募、报名截止、候补、赛事邀请、双打组队邀请等流程；
 - 选择单打/双打后，可从“本人 self Player + accepted Connection 的真实球搭子 self Player + 本人创建的未认领临时 Player”中选择参赛者，并允许现场新增临时 Player；
 - 单打至少 2 人；双打至少 4 人且为偶数；双打选择参赛者后必须进入明确“确认双打队友”步骤，让用户看到并调整每队两人组合，不能把勾选顺序作为不可见最终组队规则；
-- 设置城市、可选场地、赛制和计分后，用户执行“一键开赛”；服务端创建 Event + Entry + EntryPlayer，`event_mode='quick'`，名单直接进入 locked；
-- 创建成功后系统自动生成首次对阵并进入赛事管理，正常路径不要求用户额外点击“生成对阵”；
+- 城市 optional、场地 optional；不得默认写入北京或任何推断城市。满足参赛者最低人数并配置赛制/计分规则后即可执行“一键开赛”；服务端创建 Event + Entry + EntryPlayer，`event_mode='quick'`，名单直接进入 locked；
+- 创建成功后系统自动生成首次对阵并进入最贴近下一步操作的 Draw/Match 路径，正常路径不要求用户额外点击“生成对阵”；
 - `locked` 是 Quick Event 名单已固定的正确创建状态，不代表 draw 已完成；draw 完成前可以保持 locked + draw_generated=false；
 - 如果 Event/Entry 已创建但首次自动 draw 因网络、Edge 或事务临时失败，系统保留已创建赛事并进入“开赛未完成 / 恢复开赛”状态；恢复只能重试该赛事的 draw，**不得再次调用 create_quick_event 产生重复赛事**；刷新页面后也应能恢复该 pending event；
 - 新建正常 Quick Event 默认 public 并进入赛事大厅，但 Hall 不提供报名/候补入口；
