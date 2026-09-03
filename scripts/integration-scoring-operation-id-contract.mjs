@@ -21,5 +21,14 @@ requireText(edge, "const recovered = await findPointOperation(client, cmd)", "ve
 requireText(matchPage, "type PendingPoint={side:Side;operationId:string}", "optimistic queue retains a stable operation UUID per point");
 requireText(matchPage, "operation_id:pending.operationId", "point persistence sends the queued operation UUID");
 requireText(matchPage, "operationId:crypto.randomUUID()", "operation UUID is allocated once when the user point is enqueued");
+requireText(matchPage, "const reconciled=await q.refresh()", "lost response reconciles against authoritative snapshot before retry");
+requireText(matchPage, "log.id===pending.operationId", "reconcile recognizes an already committed Point Log by the same operation UUID");
+requireText(matchPage, "next=await command(current.event.id,{type:\"point\"", "unconfirmed lost response retries the original pending operation");
+requireText(matchPage, "setOptimisticPoints([...pointQueue.current]);setError", "failed recovery retains pending operation instead of clearing its UUID");
+if (matchPage.includes("pointQueue.current=[];setOptimisticPoints([])")) {
+  console.error("FAIL: scoring error path must not discard pending operation UUIDs");
+  process.exit(1);
+}
+console.log("PASS: scoring error path preserves pending operation UUIDs");
 
 console.log("Scoring operation-id end-to-end contract passed.");
