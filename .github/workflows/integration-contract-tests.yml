@@ -20,7 +20,11 @@ jobs:
           node-version: '22.12.0'
           cache: npm
       - run: npm ci
-      - name: Verify repository migrations against canonical live manifest
+      - name: Verify live migrations are preserved before feature replay
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-migration-parity.mjs --allow-repo-only
+      - name: Verify exact repository/live migration parity on main
+        if: github.event_name == 'push'
         run: node scripts/check-migration-parity.mjs
       - uses: supabase/setup-cli@v1
         with:
