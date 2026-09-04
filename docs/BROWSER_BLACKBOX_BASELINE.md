@@ -24,7 +24,7 @@
 
 每轮 Browser Blackbox 必须同时锁定：
 
-- 当前受测 PR 的实时 exact head SHA（PR 编号与开发分支必须在每轮运行时重新读取，不在本基线硬编码；当前 remediation 使用 PR #22）；
+- 当前受测 PR 的实时 exact head SHA（PR 编号与开发分支必须在每轮运行时重新读取，本基线不硬编码任何 current remediation PR）；
 - `release-candidate` branch SHA；
 - Vercel deployment `githubCommitRef=release-candidate`；
 - Vercel deployment `githubCommitSha=PR exact head`；
