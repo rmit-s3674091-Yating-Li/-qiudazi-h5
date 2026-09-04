@@ -260,3 +260,83 @@
 - viewer / invited-but-not-participant 不显示“合影” Tab。
 - 直接调用 `list_event_photos` / 高清 / import 仍由服务端拒绝。
 - 不用通用“稍后重试”掩盖权限语义。
+
+## US-G04 Partner 查看开放的个人相册
+**作为** accepted Partner，**我希望**在对方允许时查看其个人参与赛事相册，**但不获得**赛事源照片或高清权限。
+
+### AC
+- 默认仅自己可见；用户主动改为 partners 后 accepted Connection 才可看。
+- Partner 只得到受保护短时水印预览；列表不暴露 Storage path。
+- Partner 无高清、删除、赛事管理权限。
+
+---
+
+# Epic H｜邀请、球搭子与身份关联
+
+## US-H01 建立球搭子关系
+**作为**用户，**我希望**通过邀请建立 accepted Connection，**以便**快速组队和查看允许公开的信息。
+
+### AC
+- 邀请待接受不等于 Connection accepted。
+- 接受后双方关系一致；重复接受/重复邀请有明确幂等或冲突处理。
+- alias 测试身份与正式 canonical profile 映射一致，不依赖昵称做关联键。
+
+## US-H02 临时 Player 后续认领历史
+**作为**后来加入产品的真实用户，**我希望**认领此前由朋友创建的临时 Player，**以便**继承真实比赛历史。
+
+### AC
+- claim invite 不得与 Connection invite / Event invite 混淆。
+- 认领后关联 Player.linked_user_id，不合并/删除比赛历史。
+- 非目标用户不能凭 invite id 越权认领。
+
+---
+
+# Epic I｜国际化、移动端与韧性
+
+## US-I01 使用中文或英文完成同一流程
+**作为**中英文用户，**我希望**核心赛事流程在两种语言下语义一致，**以便**不会因为翻译改变规则含义。
+
+### AC
+- 关键状态、错误、计分术语、隐私和危险操作中英文意义一致。
+- 不能英文缺功能或出现未翻译工程字段。
+
+## US-I02 在手机宽度完成核心流程
+**作为**移动端用户，**我希望**在常见手机宽度下完成赛事操作，**以便**不被按钮挤压、遮挡或假可点击元素误导。
+
+### AC
+- 375 / 390 / 430px 下关键 CTA 不溢出、不重叠、不被底部导航遮挡。
+- 状态元素与按钮视觉可区分；不可执行状态不得伪装 Button。
+- 可点击 Card 必须真正可点击；纯内容 Card 不使用强 hover/pressed/dropzone 暗示。
+
+## US-I03 弱网/刷新后恢复关键业务状态
+**作为**移动端用户，**我希望**网络抖动或刷新后不丢失赛事事实，**以便**现场记分和开赛可靠。
+
+### AC
+- 成功写入服务端的操作刷新后仍存在。
+- 失败操作不得在 UI 假装成功。
+- create quick event 成功但 draw 失败可恢复同一赛事。
+- point 写入超时场景不得通过盲重试制造重复 point。
+- version conflict 必须刷新到最新事实后继续，不允许旧状态静默覆盖。
+
+---
+
+## 3. Blackbox 场景生成规则
+
+每个 release candidate 的全功能测试，不再维护一个与产品脱节的固定按钮清单。应从上述 User Story 自动派生场景矩阵：
+
+`User Story × Role × State × Locale × Viewport × Network/Concurrency condition`
+
+最低要求：
+- P0 核心故事全部 Happy + Negative + Recovery；
+- 权限/隐私故事至少覆盖 owner / participant / invited / viewer；
+- 计分故事至少覆盖 advantage、no_ad、抢七、undo、最终比分更正、连续快速写入、刷新恢复；
+- 生命周期至少覆盖 signup / locked / ongoing / finished / cancelled；
+- 相册至少覆盖 owner upload/delete、participant import/persist、viewer denial、partner visibility；
+- 每个 FAIL 必须回溯到具体 US/AC，而不是仅记录“某按钮失败”。
+
+## 4. AC 与正式 AUD 的关系
+
+- AC 是期望行为，不是运行时状态。
+- 黑盒发现 exact-head 行为不满足 AC 时，先判断是 PRODUCT_BLACKBOX_FAILURE、QA/HARNESS_FAILURE 或 BROWSER_INFRA_FAILURE。
+- 只有真实产品缺陷才语义去重并通过 `audit_ops.create_issue(...)` 正式建 AUD。
+- 修复后必须由独立白盒/黑盒/Gate 重新验证对应 AC；实施者自测不能替代独立验证。
