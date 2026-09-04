@@ -48,19 +48,21 @@
 - `EVENT_LIFECYCLE_BASELINE.md` 已同步 V7 approved lifecycle：participant pre-start withdraw、退出后低于最低人数的受控终止，以及 started 后 ordinary withdrawal 关闭并进入 Retirement / Walkover 结果模型。
 - started-exit authoritative DB persistence/RPC 已实现：`resolve_quick_match_exit(...)` 仅在 Quick ongoing Event 上受控处理离场，Match 未开始映射 Walkover、已开始映射 Retirement，并保留 authoritative winner / completion reason；Retirement 不清空既有 Point Log / Set Score，Walkover 不伪造比分。
 - started-exit 的 Event completion 已在同一 authoritative transaction 收口：当最后一个 real / non-bye Match 完成时原子写入 Event `status=finished` 与 authoritative `finished_at`；多 Match Event 只要仍有未完成 real Match 就保持 ongoing，避免提前 finished。该行为已有 deterministic low-level regression guard，当前仅记 Implemented / SELF-CHECKED。
+- started-exit Edge command 已实现：`tournament-command` 接受受控 `exit`，要求 `match_id + match_version` 与显式确认，并直接路由 authoritative `resolve_quick_match_exit(...)`；MATCH/participant/lifecycle/downstream 错误映射已建立。对应 Edge schema、确认、RPC 路由与错误映射已加入 deterministic Unit contract，当前仅记 Implemented / SELF-CHECKED。
+- started-exit 可执行 DB transaction regression 已接入标准 Integration 链，覆盖 single-match Event finish propagation、multi-match non-propagation、identity/stale/downstream guards；当前仅代表 regression 已实现，真实执行仍受 runner 前置阻塞。
 
 ### In Progress
 - participant pre-start withdraw 在独立核验发现 identity/DB 授权断链后已重新打开整改：Quick Entry 不能依赖 `signup_user_id` 识别实际参赛者，普通 `commit_tournament` 也继续保持 owner-only，禁止为退出功能整体放宽。
 - current implementation 新增受控 `withdraw_quick_event` 服务端事务边界：按 Entry → active EntryPlayer → Player.linked_user_id 识别 authenticated participant；仅 Quick、仅 pre-start、non-owner、optimistic version 一致时允许；保留 withdrawn Entry 历史，失效 pre-start draw 原子清理，剩余 confirmed Entry 少于 2 时同事务进入 cancelled 并写 cancelled_at。Edge withdraw command 单独路由该 RPC，普通 tournament mutation 仍走 owner-only `commit_tournament`。
 - 上述 participant withdraw 修复当前仅记 **In Progress / SELF-CHECKED**；已补可执行 DB transaction regression，但 isolated local Supabase 尚未实际执行 participant success、non-participant reject、owner reject、started reject、stale-version reject、minimum-participant cancellation，因此不能重新标 Implemented。
 - participant withdraw 尚需接入真实 Event UI。
-- started 后 Retirement / Walkover 的 authoritative DB persistence/RPC 与 final-match Event completion 已实现，但 Edge/UI、跨 Event/Draw/Result/Ranking 一致性以及可执行 DB transaction Integration 仍为 In Progress；不得因 DB boundary 已落地而写成 Verified。
+- started 后 Retirement / Walkover 仍缺 Event/Match UI 与跨 Event/Draw/Match/Result/Ranking/My Events 一致性；真实 Edge→RPC→DB / DB transaction Integration 仍需 runner 实际执行，因此不得写成 Verified。
 - USER_STORY / PRODUCT / INTERACTION lifecycle AC 继续按实际实现同步；不得因 canonical 已更新而把未实现行为写成完成。
 
 ### Verification pending
 - owner cancel 的 current-head Domain Unit 历史上已有通过证据；新的 exact head 必须重新读取 same-SHA CI，不复用旧 SHA 结果。authoritative DB/RPC Integration 仍受 isolated local Supabase 启动失败阻塞，因此 owner cancel 继续等待真实事务证据。
 - participant withdraw / minimum-participant termination 的真实 DB/RPC transaction 仍需 Integration runner 执行；source/regex contract 不得替代身份与授权行为证据。
-- Retirement / Walkover 真实 DB/RPC Integration 必须覆盖 identity guard、stale version、downstream guard、single-match Event finish propagation 与 multi-match non-propagation；当前 isolated local Supabase 在测试执行前启动失败，只能记 QA/INFRA_BLOCKED。
+- Retirement / Walkover 真实 Edge→RPC→DB / DB transaction Integration 必须覆盖 identity guard、stale version、downstream guard、single-match Event finish propagation 与 multi-match non-propagation；当前 isolated local Supabase 在测试执行前启动失败，只能记 QA/INFRA_BLOCKED。
 - Quick cancel / withdraw / minimum-participant termination / Retirement-Walkover 的真实 Browser 场景留给后续独立验证。
 
 ## Identity / Photo / Quick UX / Brand-share
