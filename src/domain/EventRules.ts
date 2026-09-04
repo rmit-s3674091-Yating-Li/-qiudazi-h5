@@ -10,6 +10,10 @@ export function validateEvent(config: EventConfig): EventConfig {
   ensure(["round_robin", "knockout", "group_knockout"].includes(e.format),"FORMAT","请选择赛制");
   ensure([1, 3, 5].includes(e.best_of), "BEST_OF", "盘数必须为1、3或5");
   ensure(["games_4","games_6","tiebreak_7","points_11","points_15","custom_games"].includes(e.scoring_type),"SCORING","请选择计分方式");
+  ensure(["advantage","no_ad"].includes(e.game_scoring),"GAME_SCORING","请选择占先制或平分金球制");
+  ensure(Number.isInteger(e.tiebreak_target) && e.tiebreak_target! >= 1 && e.tiebreak_target! <= 100,"TIEBREAK_TARGET","抢七目标分须为1–100的整数");
+  ensure(typeof e.tiebreak_win_by_two === "boolean","TIEBREAK_WIN_BY_TWO","请选择抢七是否要求净胜两分");
+  ensure(typeof e.games_win_by_two === "boolean","GAMES_WIN_BY_TWO","请选择每盘是否要求净胜两局");
   ensure(!!e.city && e.city.length <= 30, "CITY_REQUIRED", "请填写城市（30字以内）");
   ensure(!!e.event_date && !!e.event_time,"EVENT_TIME_REQUIRED","请填写比赛日期和开赛时间");
   const latest=defaultRegistrationDeadline(e.event_date,e.event_time);ensure(!!latest,"EVENT_TIME_REQUIRED","比赛日期或开赛时间不正确");
