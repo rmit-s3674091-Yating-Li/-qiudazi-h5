@@ -26,17 +26,16 @@
 
 ## Hall / mobile
 
-状态：**In Progress**
+状态：**Implemented / pending independent Browser verification**
 
 ### Implemented
 - Hall 筛选 Sheet 已增加 city 输入，并与现有 match type、level、date 结果组合生效。
 - city 比较在客户端按 Unicode NFKC + trim + case normalization 处理；仅在用户明确输入 city 时启用，因此 city 为空的赛事在未筛城市时仍正常可见。
 - 移动端原生 `date` / `datetime-local` / `select` 已加入统一宽度 containment，并覆盖 Sheet / Bottom Sheet / Modal 横向 containment；样式由应用入口加载。
 - Hall filter 与 mobile overflow 均已加入 deterministic Domain/Unit regression；当前仅记录 Implemented / SELF-CHECKED，不代表真实 iPhone Safari / 微信 WebView 已 Verified。
-- Hall 的 PRODUCT / INTERACTION / VISUAL canonical AC 已按 V7 approved baseline 同步。
+- Hall 的 PRODUCT / INTERACTION / VISUAL / USER_STORY canonical AC 已按 V7 approved baseline 同步；USER_STORY 更新保留并恢复了既有 US-G04、Epic H、Epic I、Blackbox 场景生成规则与 AC→AUD 规则，未以 Hall 更新截断其他 canonical 内容。
 
-### In Progress
-- Hall city filter 与 mobile overflow 当前仅剩 `USER_STORY_ACCEPTANCE_BASELINE.md` 的 canonical/AC 联动待收口；不得把该缺口写成已完成。
+### Verification pending
 - Hall city filter 的真实移动端交互、组合筛选以及 iPhone Safari / 微信 WebView 原生控件/Sheet 行为留待后续独立 Browser/真机验证；当前不得标记 Verified。
 
 ## Quick lifecycle / Identity / Photo / Quick UX / Brand-share
