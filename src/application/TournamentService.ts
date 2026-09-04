@@ -36,6 +36,7 @@ export function applyCommand(original: Snapshot, actorId: string, command: Tourn
     ensure(!s.matches.some(played),"CANCEL_STARTED","已有真实比赛开始，不能按开赛前取消处理");
     ensure(command.confirmed,"CONFIRM_CANCEL","取消赛事后将进入只读终态，请确认");
     e.status="cancelled";
+    e.cancelled_at=c.now();
   } else if(command.type==="draw") {
     ensure(e.status==="locked","DRAW_STATE","请先锁定名单，再生成对阵");ensure(!s.matches.some(played),"DRAW_STARTED","已有比赛开始，不能重新生成");if(e.draw_generated)ensure(command.confirmed,"CONFIRM_CASCADE","重新生成会清空原签表，请确认");
     const entries=validateRoster(e,s.entries).sort((a,b)=>a.joined_at.localeCompare(b.joined_at)||a.id.localeCompare(b.id));s.matches=e.format==="round_robin"?roundRobin(e,entries,c):e.format==="knockout"?knockout(e,entries,c):[];
