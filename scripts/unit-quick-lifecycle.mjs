@@ -45,4 +45,12 @@ assert.match(service,/e\.draw_generated=false/,"Pre-start withdrawal must clear 
 assert.match(service,/e\.status="cancelled"/,"Cancel or minimum-participant termination must enter cancelled terminal state");
 assert.match(service,/e\.cancelled_at=c\.now\(\)/,"Cancellation must persist authoritative cancellation time");
 assert.match(service,/EVENT_CANCELLED/,"Cancelled events must reject later tournament mutations");
+
+// Regression guard for the DB-level started-exit FAILED_REOPEN: event completion must
+// happen in the same authoritative RPC transaction, and only after every real match
+// is finished. Executable DB behavior remains Integration evidence.
+const finishMigration=fs.readFileSync("supabase/migrations/20260904161500_finish_quick_event_after_match_exit.sql","utf8");
+assert.match(finishMigration,/coalesce\(x\.is_bye,false\)=false[\s\S]*x\.status <> 'finished'/,"Event completion must consider every unfinished real match");
+assert.match(finishMigration,/set status='finished', finished_at=coalesce\(finished_at,now\(\)\)/,"Final real match must atomically finish the Event with finished_at");
+assert.match(finishMigration,/if event_complete then[\s\S]*status='finished'[\s\S]*else[\s\S]*version=version\+1/,"Multi-match Quick must remain ongoing while real matches remain");
 console.log("Quick lifecycle unit contract PASS");
