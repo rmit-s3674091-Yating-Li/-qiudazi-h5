@@ -7,7 +7,7 @@ const source=fs.readFileSync("src/domain/QuickLifecycle.ts","utf8");
 const js=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const module={exports:{}};
 vm.runInNewContext(`(function(module,exports){${js}\n})(module,module.exports)`,{module});
-const {quickLifecycleAction,quickWithdrawalOutcome,canUseOrdinaryQuickWithdrawal}=module.exports;
+const {quickLifecycleAction,quickWithdrawalOutcome,canUseOrdinaryQuickWithdrawal,quickStartedExitResult}=module.exports;
 
 assert.equal(quickLifecycleAction({status:"signup",viewerRole:"owner",hasStartedMatch:false}),"cancel");
 assert.equal(quickLifecycleAction({status:"locked",viewerRole:"owner",hasStartedMatch:false}),"cancel");
@@ -21,6 +21,13 @@ assert.equal(quickWithdrawalOutcome({matchType:"singles",confirmedEntriesAfterWi
 assert.equal(quickWithdrawalOutcome({matchType:"singles",confirmedEntriesAfterWithdrawal:2}),"keep_event");
 assert.equal(quickWithdrawalOutcome({matchType:"doubles",confirmedEntriesAfterWithdrawal:1}),"cancel_event");
 
+// Started Quick lifecycle is result semantics, never roster deletion.
+assert.equal(quickStartedExitResult({eventStatus:"ongoing",matchStatus:"not_started"}),"walkover");
+assert.equal(quickStartedExitResult({eventStatus:"ongoing",matchStatus:"ongoing"}),"retirement");
+assert.equal(quickStartedExitResult({eventStatus:"ongoing",matchStatus:"finished"}),"none");
+assert.equal(quickStartedExitResult({eventStatus:"locked",matchStatus:"not_started"}),"none");
+assert.equal(quickStartedExitResult({eventStatus:"cancelled",matchStatus:"ongoing"}),"none");
+
 const service=fs.readFileSync("src/application/TournamentService.ts","utf8");
 const edge=fs.readFileSync("supabase/functions/tournament-command/index.ts","utf8");
 assert.match(edge,/"cancel"/,"Edge command schema must accept cancel");
@@ -30,7 +37,7 @@ assert.match(service,/command\.type===?"withdraw"|command\.type\s*===\s*"withdra
 assert.match(service,/e\.status===?"signup"\|\|e\.status===?"locked"|e\.status\s*===\s*"signup"\s*\|\|\s*e\.status\s*===\s*"locked"/,"Lifecycle commands must be pre-start only");
 assert.match(service,/CONFIRM_CANCEL/,"Cancel must require explicit confirmation");
 assert.match(service,/CONFIRM_WITHDRAW/,"Withdraw must require explicit confirmation");
-assert.match(service,/signup_user_id===actorId/,"Withdraw must target the authenticated participant entry");
+assert.match(service,/signup_user_id===actorId/,"Legacy in-memory withdraw path must still scope its entry to the actor");
 assert.match(service,/entry\.status="withdrawn"/,"Withdraw must preserve the entry as withdrawn history");
 assert.match(service,/remaining<2/,"Too few confirmed entries must terminate the Quick event");
 assert.match(service,/s\.matches=\[\];s\.set_scores=\[\];s\.point_logs=\[\]/,"Pre-start withdrawal must invalidate stale draw artifacts atomically");
