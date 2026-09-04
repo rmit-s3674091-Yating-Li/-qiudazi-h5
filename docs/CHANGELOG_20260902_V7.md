@@ -38,7 +38,25 @@
 ### Verification pending
 - Hall city filter 的真实移动端交互、组合筛选以及 iPhone Safari / 微信 WebView 原生控件/Sheet 行为留待后续独立 Browser/真机验证；当前不得标记 Verified。
 
-## Quick lifecycle / Identity / Photo / Quick UX / Brand-share
+## Quick lifecycle
+
+状态：**In Progress**
+
+### Implemented
+- 已建立 Quick lifecycle Domain policy 与 deterministic Unit contract，区分 pre-start owner cancel、participant withdraw 与 started 后结果语义。
+- owner pre-start cancel 已下沉 authoritative tournament command：仅 owner、仅未开始状态、显式确认，并在成功后写入 `status=cancelled` 与 authoritative `cancelled_at`；cancelled 后普通 tournament mutation 被拒绝。
+- `EVENT_LIFECYCLE_BASELINE.md` 已同步 V7 approved lifecycle：participant pre-start withdraw、退出后低于最低人数的受控终止，以及 started 后 ordinary withdrawal 关闭并进入 Retirement / Walkover 结果模型。
+
+### In Progress
+- participant pre-start withdraw 与退出后最低人数判断仍需落到 authoritative UI → RPC/service → DB 事务闭环。
+- started 后 Retirement / Walkover 仍需完成结果持久化、跨页面一致性与 UI 闭环。
+- USER_STORY / PRODUCT / INTERACTION lifecycle AC 继续按实际实现同步；不得因 canonical 已更新而把未实现行为写成完成。
+
+### Verification pending
+- owner cancel 的 same-SHA Unit 当前因 CI `npm ci` cancelled 而 inconclusive；DB/RPC Integration 仍受 isolated local Supabase 启动失败阻塞。
+- Quick cancel / withdraw / minimum-participant termination / Retirement-Walkover 的真实 Browser 场景留给后续独立验证。
+
+## Identity / Photo / Quick UX / Brand-share
 
 状态：**Planned / In Progress（以各专项 canonical 与当前实现为准）**
 
