@@ -70,6 +70,20 @@ Deno.serve(async (req) => {
     const existing = await findPointOperation(client, cmd);
     if (existing?.conflict) return json({ error: "operation_id 已用于另一条得分操作", code: "OPERATION_CONFLICT" }, 409);
     if (existing?.snapshot) return json(existing.snapshot);
+
+    // Participant withdrawal has a deliberately narrow transaction boundary. Ordinary
+    // tournament mutations remain owner-only in commit_tournament.
+    if (cmd.type === "withdraw") {
+      if (!cmd.confirmed) return json({ error: "退出比赛前需要确认", code: "CONFIRM_REQUIRED" }, 409);
+      const result = await client.rpc("withdraw_quick_event", {
+        p_event_id: cmd.event_id,
+        p_actor_auth_user_id: user.id,
+        p_expected_version: cmd.event_version,
+      });
+      if (result.error) throw result.error;
+      return json(result.data);
+    }
+
     const { data: snapshot, error } = await client.rpc("get_event_snapshot", { p_event_id: cmd.event_id });
     if (error) throw error;
     let firstId = true;
@@ -95,6 +109,10 @@ Deno.serve(async (req) => {
     const message = typeof error === "object" && error && "message" in error ? String((error as { message: unknown }).message) : "";
     if (message.includes("VERSION_CONFLICT")) return json({ error: "数据已更新，请刷新重试", code: "VERSION_CONFLICT" }, 409);
     if (message.includes("EVENT_NOT_FOUND")) return json({ error: "赛事不存在" }, 404);
+    if (message.includes("OWNER_MUST_CANCEL")) return json({ error: "创建人请使用取消比赛", code: "OWNER_MUST_CANCEL" }, 409);
+    if (message.includes("NOT_PARTICIPANT")) return json({ error: "当前账号不是该赛事的实际参赛者", code: "NOT_PARTICIPANT" }, 403);
+    if (message.includes("WITHDRAW_CLOSED")) return json({ error: "比赛已开始或当前状态不可退出", code: "WITHDRAW_CLOSED" }, 409);
+    if (message.includes("QUICK_ONLY")) return json({ error: "该退出入口仅适用于 Quick 比赛", code: "QUICK_ONLY" }, 409);
     console.error("Tournament command failed", error);
     return json({ error: "保存失败，未提交的事务已回滚，请刷新重试" }, 500);
   }
