@@ -50,12 +50,13 @@
 ### In Progress
 - participant pre-start withdraw 在独立核验发现 identity/DB 授权断链后已重新打开整改：Quick Entry 不能依赖 `signup_user_id` 识别实际参赛者，普通 `commit_tournament` 也继续保持 owner-only，禁止为退出功能整体放宽。
 - current implementation 新增受控 `withdraw_quick_event` 服务端事务边界：按 Entry → active EntryPlayer → Player.linked_user_id 识别 authenticated participant；仅 Quick、仅 pre-start、non-owner、optimistic version 一致时允许；保留 withdrawn Entry 历史，失效 pre-start draw 原子清理，剩余 confirmed Entry 少于 2 时同事务进入 cancelled 并写 cancelled_at。Edge withdraw command 单独路由该 RPC，普通 tournament mutation 仍走 owner-only `commit_tournament`。
-- 上述 participant withdraw 修复当前仅记 **In Progress / SELF-CHECKED**；必须补真实 DB/identity Integration 证明 participant success、non-participant reject、owner reject、started reject、stale-version reject、minimum-participant cancellation 后才可重新标 Implemented。
+- 上述 participant withdraw 修复当前仅记 **In Progress / SELF-CHECKED**；已补可执行 DB transaction regression，但 isolated local Supabase 尚未实际执行 participant success、non-participant reject、owner reject、started reject、stale-version reject、minimum-participant cancellation，因此不能重新标 Implemented。
+- started-exit Domain policy 已进一步收口：Event 进入 `ongoing` 后，尚未开始的对应 Match 离场映射为 Walkover，已经开始的 Match 离场映射为 Retirement；finished Match 与非 ongoing Event 不允许通过该路径重写。该切片已有 deterministic Unit regression，但结果持久化/RPC/UI 尚未实现，因此仍为 In Progress / SELF-CHECKED。
 - participant withdraw 尚需接入真实 Event UI；started 后 Retirement / Walkover 仍需完成结果持久化、跨页面一致性与 UI 闭环。
 - USER_STORY / PRODUCT / INTERACTION lifecycle AC 继续按实际实现同步；不得因 canonical 已更新而把未实现行为写成完成。
 
 ### Verification pending
-- owner cancel 的 current-head Domain Unit 已实际 PASS；authoritative DB/RPC Integration 仍受 isolated local Supabase 启动失败阻塞，因此 owner cancel 继续等待真实事务证据。
+- owner cancel 的 current-head Domain Unit 历史上已有通过证据；新的 exact head 必须重新读取 same-SHA CI，不复用旧 SHA 结果。authoritative DB/RPC Integration 仍受 isolated local Supabase 启动失败阻塞，因此 owner cancel 继续等待真实事务证据。
 - participant withdraw / minimum-participant termination 的真实 DB/RPC transaction 仍需 Integration runner 执行；source/regex contract 不得替代身份与授权行为证据。
 - Quick cancel / withdraw / minimum-participant termination / Retirement-Walkover 的真实 Browser 场景留给后续独立验证。
 
