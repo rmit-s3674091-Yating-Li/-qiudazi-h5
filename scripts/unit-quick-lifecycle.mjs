@@ -32,6 +32,13 @@ const service=fs.readFileSync("src/application/TournamentService.ts","utf8");
 const edge=fs.readFileSync("supabase/functions/tournament-command/index.ts","utf8");
 assert.match(edge,/"cancel"/,"Edge command schema must accept cancel");
 assert.match(edge,/"withdraw"/,"Edge command schema must accept participant withdraw");
+assert.match(edge,/"exit"/,"Edge command schema must accept started participant exit");
+assert.match(edge,/cmd\.type\s*===\s*"exit"[\s\S]*!cmd\.match_id\s*\|\|\s*!cmd\.match_version/,"Exit schema must require match_id and match_version");
+assert.match(edge,/cmd\.type\s*===\s*"exit"[\s\S]*!cmd\.confirmed[\s\S]*CONFIRM_REQUIRED/,"Started exit must require explicit confirmation");
+assert.match(edge,/cmd\.type\s*===\s*"exit"[\s\S]*client\.rpc\("resolve_quick_match_exit"[\s\S]*p_match_id:\s*cmd\.match_id[\s\S]*p_expected_match_version:\s*cmd\.match_version/,"Edge exit must route match identity/version to authoritative resolve_quick_match_exit RPC");
+for (const code of ["MATCH_NOT_FOUND","NOT_MATCH_PARTICIPANT","MATCH_EXIT_CLOSED","MATCH_ALREADY_FINISHED","MATCH_EXIT_INVALID","DOWNSTREAM_MATCH_STARTED"]) {
+  assert.match(edge,new RegExp(code),`Edge exit must map ${code}`);
+}
 assert.match(service,/command\.type===?"cancel"|command\.type\s*===\s*"cancel"/,"TournamentService must handle cancel");
 assert.match(service,/command\.type===?"withdraw"|command\.type\s*===\s*"withdraw"/,"TournamentService must handle withdraw");
 assert.match(service,/e\.status===?"signup"\|\|e\.status===?"locked"|e\.status\s*===\s*"signup"\s*\|\|\s*e\.status\s*===\s*"locked"/,"Lifecycle commands must be pre-start only");
