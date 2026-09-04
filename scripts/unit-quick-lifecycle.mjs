@@ -28,5 +28,6 @@ assert.match(service,/command\.type===?"cancel"|command\.type\s*===\s*"cancel"/,
 assert.match(service,/e\.status===?"signup"\|\|e\.status===?"locked"|e\.status\s*===\s*"signup"\s*\|\|\s*e\.status\s*===\s*"locked"/,"Cancel must be pre-start only");
 assert.match(service,/CONFIRM_CANCEL/,"Cancel must require explicit confirmation");
 assert.match(service,/e\.status="cancelled"/,"Cancel must enter cancelled terminal state");
+assert.match(service,/e\.cancelled_at=c\.now\(\)/,"Cancel must persist authoritative cancellation time");
 assert.match(service,/EVENT_CANCELLED/,"Cancelled events must reject later tournament mutations");
 console.log("Quick lifecycle unit contract PASS");
