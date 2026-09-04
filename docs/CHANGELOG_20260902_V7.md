@@ -45,17 +45,18 @@
 ### Implemented
 - 已建立 Quick lifecycle Domain policy 与 deterministic Unit contract，区分 pre-start owner cancel、participant withdraw 与 started 后结果语义。
 - owner pre-start cancel 已下沉 authoritative tournament command：仅 owner、仅未开始状态、显式确认，并在成功后写入 `status=cancelled` 与 authoritative `cancelled_at`；cancelled 后普通 tournament mutation 被拒绝。
-- participant pre-start withdraw 已进入 authoritative tournament command/service：仅 Quick、仅 signup/locked 且无真实 Match 开始、仅当前 confirmed participant、显式确认；保留 withdrawn entry 历史，并原子清除已失效的 pre-start draw/set/point artifacts。退出后 confirmed entry 少于 2 时同一事务把 Event 置为 `cancelled` 并写 authoritative `cancelled_at`。
 - `EVENT_LIFECYCLE_BASELINE.md` 已同步 V7 approved lifecycle：participant pre-start withdraw、退出后低于最低人数的受控终止，以及 started 后 ordinary withdrawal 关闭并进入 Retirement / Walkover 结果模型。
 
 ### In Progress
-- participant withdraw 尚需接入真实 Event UI；RPC/DB 事务行为仍需 isolated Supabase 恢复后执行 Integration 证明，当前不得标记 Verified。
-- started 后 Retirement / Walkover 仍需完成结果持久化、跨页面一致性与 UI 闭环。
+- participant pre-start withdraw 在独立核验发现 identity/DB 授权断链后已重新打开整改：Quick Entry 不能依赖 `signup_user_id` 识别实际参赛者，普通 `commit_tournament` 也继续保持 owner-only，禁止为退出功能整体放宽。
+- current implementation 新增受控 `withdraw_quick_event` 服务端事务边界：按 Entry → active EntryPlayer → Player.linked_user_id 识别 authenticated participant；仅 Quick、仅 pre-start、non-owner、optimistic version 一致时允许；保留 withdrawn Entry 历史，失效 pre-start draw 原子清理，剩余 confirmed Entry 少于 2 时同事务进入 cancelled 并写 cancelled_at。Edge withdraw command 单独路由该 RPC，普通 tournament mutation 仍走 owner-only `commit_tournament`。
+- 上述 participant withdraw 修复当前仅记 **In Progress / SELF-CHECKED**；必须补真实 DB/identity Integration 证明 participant success、non-participant reject、owner reject、started reject、stale-version reject、minimum-participant cancellation 后才可重新标 Implemented。
+- participant withdraw 尚需接入真实 Event UI；started 后 Retirement / Walkover 仍需完成结果持久化、跨页面一致性与 UI 闭环。
 - USER_STORY / PRODUCT / INTERACTION lifecycle AC 继续按实际实现同步；不得因 canonical 已更新而把未实现行为写成完成。
 
 ### Verification pending
 - owner cancel 的 current-head Domain Unit 已实际 PASS；authoritative DB/RPC Integration 仍受 isolated local Supabase 启动失败阻塞，因此 owner cancel 继续等待真实事务证据。
-- participant withdraw / minimum-participant termination 已补 deterministic low-level contract，但真实 DB/RPC transaction 仍需 Integration runner 执行。
+- participant withdraw / minimum-participant termination 的真实 DB/RPC transaction 仍需 Integration runner 执行；source/regex contract 不得替代身份与授权行为证据。
 - Quick cancel / withdraw / minimum-participant termination / Retirement-Walkover 的真实 Browser 场景留给后续独立验证。
 
 ## Identity / Photo / Quick UX / Brand-share
