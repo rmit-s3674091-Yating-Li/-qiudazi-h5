@@ -16,7 +16,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 
 const schema = z.object({
   event_id: z.uuid(),
-  type: z.enum(["draw", "unlock", "cancel", "start", "finish", "begin", "point", "undo", "score"]),
+  type: z.enum(["draw", "unlock", "cancel", "withdraw", "start", "finish", "begin", "point", "undo", "score"]),
   event_version: z.number().int().positive(),
   match_id: z.uuid().optional(),
   match_version: z.number().int().positive().optional(),
