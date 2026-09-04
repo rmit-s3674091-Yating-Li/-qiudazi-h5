@@ -3,7 +3,7 @@ import { ensure } from "./types.js";
 const LEVELS=["≤2.0","2.5","3.0","3.5","4.0","≥4.5"];
 export function defaultRegistrationDeadline(date:string|null,time:string|null){if(!date||!time)return null;const normalizedTime=/^\d{2}:\d{2}(?::\d{2})?$/.test(time)?time.slice(0,5):time;const d=new Date(`${date}T${normalizedTime}:00`);if(Number.isNaN(d.getTime()))return null;d.setHours(d.getHours()-2);const pad=(n:number)=>String(n).padStart(2,"0");return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;}
 export function validateEvent(config: EventConfig): EventConfig {
-  const e = { ...config, name: config.name.trim(), city: config.city?.trim() || null, venue: config.venue?.trim() || null };
+  const e = { ...config, name: config.name.trim(), city: config.city?.trim() || null, venue: config.venue?.trim() || null, tiebreak_target: config.tiebreak_target ?? 7, tiebreak_win_by_two: config.tiebreak_win_by_two ?? true, games_win_by_two: config.games_win_by_two ?? true };
   ensure(e.name.length > 0 && e.name.length <= 80,"NAME_REQUIRED","请填写赛事名称（80字以内）");
   ensure(["public", "private"].includes(e.visibility),"VISIBILITY","请选择公开赛事或私有赛事");
   ensure(["singles", "doubles"].includes(e.match_type),"MATCH_TYPE","请选择单打或双打");
@@ -11,7 +11,7 @@ export function validateEvent(config: EventConfig): EventConfig {
   ensure([1, 3, 5].includes(e.best_of), "BEST_OF", "盘数必须为1、3或5");
   ensure(["games_4","games_6","tiebreak_7","points_11","points_15","custom_games"].includes(e.scoring_type),"SCORING","请选择计分方式");
   ensure(["advantage","no_ad"].includes(e.game_scoring),"GAME_SCORING","请选择占先制或平分金球制");
-  ensure(Number.isInteger(e.tiebreak_target) && e.tiebreak_target! >= 1 && e.tiebreak_target! <= 100,"TIEBREAK_TARGET","抢七目标分须为1–100的整数");
+  ensure(Number.isInteger(e.tiebreak_target) && e.tiebreak_target >= 1 && e.tiebreak_target <= 100,"TIEBREAK_TARGET","抢七目标分须为1–100的整数");
   ensure(typeof e.tiebreak_win_by_two === "boolean","TIEBREAK_WIN_BY_TWO","请选择抢七是否要求净胜两分");
   ensure(typeof e.games_win_by_two === "boolean","GAMES_WIN_BY_TWO","请选择每盘是否要求净胜两局");
   ensure(!!e.city && e.city.length <= 30, "CITY_REQUIRED", "请填写城市（30字以内）");
