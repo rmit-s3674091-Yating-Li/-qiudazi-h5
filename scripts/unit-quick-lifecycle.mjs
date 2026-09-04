@@ -20,4 +20,13 @@ assert.equal(canUseOrdinaryQuickWithdrawal("locked",false),true);
 assert.equal(quickWithdrawalOutcome({matchType:"singles",confirmedEntriesAfterWithdrawal:1}),"cancel_event");
 assert.equal(quickWithdrawalOutcome({matchType:"singles",confirmedEntriesAfterWithdrawal:2}),"keep_event");
 assert.equal(quickWithdrawalOutcome({matchType:"doubles",confirmedEntriesAfterWithdrawal:1}),"cancel_event");
+
+const service=fs.readFileSync("src/application/TournamentService.ts","utf8");
+const edge=fs.readFileSync("supabase/functions/tournament-command/index.ts","utf8");
+assert.match(edge,/"cancel"/,"Edge command schema must accept cancel");
+assert.match(service,/command\.type===?"cancel"|command\.type\s*===\s*"cancel"/,"TournamentService must handle cancel");
+assert.match(service,/e\.status===?"signup"\|\|e\.status===?"locked"|e\.status\s*===\s*"signup"\s*\|\|\s*e\.status\s*===\s*"locked"/,"Cancel must be pre-start only");
+assert.match(service,/CONFIRM_CANCEL/,"Cancel must require explicit confirmation");
+assert.match(service,/e\.status="cancelled"/,"Cancel must enter cancelled terminal state");
+assert.match(service,/EVENT_CANCELLED/,"Cancelled events must reject later tournament mutations");
 console.log("Quick lifecycle unit contract PASS");
