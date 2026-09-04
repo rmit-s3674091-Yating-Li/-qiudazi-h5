@@ -16,7 +16,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 
 const schema = z.object({
   event_id: z.uuid(),
-  type: z.enum(["draw", "unlock", "cancel", "withdraw", "start", "finish", "begin", "point", "undo", "score"]),
+  type: z.enum(["draw", "unlock", "cancel", "withdraw", "exit", "start", "finish", "begin", "point", "undo", "score"]),
   event_version: z.number().int().positive(),
   match_id: z.uuid().optional(),
   match_version: z.number().int().positive().optional(),
@@ -32,6 +32,9 @@ const schema = z.object({
 }).strict().superRefine((cmd, ctx) => {
   if (cmd.type === "point" && !cmd.operation_id) {
     ctx.addIssue({ code: "custom", path: ["operation_id"], message: "point 命令必须提供 operation_id" });
+  }
+  if (cmd.type === "exit" && (!cmd.match_id || !cmd.match_version)) {
+    ctx.addIssue({ code: "custom", path: ["match_id"], message: "退赛/弃权命令必须提供 match_id 和 match_version" });
   }
 });
 type Command = z.infer<typeof schema>;
@@ -84,6 +87,21 @@ Deno.serve(async (req) => {
       return json(result.data);
     }
 
+    // Once a Quick event is ongoing, leaving is a Match result rather than roster
+    // withdrawal. Keep this on the dedicated authoritative transaction so winner,
+    // downstream advancement and final Event completion are committed atomically.
+    if (cmd.type === "exit") {
+      if (!cmd.confirmed) return json({ error: "退赛/弃权前需要确认", code: "CONFIRM_REQUIRED" }, 409);
+      const result = await client.rpc("resolve_quick_match_exit", {
+        p_event_id: cmd.event_id,
+        p_match_id: cmd.match_id,
+        p_actor_auth_user_id: user.id,
+        p_expected_match_version: cmd.match_version,
+      });
+      if (result.error) throw result.error;
+      return json(result.data);
+    }
+
     const { data: snapshot, error } = await client.rpc("get_event_snapshot", { p_event_id: cmd.event_id });
     if (error) throw error;
     let firstId = true;
@@ -109,8 +127,14 @@ Deno.serve(async (req) => {
     const message = typeof error === "object" && error && "message" in error ? String((error as { message: unknown }).message) : "";
     if (message.includes("VERSION_CONFLICT")) return json({ error: "数据已更新，请刷新重试", code: "VERSION_CONFLICT" }, 409);
     if (message.includes("EVENT_NOT_FOUND")) return json({ error: "赛事不存在" }, 404);
+    if (message.includes("MATCH_NOT_FOUND")) return json({ error: "比赛不存在", code: "MATCH_NOT_FOUND" }, 404);
     if (message.includes("OWNER_MUST_CANCEL")) return json({ error: "创建人请使用取消比赛", code: "OWNER_MUST_CANCEL" }, 409);
+    if (message.includes("NOT_MATCH_PARTICIPANT")) return json({ error: "当前账号不是该场比赛的实际参赛者", code: "NOT_MATCH_PARTICIPANT" }, 403);
     if (message.includes("NOT_PARTICIPANT")) return json({ error: "当前账号不是该赛事的实际参赛者", code: "NOT_PARTICIPANT" }, 403);
+    if (message.includes("MATCH_EXIT_CLOSED")) return json({ error: "当前赛事状态不可退赛或弃权", code: "MATCH_EXIT_CLOSED" }, 409);
+    if (message.includes("MATCH_ALREADY_FINISHED")) return json({ error: "该场比赛已经结束", code: "MATCH_ALREADY_FINISHED" }, 409);
+    if (message.includes("MATCH_EXIT_INVALID")) return json({ error: "该场比赛不能执行退赛或弃权", code: "MATCH_EXIT_INVALID" }, 409);
+    if (message.includes("DOWNSTREAM_MATCH_STARTED")) return json({ error: "后续比赛已经开始，不能改写本场结果", code: "DOWNSTREAM_MATCH_STARTED" }, 409);
     if (message.includes("WITHDRAW_CLOSED")) return json({ error: "比赛已开始或当前状态不可退出", code: "WITHDRAW_CLOSED" }, 409);
     if (message.includes("QUICK_ONLY")) return json({ error: "该退出入口仅适用于 Quick 比赛", code: "QUICK_ONLY" }, 409);
     console.error("Tournament command failed", error);
