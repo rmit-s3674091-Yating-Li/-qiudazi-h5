@@ -66,6 +66,16 @@
 
 这些工作继续以对应专项 canonical 与 current exact-head 为事实依据；本文件只记录版本级摘要，避免复制动态实现细节形成第二真源。
 
+## Standard Event venue location
+
+状态：**Planned**
+
+- 标准赛事创建/编辑新增可选“场地定位”；不进入 Quick Start。
+- 不选择定位不得阻止创建赛事；只有用户主动触发后才可进入地图选点、地点搜索或使用当前位置，不得自动请求定位权限。
+- 场地名称/地址与坐标分离持久化，目标链路为 schema/migration → create/edit UI → save_event/RPC → snapshot/detail → 地图/导航展示 → Unit/Integration/User Story Browser。
+- 保存的是用户主动确认的赛事场地静态位置，不是创建者实时位置或持续定位。
+- 当前仅登记为 Planned，不得因 canonical 已批准而写成 Implemented/Verified；优先级低于现有 FAILED_REOPEN 与核心 NOT_READY 收口。
+
 ## CI 解释约束
 
 - Domain Unit / Integration / H5 必须按同一 exact head 读取。
