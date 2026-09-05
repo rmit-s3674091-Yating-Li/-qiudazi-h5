@@ -8,7 +8,7 @@ import { repository, supabase, explainError } from "../repositories/supabase";
 import { clearQueryCache } from "./useQuery";
 import { useLanguage } from "../i18n";
 
-interface AuthState { session: Session | null; profile: Profile | null; ready: boolean; busy: boolean; error: string; loginRequired: boolean; start: (options?: { explicit?: boolean }) => Promise<Profile>; refresh: () => Promise<void>; signOut: () => Promise<void>; }
+interface AuthState { session: Session | null; profile: Profile | null; ready: boolean; busy: boolean; error: string; loginRequired: boolean; start: (options?: { explicit?: boolean }) => Promise<Profile>; loginByNickname: (nickname: string) => Promise<Profile>; refresh: () => Promise<void>; signOut: () => Promise<void>; }
 const AuthContext = createContext<AuthState>(null!);
 export const useAuth = () => useContext(AuthContext);
 const isEnglish=()=>typeof localStorage!=="undefined"&&localStorage.getItem("qiudazi-language")==="en";
@@ -56,7 +56,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })().catch((e) => { setError(explainError(e)); throw e; }).finally(() => { setBusy(false); flight.current = null; });
     return flight.current;
   }
-  return <AuthContext.Provider value={{ session, profile, ready, busy, error, loginRequired, start, refresh, signOut }}>{children}</AuthContext.Provider>;
+  async function loginByNickname(nickname:string){
+    if(!supabase)throw new Error(isEnglish()?"Supabase is not configured yet.":"Supabase尚未配置");
+    setBusy(true);setError("");
+    try{
+      const exchange=await supabase.functions.invoke("test-identity-exchange",{body:{nickname}});
+      if(exchange.error)throw exchange.error;
+      const payload=exchange.data as {token_hash?:unknown;otp_type?:unknown;error?:unknown}|null;
+      if(!payload||typeof payload.token_hash!=="string"||payload.otp_type!=="email")throw new Error(typeof payload?.error==="string"?payload.error:(isEnglish()?"Nickname sign-in failed.":"昵称登录失败"));
+      const verified=await supabase.auth.verifyOtp({token_hash:payload.token_hash,type:"email"});
+      if(verified.error||!verified.data.session)throw verified.error||new Error(isEnglish()?"Nickname sign-in failed.":"昵称登录失败");
+      clearQueryCache();clearIdentityClientStorage(localStorage);
+      const p=await repository.profile();
+      setSession(verified.data.session);setProfile(p);writeCachedProfile(verified.data.session.user.id,p);clearLoginRequired(localStorage);setLoginRequired(false);return p;
+    }catch(e){setSession(null);setProfile(null);clearCachedProfile();markLoginRequired(localStorage);setLoginRequired(true);setError(explainError(e));throw e;}finally{setBusy(false);}
+  }
+  return <AuthContext.Provider value={{ session, profile, ready, busy, error, loginRequired, start, loginByNickname, refresh, signOut }}>{children}</AuthContext.Provider>;
 }
 
 export function safeNext(path: string | null) { return path && path.startsWith("/") && !path.startsWith("//") && !path.includes("\\") && !path.startsWith("/profile") ? path : "/events"; }
