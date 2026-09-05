@@ -8,7 +8,7 @@
     "restore": "node scripts/restore-source.mjs",
     "pack": "node scripts/pack-source.mjs",
     "dev": "vite --host 0.0.0.0",
-    "test:unit": "node scripts/unit-test.mjs && node scripts/unit-scoring-parameters.mjs && node scripts/unit-hall-filter.mjs && node scripts/unit-mobile-overflow.mjs && node scripts/unit-quick-lifecycle.mjs && node scripts/unit-identity-session.mjs && node scripts/unit-identity-exchange.mjs && node scripts/unit-photo-save.mjs",
+    "test:unit": "node scripts/unit-test.mjs && node scripts/unit-scoring-parameters.mjs && node scripts/unit-hall-filter.mjs && node scripts/unit-mobile-overflow.mjs && node scripts/unit-quick-lifecycle.mjs && node scripts/unit-identity-session.mjs && node scripts/unit-identity-exchange.mjs && node scripts/unit-photo-save.mjs && node scripts/unit-brand-assets.mjs",
     "test:integration": "node scripts/integration-scoring-operation-id-contract.mjs && bash scripts/integration-contract-tests.sh && bash scripts/integration-event-lifecycle-started-behavior.sh && bash scripts/integration-quick-start-behavior.sh && bash scripts/integration-quick-participant-withdraw-behavior.sh && bash scripts/integration-quick-started-exit-behavior.sh && bash scripts/integration-photo-asset-decoupling-behavior.sh && bash scripts/integration-scoring-persistence-behavior.sh && bash scripts/integration-event-list-avatar-privacy-behavior.sh",
     "build": "node scripts/write-build-meta.mjs && tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0"
