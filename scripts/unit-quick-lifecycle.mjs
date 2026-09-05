@@ -53,6 +53,13 @@ assert.match(service,/e\.status="cancelled"/,"Cancel or minimum-participant term
 assert.match(service,/e\.cancelled_at=c\.now\(\)/,"Cancellation must persist authoritative cancellation time");
 assert.match(service,/EVENT_CANCELLED/,"Cancelled events must reject later tournament mutations");
 
+// Unique legal draw UX: two confirmed Entries have exactly one pairing, so the
+// Event page must not offer a destructive no-op regenerate action. 3+ Entries
+// retain the regenerate control for alternative legal arrangements.
+const eventPage=fs.readFileSync("src/pages/EventPage.tsx","utf8");
+assert.match(eventPage,/active\.length>2&&<button className="text-button"[\s\S]*重新生成对阵/,
+  "Regenerate draw must be guarded by more than two confirmed Entries");
+
 // Regression guard for the DB-level started-exit FAILED_REOPEN: event completion must
 // happen in the same authoritative RPC transaction, and only after every real match
 // is finished. Executable DB behavior remains Integration evidence.
