@@ -36,7 +36,8 @@
 | V7-VENUE-01B | Standard Event detail external-map handoff | P2 | NEEDS_VERIFY | Standard Event 详情现已优先展示 `venue_name`、可选 `venue_address`；仅在存在合法静态经纬度且 `event_mode!='quick'` 时通过 provider-neutral `browserMapProvider.externalMapUrl()` 显示外部“查看地图 / 导航”入口，使用新窗口跳转，不内建导航、不调用 `getCurrentPosition`；`unit-venue-location.mjs` 已补详情 source contract | Verifier 跑 affected-scope Domain Unit + H5 build；Browser 阶段确认有坐标/无坐标 Standard Event 与 Quick 均符合入口规则 |
 | V7-VENUE-01C | Standard Event place search / map picker provider | P2 | EXTERNAL_BLOCKED | MapProvider 边界已建立；当前未配置真实地点搜索/地图选点 provider credential，未硬编码 Key | Controller 提供 provider/credential 后 Builder 接入；阻塞期间不占开发队列 |
 | V7-DOC-01 | V7 canonical/document cleanup | P1 | IN_PROGRESS | Workboard 建立；需同步治理、README/root changelog，并审计过期文档 | Controller/Builder docs slice |
-| V7-REPO-01 | Repo dead/legacy artifact cleanup | P2 | TODO | 已发现 bundle/source restore legacy、历史 QA/workflow/CSS 等候选；必须逐项证明无引用/无追溯价值后才删 | Controller audit; no blind deletion |
+| V7-REPO-01A | Repo restore-bundle legacy audit | P2 | NEEDS_VERIFY | `bundle/chunk00..08` 当前仍被 `scripts/restore-source.mjs` 逐块读取，且 `.github/workflows/restore-readable-source.yml` 仍直接执行该脚本；依据清理安全线不能删除。该组文件保留并分类为 `LEGACY_REVIEW`，未做盲删 | Verifier 复核引用链与保留结论；若未来先移除 restore workflow/script 及其审计依赖，再重新评估 bundle 删除 |
+| V7-REPO-01B | Repo remaining dead/legacy artifact cleanup | P2 | TODO | 历史 QA/workflow/CSS 等其他候选尚未逐项证明无运行/构建/测试/release/审计追溯依赖 | Builder 后续逐项审计；不能证明则继续标 `LEGACY_REVIEW`，不得盲删 |
 
 ## 调度规则
 
