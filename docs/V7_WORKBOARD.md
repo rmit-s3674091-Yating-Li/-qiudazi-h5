@@ -24,8 +24,8 @@
 | ID | Area | Priority | State | Current evidence / blocker | Next owner/action |
 |---|---|---:|---|---|---|
 | V7-SCORE-01 | Scoring transaction/idempotency | P0 | INFRA_BLOCKED | stable operation UUID/lost-response 相关实现已存在；真实 DB Integration 仍依赖 isolated local Supabase runner | Infra 恢复后 Verifier 跑真实 DB behavior；Builder 不原地等待 |
-| V7-QUICK-01 | Quick started exit → Event finish | P0 | NEEDS_VERIFY | migration `20260904161500_finish_quick_event_after_match_exit.sql` + regression 已落地 | Verifier 核验单场 finish 与多场不提前 finish |
-| V7-ID-01A | Identity sign-out boundary/cache isolation | P1 | NEEDS_VERIFY | real Supabase signOut + identity/private query cache clear + explicit `/login` boundary + deterministic Unit 已实现 | Verifier；实现者不写 VERIFIED |
+| V7-QUICK-01 | Quick started exit → Event finish | P0 | INFRA_BLOCKED | `resolve_quick_match_exit` 已在同一事务实现单场最后一场→Event `finished + finished_at`、多场不提前 finish；`integration-quick-started-exit-behavior.sh` 已覆盖单场 Walkover、多场 Retirement、participant/version/downstream rollback，但 Integration #152 在 `Start isolated local Supabase` 失败，migration replay/behavior tests 未执行 | Infra 恢复后 Verifier 运行真实 DB behavior；当前不得写 CODE_REOPEN/VERIFIED |
+| V7-ID-01A | Identity sign-out boundary/cache isolation | P1 | VERIFIED | real `supabase.auth.signOut()` + identity/profile/guest/pending/session storage 清理 + query/in-flight cache clear + `loginRequired`→显式 `/login` boundary 已落地；`unit-identity-session.mjs` 已接入 `test:unit`，Domain Unit #156 PASS。仅验证本切片，不包含 V7-ID-01B nickname exchange/account switch | Done；后续不相关 commit 不机械失效 |
 | V7-ID-01B | Nickname identity exchange/account switch | P1 | TODO | `/login` 已建立退出边界；已有昵称受控 exchange、重复昵称/失败态 Integration 尚待实现 | Builder |
 | V7-PHOTO-01 | Event photo → personal album | P1 | TODO | canonical model 已明确；完整 UI/DB/Storage/Integration 闭环待收口 | Builder |
 | V7-QUICK-02 | Unique legal draw regenerate UX | P1 | TODO | canonical rule 已明确 | Builder |
