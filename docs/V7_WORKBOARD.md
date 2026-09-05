@@ -43,23 +43,9 @@
 | V7-REPO-01E | Exploratory Browser workflow/script legacy audit | P2 | VERIFIED | independent affected-scope verification confirms `.github/workflows/exploratory-browser-blackbox.yml` remains an active `release-candidate`/`workflow_dispatch` workflow and directly runs `qa/exploratory-browser-blackbox.mjs`; specialized canonical `docs/EXPLORATORY_BLACKBOX_BASELINE.md` explicitly names this workflow/script pair, requires same-SHA exploratory evidence, and makes completed exploratory classification part of the pre-Gate contract. These assets therefore have current test/release/canonical dependencies and are not deletion-eligible under the cleanup safety line; retaining them as `LEGACY_REVIEW` is correct | Done；仅当 specialized canonical/Gate contract 与 workflow/script references are formally removed or replaced 时，才重新创建删除评估切片 |
 | V7-REPO-01F | Candidate Browser workflow/scripts legacy audit | P2 | VERIFIED | independent affected-scope reference verification confirms `.github/workflows/candidate-browser-blackbox.yml` is still an active `release-candidate` push + `repository_dispatch(vercel.deployment.success)` + `workflow_dispatch` workflow and directly runs both `qa/candidate-browser-blackbox.mjs` and `qa/candidate-full-lifecycle.mjs`; both scripts exist at current head. `docs/BROWSER_BLACKBOX_BASELINE.md` and `docs/RELEASE_GOVERNANCE.md` explicitly name the same workflow/scripts as the exact-head Candidate Browser and pre-Gate evidence path. These assets therefore have current test/release/canonical dependencies and are not deletion-eligible; retain as `LEGACY_REVIEW` | Done；仅当 Candidate Browser/release canonical 与 workflow/script references 正式移除或替换后再重新评估删除资格 |
 | V7-REPO-01G | Post-deploy backlog note legacy audit | P2 | VERIFIED | independent reference verification confirms `docs/AUDIT_BACKLOG_SNAPSHOT_POSTDEPLOY_NOTE.md` explicitly identifies itself as a repository synchronization note for remediation branch `feature/20260831-postdeploy-ui-quickstart-filter-qa`, while also stating that live AUD truth remains in Supabase. The referenced historical branch still exists and currently points to `c309dcbcb6336a5162ac02882eb569476b78a3f3` (`test: stabilize AUD-015 identity readiness`). Because the note retains a live repository→historical-remediation trace and its audit/remediation trace value has not been disproved, it does not meet the Workboard safe-deletion conditions; retain as `LEGACY_REVIEW` | Done；仅当该 historical remediation branch/reference 的追溯价值被正式替代或证明为零后，再重新创建删除评估切片 |
-| V7-REPO-01H | Repo remaining dead/legacy artifact cleanup | P2 | TODO | restore bundle、layered CSS、`source.bundle.b64`、AUD-015、Exploratory Browser、Candidate Browser 与 post-deploy backlog note 已分别审计；其他历史 QA/workflow/docs 等候选仍未逐项证明无运行/构建/测试/release/审计追溯依赖 | Builder 后续逐项审计；不能证明则继续标 `LEGACY_REVIEW`，不得盲删 |
+| V7-REPO-01H | PR #22 release-blocker control note legacy audit | P2 | NEEDS_VERIFY | `docs/CONTROL_NOTE_RELEASE_BLOCKER_CLASSIFICATION.md` 自述 Scope 为 PR #22 / AUD-20260902-003，并记录当时 remediation、Candidate Freeze 与 Gate 的治理边界；repo code search 未发现其他文件按完整文件名引用它，但其内容仍保留历史 release-governance remediation 的审计解释。当前无法证明该历史治理追溯价值已为零，因此不满足安全删除条件，按规则保留并标 `LEGACY_REVIEW`。本切片未改 runtime/build/test/migration/canonical AC；低层 regression 为文件内容 + repo reference-search 审计，不制造产品测试 | Verifier 独立复核该 control note 的历史追溯价值；实现者不得写 VERIFIED |
+| V7-REPO-01I | Repo remaining dead/legacy artifact cleanup | P2 | TODO | restore bundle、layered CSS、`source.bundle.b64`、AUD-015、Exploratory Browser、Candidate Browser、post-deploy backlog note 与 PR #22 release-blocker control note 已分别审计；其他历史 QA/workflow/docs 等候选仍未逐项证明无运行/构建/测试/release/审计追溯依赖 | Builder 后续逐项审计；不能证明则继续标 `LEGACY_REVIEW`，不得盲删 |
 
 ## 调度规则
 
 Builder 每轮只领取一个 `CODE_REOPEN` 或 `TODO` 的最小垂直切片；优先级 P0 → P1 → P2。`INFRA_BLOCKED` / `EXTERNAL_BLOCKED` / `BROWSER_PENDING` 不得阻塞其他 actionable work。
-
-Verifier 只消费 `NEEDS_VERIFY`，不全量重审整个 V7。无 `NEEDS_VERIFY` 时无需制造结论。
-
-Controller/Watchdog 只检查流水线健康、状态漂移、CI 分类和越界发布，不实施产品代码，也不重复 Verifier 工作。
-
-## 清理安全线
-
-以下内容默认不得因“看起来旧”直接删除：
-
-1. 已执行的 Supabase migration（迁移历史是 clean replay / live parity 的组成部分）。
-2. V6 发布历史 `docs/CHANGELOG_20260829_V6.md`。
-3. 当前 Release/Environment/Test canonical baseline。
-4. 当前仍被 package scripts、workflow、build/deploy、imports 或文档治理引用的文件。
-
-清理候选必须先满足：无运行时/构建/测试引用；无 live migration/release parity 依赖；无必要审计追溯价值；删除后 Unit/Build 与适用 contract 不受影响。无法证明时先标 `LEGACY_REVIEW`，不删除。
