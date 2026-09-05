@@ -8,6 +8,7 @@ const DEFAULT_STALE_MS=30_000;
 
 export function invalidateQuery(key:string){cache.delete(key);}
 export function invalidateQueryPrefix(prefix:string){for(const key of cache.keys())if(key.startsWith(prefix))cache.delete(key);}
+export function clearQueryCache(){cache.clear();inFlight.clear();}
 
 export function useQuery<T>(key:string,load:()=>Promise<T>,interval=0){
   const ref=useRef(load);ref.current=load;

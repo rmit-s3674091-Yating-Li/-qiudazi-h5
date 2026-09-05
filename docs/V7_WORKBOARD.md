@@ -25,7 +25,8 @@
 |---|---|---:|---|---|---|
 | V7-SCORE-01 | Scoring transaction/idempotency | P0 | INFRA_BLOCKED | stable operation UUID/lost-response 相关实现已存在；真实 DB Integration 仍依赖 isolated local Supabase runner | Infra 恢复后 Verifier 跑真实 DB behavior；Builder 不原地等待 |
 | V7-QUICK-01 | Quick started exit → Event finish | P0 | NEEDS_VERIFY | migration `20260904161500_finish_quick_event_after_match_exit.sql` + regression 已落地 | Verifier 核验单场 finish 与多场不提前 finish |
-| V7-ID-01 | Identity/account switching | P1 | TODO | `/login`、real signOut、cache/private-data isolation 尚未形成完整闭环 | Builder |
+| V7-ID-01A | Identity sign-out boundary/cache isolation | P1 | NEEDS_VERIFY | real Supabase signOut + identity/private query cache clear + explicit `/login` boundary + deterministic Unit 已实现 | Verifier；实现者不写 VERIFIED |
+| V7-ID-01B | Nickname identity exchange/account switch | P1 | TODO | `/login` 已建立退出边界；已有昵称受控 exchange、重复昵称/失败态 Integration 尚待实现 | Builder |
 | V7-PHOTO-01 | Event photo → personal album | P1 | TODO | canonical model 已明确；完整 UI/DB/Storage/Integration 闭环待收口 | Builder |
 | V7-QUICK-02 | Unique legal draw regenerate UX | P1 | TODO | canonical rule 已明确 | Builder |
 | V7-HALL-01 | Hall/mobile | P1 | BROWSER_PENDING | filter/mobile containment 已实现并有 Unit evidence | Browser/iPhone/WeChat phase |
