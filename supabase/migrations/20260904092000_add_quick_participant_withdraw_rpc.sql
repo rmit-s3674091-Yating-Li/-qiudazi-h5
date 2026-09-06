@@ -43,7 +43,7 @@ begin
   where en.event_id=e.id
     and en.status='confirmed'
     and p.linked_user_id=actor
-  order by en.created_at, en.id
+  order by en.joined_at, en.id
   limit 1;
 
   if target_entry is null then raise exception 'NOT_PARTICIPANT'; end if;
