@@ -73,13 +73,16 @@
 
 ## Standard Event venue location
 
-状态：**Planned**
+状态：**Planned / In Progress（基础链已实现，真实 POI provider 待接入）**
 
-- 标准赛事创建/编辑新增可选“场地定位”；不进入 Quick Start。
-- 不选择定位不得阻止创建赛事；只有用户主动触发后才可进入地图选点、地点搜索或使用当前位置，不得自动请求定位权限。
-- 场地名称/地址与坐标分离持久化，目标链路为 schema/migration → create/edit UI → save_event/RPC → snapshot/detail → 地图/导航展示 → Unit/Integration/User Story Browser。
-- 保存的是用户主动确认的赛事场地静态位置，不是创建者实时位置或持续定位。
-- 当前仅登记为 Planned，不得因 canonical 已批准而写成 Implemented/Verified；优先级低于现有 FAILED_REOPEN 与核心 NOT_READY 收口。
+- 仅标准赛事创建/编辑支持可选场地定位；Quick Start 明确不加入地图/POI 定位链。
+- 用户可仅手填场地；需要准确位置时采用“搜索场地或地址 → POI 候选 → 用户选择 → 保存名称/地址/经纬度”的轻量主链，不要求普通用户填写经纬度。
+- V7 不做附近网球场推荐/发现、距离排序、球场目录/收藏，不做路线规划、内置导航或导航 SDK；创建页也不要求内嵌完整地图。
+- 有合法坐标的 Standard Event 详情仅提供外部地图 handoff；无坐标时只展示场地文本，不出现空地图。外部地图查看/导航不应重复触发 POI 搜索。
+- provider-neutral schema / save_event persistence / Standard 主动触发定位基础链已进入实现与验证流程；真实 POI 搜索 provider/credential 仍待配置，按 `EXTERNAL_BLOCKED` 管理，不阻塞其他 V7 P0/P1。
+- 数据模型保持 `venue_name/address/latitude/longitude`，并允许 `venue_place_id`、`venue_provider`；地图供应商不得成为 Event 领域真源。
+- V7 测试阶段坚持最低成本：免费/试用额度足够时不购买额外地图套餐；正式商业运营前再评估商用授权、配额和单价。
+- 后续“附近有哪些网球场 / 球场发现与推荐”作为未来版本独立能力，不进入 V7 scope。
 
 ## CI 解释约束
 
