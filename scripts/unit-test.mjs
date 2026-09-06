@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
 const root = new URL("../", import.meta.url);const tmp = await mkdtemp(join(tmpdir(), "qiudazi-unit-"));
-async function compile(sourcePath, outputName) {const source=await readFile(new URL(sourcePath,root),"utf8");const result=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022,verbatimModuleSyntax:true},fileName:sourcePath});await writeFile(join(tmp,outputName),result.outputText,"utf8")}
+async function compile(sourcePath, outputName) {const source=await readFile(new URL(sourcePath,root),"utf8");const result=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022,verbatimModuleSyntax:true},fileName:sourcePath});await writeFile(join(tmp,outputName),result.outputText.replace(/(from\s+["\'](?:\.\.?\/)[^"\']+)\.ts(["\'])/g,"$1.js$2"),"utf8")}
 function rules(overrides={}){return{best_of:1,scoring_type:"games_6",custom_games_target:null,tiebreak_trigger:6,game_scoring:"advantage",...overrides}}
 function pointMany(engine,r,state,sides){return sides.reduce((s,side)=>engine.addPoint(r,s,side),state)}
 function winGame(engine,r,state,side){return pointMany(engine,r,state,[side,side,side,side])}
