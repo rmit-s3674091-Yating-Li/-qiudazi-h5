@@ -49,7 +49,7 @@ begin
     and en.status='confirmed'
     and p.linked_user_id=actor
     and en.id in (m.entry_a_id,m.entry_b_id)
-  order by en.created_at,en.id
+  order by en.joined_at,en.id
   limit 1;
   if actor_entry is null then raise exception 'NOT_MATCH_PARTICIPANT'; end if;
 
