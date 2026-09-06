@@ -52,7 +52,7 @@ result="$("${PSQL[@]}" "begin;
   )).id;
 
   do \$\$
-  declare ev public.events; blocked boolean;
+  declare ev public.events; blocked boolean; entry_ids uuid[];
   begin
     select * into ev from public.events where name='IT withdraw guards';
 
@@ -65,7 +65,10 @@ result="$("${PSQL[@]}" "begin;
     blocked:=false; begin perform public.withdraw_quick_event(ev.id,'72222222-2222-4222-8222-222222222222',ev.version-1); exception when others then blocked := sqlerrm='VERSION_CONFLICT'; end;
     if not blocked then raise exception 'QUICK_WITHDRAW_STALE_NOT_BLOCKED'; end if;
 
-    update public.matches set status='ongoing' where event_id=ev.id;
+    select array_agg(en.id order by en.joined_at,en.id) into entry_ids
+    from public.entries en where en.event_id=ev.id and en.status='confirmed';
+    insert into public.matches(event_id,stage,round_no,status,entry_a_id,entry_b_id,version,scoring_mode)
+    values (ev.id,'knockout',1,'ongoing',entry_ids[1],entry_ids[2],1,'live');
     blocked:=false; begin perform public.withdraw_quick_event(ev.id,'72222222-2222-4222-8222-222222222222',ev.version); exception when others then blocked := sqlerrm='WITHDRAW_CLOSED'; end;
     if not blocked then raise exception 'QUICK_WITHDRAW_STARTED_NOT_BLOCKED'; end if;
   end \$\$;
