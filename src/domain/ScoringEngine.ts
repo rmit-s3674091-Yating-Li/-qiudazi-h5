@@ -1,5 +1,5 @@
-import type { Rules, ScoreInput, Side, PointLog } from "./types.js";
-import { ensure } from "./types.js";
+import type { Rules, ScoreInput, Side, PointLog } from "./types.ts";
+import { ensure } from "./types.ts";
 export interface LiveState {sets:ScoreInput[];wins:[number,number];games:[number,number];points:[number,number];winner:Side|null;pointCount:number}
 export const initialScore=():LiveState=>({sets:[],wins:[0,0],games:[0,0],points:[0,0],winner:null,pointCount:0});
 export const isPointSet=(r:Rules)=>["tiebreak_7","points_11","points_15"].includes(r.scoring_type);

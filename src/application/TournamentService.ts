@@ -1,12 +1,12 @@
-import type { DomainContext, Snapshot, Match, ScoreInput, Side, SetScore } from "../domain/types.js";
-import { ensure } from "../domain/types.js";
-import { validateRoster } from "../domain/EventRules.js";
-import { roundRobin } from "../domain/RoundRobinEngine.js";
-import { knockout } from "../domain/KnockoutEngine.js";
-import { groupDraw, qualifierKnockout } from "../domain/GroupKnockoutEngine.js";
-import { validateFinalScore, replay, addPoint, contextFor } from "../domain/ScoringEngine.js";
-import { groupRankings } from "../domain/RankingEngine.js";
-import { correctKnockoutPath } from "../domain/CascadeCorrectionEngine.js";
+import type { DomainContext, Snapshot, Match, ScoreInput, Side, SetScore } from "../domain/types.ts";
+import { ensure } from "../domain/types.ts";
+import { validateRoster } from "../domain/EventRules.ts";
+import { roundRobin } from "../domain/RoundRobinEngine.ts";
+import { knockout } from "../domain/KnockoutEngine.ts";
+import { groupDraw, qualifierKnockout } from "../domain/GroupKnockoutEngine.ts";
+import { validateFinalScore, replay, addPoint, contextFor } from "../domain/ScoringEngine.ts";
+import { groupRankings } from "../domain/RankingEngine.ts";
+import { correctKnockoutPath } from "../domain/CascadeCorrectionEngine.ts";
 export interface TournamentCommand {
   type: "draw" | "unlock" | "cancel" | "withdraw" | "start" | "finish" | "begin" | "point" | "undo" | "score";
   event_version: number; match_id?: string; match_version?: number; side?: Side; scores?: ScoreInput[]; confirmed?: boolean;

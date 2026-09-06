@@ -1,5 +1,5 @@
-import type { EventConfig, Entry } from "./types.js";
-import { ensure } from "./types.js";
+import type { EventConfig, Entry } from "./types.ts";
+import { ensure } from "./types.ts";
 const LEVELS=["≤2.0","2.5","3.0","3.5","4.0","≥4.5"];
 export function defaultRegistrationDeadline(date:string|null,time:string|null){if(!date||!time)return null;const normalizedTime=/^\d{2}:\d{2}(?::\d{2})?$/.test(time)?time.slice(0,5):time;const d=new Date(`${date}T${normalizedTime}:00`);if(Number.isNaN(d.getTime()))return null;d.setHours(d.getHours()-2);const pad=(n:number)=>String(n).padStart(2,"0");return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;}
 export function validateEvent(config: EventConfig): EventConfig {

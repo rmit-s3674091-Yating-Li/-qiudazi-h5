@@ -1,5 +1,5 @@
-import type { DomainContext, Entry, Event, Match } from "./types.js";
-import { blankMatch } from "./RoundRobinEngine.js";
+import type { DomainContext, Entry, Event, Match } from "./types.ts";
+import { blankMatch } from "./RoundRobinEngine.ts";
 export function bracketSize(count: number) {
   return 2 ** Math.ceil(Math.log2(Math.max(2, count)));
 }
