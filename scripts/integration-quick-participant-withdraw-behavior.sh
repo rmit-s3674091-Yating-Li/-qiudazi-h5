@@ -15,7 +15,9 @@ result="$("${PSQL[@]}" "begin;
     ('7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3','73333333-3333-4333-8333-333333333333','IT withdraw other',null,'completed','ITWDRW3');
   insert into public.players(id,owner_user_id,linked_user_id,name,avatar_url,player_type) values
     ('7bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1','7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1','7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1','Owner',null,'self'),
-    ('7bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2','7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1','7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2','Participant',null,'manual');
+    ('7bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2','7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2','7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2','Participant',null,'self');
+  insert into public.connections(requester_user_id,addressee_user_id,status,responded_at)
+  values ('7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1','7aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2','accepted',now());
 
   select set_config('request.jwt.claim.sub','71111111-1111-4111-8111-111111111111',true);
   select (public.create_quick_event(
