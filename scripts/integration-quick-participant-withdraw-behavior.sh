@@ -19,7 +19,7 @@ result="$("${PSQL[@]}" "begin;
 
   select set_config('request.jwt.claim.sub','71111111-1111-4111-8111-111111111111',true);
   select (public.create_quick_event(
-    jsonb_build_object('name','IT withdraw success','match_type','singles','format','knockout','scoring_type','games_4'),
+    jsonb_build_object('name','IT withdraw success','city','Test City','match_type','singles','format','knockout','scoring_type','games_4'),
     jsonb_build_array(jsonb_build_array('7bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1'::text),jsonb_build_array('7bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2'::text))
   )).id;
 
@@ -45,7 +45,7 @@ result="$("${PSQL[@]}" "begin;
   -- Fresh event for authorization/version/start rejection cases.
   select set_config('request.jwt.claim.sub','71111111-1111-4111-8111-111111111111',true);
   select (public.create_quick_event(
-    jsonb_build_object('name','IT withdraw guards','match_type','singles','format','knockout','scoring_type','games_4'),
+    jsonb_build_object('name','IT withdraw guards','city','Test City','match_type','singles','format','knockout','scoring_type','games_4'),
     jsonb_build_array(jsonb_build_array('7bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1'::text),jsonb_build_array('7bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb2'::text))
   )).id;
 
