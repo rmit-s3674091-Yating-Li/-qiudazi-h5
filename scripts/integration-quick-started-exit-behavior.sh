@@ -19,7 +19,7 @@ result="$("${PSQL[@]}" "begin;
 
   -- Single real match: Walkover must finish Match and Event atomically.
   insert into public.events(id,owner_user_id,name,visibility,match_type,format,best_of,scoring_type,tiebreak_trigger,fee_type,status,version,draw_generated,event_mode)
-  values ('8eeeeeee-eeee-4eee-8eee-eeeeeeeeeee1','8aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1','IT single walkover','private','singles','knockout',1,'games_4',3,'free','ongoing',1,true,'quick');
+  values ('8eeeeeee-eeee-4eee-8eee-eeeeeeeeeee1','8aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1','IT single walkover','public','singles','knockout',1,'games_4',3,'free','ongoing',1,true,'quick');
   insert into public.entries(id,event_id,entry_type,status) values
     ('8ccccccc-cccc-4ccc-8ccc-ccccccccccc1','8eeeeeee-eeee-4eee-8eee-eeeeeeeeeee1','singles','confirmed'),
     ('8ccccccc-cccc-4ccc-8ccc-ccccccccccc2','8eeeeeee-eeee-4eee-8eee-eeeeeeeeeee1','singles','confirmed');
@@ -45,7 +45,7 @@ result="$("${PSQL[@]}" "begin;
 
   -- Multi-match Quick: finishing one real Match must not finish Event early.
   insert into public.events(id,owner_user_id,name,visibility,match_type,format,best_of,scoring_type,tiebreak_trigger,fee_type,status,version,draw_generated,event_mode)
-  values ('8eeeeeee-eeee-4eee-8eee-eeeeeeeeeee2','8aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1','IT multi retirement','private','singles','round_robin',1,'games_4',3,'free','ongoing',1,true,'quick');
+  values ('8eeeeeee-eeee-4eee-8eee-eeeeeeeeeee2','8aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1','IT multi retirement','public','singles','round_robin',1,'games_4',3,'free','ongoing',1,true,'quick');
   insert into public.entries(id,event_id,entry_type,status) values
     ('8ccccccc-cccc-4ccc-8ccc-ccccccccccc3','8eeeeeee-eeee-4eee-8eee-eeeeeeeeeee2','singles','confirmed'),
     ('8ccccccc-cccc-4ccc-8ccc-ccccccccccc4','8eeeeeee-eeee-4eee-8eee-eeeeeeeeeee2','singles','confirmed');
@@ -76,7 +76,7 @@ result="$("${PSQL[@]}" "begin;
 
   -- Downstream-start guard must roll the whole transaction back.
   insert into public.events(id,owner_user_id,name,visibility,match_type,format,best_of,scoring_type,tiebreak_trigger,fee_type,status,version,draw_generated,event_mode)
-  values ('8eeeeeee-eeee-4eee-8eee-eeeeeeeeeee3','8aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1','IT downstream guard','private','singles','knockout',1,'games_4',3,'free','ongoing',1,true,'quick');
+  values ('8eeeeeee-eeee-4eee-8eee-eeeeeeeeeee3','8aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1','IT downstream guard','public','singles','knockout',1,'games_4',3,'free','ongoing',1,true,'quick');
   insert into public.entries(id,event_id,entry_type,status) values
     ('8ccccccc-cccc-4ccc-8ccc-ccccccccccc5','8eeeeeee-eeee-4eee-8eee-eeeeeeeeeee3','singles','confirmed'),
     ('8ccccccc-cccc-4ccc-8ccc-ccccccccccc6','8eeeeeee-eeee-4eee-8eee-eeeeeeeeeee3','singles','confirmed');
