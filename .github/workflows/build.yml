@@ -3,8 +3,15 @@ name: H5 Build Check
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -50,10 +57,9 @@ jobs:
 
   # Development PRs already run the isolated Supabase replay in
   # Integration Contract Tests. Keep this second, schema-focused replay as a
-  # main-branch invariant so ordinary PR updates do not pay for two local
-  # Supabase startups/resets.
+  # main-branch invariant; workflow_dispatch can also request it explicitly.
   supabase-clean-replay:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -92,7 +98,11 @@ jobs:
 
           echo "Migration preflight passed: ${#files[@]} unique versioned files."
       - name: Verify exact repository/live migration parity on main
+        if: github.event_name == 'push'
         run: node scripts/check-migration-parity.mjs
+      - name: Verify repository migrations for manual replay
+        if: github.event_name == 'workflow_dispatch'
+        run: node scripts/check-migration-parity.mjs --allow-repo-only
       - uses: supabase/setup-cli@v1
         with:
           version: latest
