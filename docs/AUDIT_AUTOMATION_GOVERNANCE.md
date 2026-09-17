@@ -1,6 +1,6 @@
 # 球搭子审计与整改自动化治理基线
 
-> 本文定义「球搭子」自动化审计、待整改问题登记、整改、验证与发布 Gate 的长期协作规则。它属于工程治理基线，不改变产品业务规则。发布分支、Candidate Freeze、Vercel Preview 与 main 的详细顺序以 `docs/RELEASE_GOVERNANCE.md` 为准；真实浏览器黑盒执行与证据要求以 `docs/BROWSER_BLACKBOX_BASELINE.md` 为准。
+> 本文定义「球搭子」自动化审计、待整改问题登记、整改、验证与发布 Gate 的长期协作规则。它属于工程治理基线，不改变产品业务规则。发布分支、Candidate Freeze、Vercel Preview 与 main 的详细顺序以 `docs/RELEASE_GOVERNANCE.md` 为准；真实浏览器黑盒执行与证据要求以 `docs/BROWSER_BLACKBOX_BASELINE.md` 为准；repository visibility 变更前置条件以 `docs/PUBLIC_READINESS.md` 为准。
 
 ## 1. 核心原则
 
@@ -11,7 +11,7 @@
 - GitHub Issue #21 正文只是人类可读镜像，不得替代正式 backlog；Issue 评论只记录已存在 AUD 的 append-only 过程证据。
 - 「球搭子问题整改」是唯一自动修复者，但不是全局唯一 writer。代码变更巡检、全功能测试、部署前审计、周安全审计均可按本文件规则创建 backlog row 和追加已有 AUD 评论。
 - 总控是项目指挥与可直接整改角色：可以认领 `OPEN + owner=null` 的问题并直接修复；已有 owner 的整改项不得抢占或并发修改，但总控可以通过正式 AUD 的 `[CONTROL_NOTE ...]` 提供实现建议、风险提示和验收边界。
-- GitHub repository 的 canonical visibility 为 Private；完整环境身份与 GitHub 方案能力边界以 `docs/ENVIRONMENT_BASELINE.md` 为准；发布候选身份以 `docs/RELEASE_GOVERNANCE.md` 为准；黑盒是否真正具备浏览器证据以 `docs/BROWSER_BLACKBOX_BASELINE.md` 为准。
+- GitHub repository visibility 是运行时环境事实，不是应用安全边界。当前 repository 为 Private；只有完成 `docs/PUBLIC_READINESS.md` 的 full-history secret scan、current-head preflight、canonical sync，并取得 Owner 明确授权后，才允许受控变更为 Public。经授权完成的 visibility change 本身不构成环境漂移，也不授权 merge `main`、移动 `release-candidate`、Production deploy 或启动 Release Gate。
 
 ### 1.1 环境身份与 migration 一致性前置校验
 
@@ -22,8 +22,8 @@
 - 任何自动化、总控、审计或修复流程在执行 SQL、migration、Storage、Edge Function、Advisor 或正式 backlog 操作前，必须先通过 Supabase project list / project detail 确认 `qiudazi-test → rtmjzmgrhifjzxaliltm`。
 - 不得从旧聊天、旧日志、历史 snapshot、历史工具结果或模型上下文复用其它 project_id。若 project list 中不存在 canonical 映射，停止数据库写操作并标记环境异常；不得猜测 ID。
 - `You do not have permission to perform this action` 首先要区分：① project ref 错误/当前连接器看不到该项目；② ChatGPT 插件权限；③ Supabase 组织/项目角色；④ 数据库 grant/RPC/RLS。禁止直接把连接器层错误归因于 PostgreSQL ACL。
-- GitHub 相关审计同时必须确认 repository visibility 仍为 private。若意外变回 public，属于基础环境漂移并阻塞候选。
-- 当前账号方案下 private repository 的 GitHub repository ruleset 不可用；不得把“ruleset/platform branch protection 存在”作为当前 Gate 证据。所有自动化继续禁止直接 push/merge main，实际治理依赖 feature branch → PR → exact-head CI → Candidate Freeze → release-candidate Preview + Candidate Browser Blackbox → 黑盒证据复核 → Release Gate → 人工 merge 决策。
+- GitHub 相关审计必须读取 repository 当前 visibility，并与当前已授权环境状态核对。未经 Owner 授权发生的 visibility change 属于环境漂移；按照 `docs/PUBLIC_READINESS.md` 完成前置条件并经 Owner 明确授权的 Private→Public 变更不属于漂移。
+- 当前 Private/free 运行态下 repository ruleset 不可用，不得把“ruleset/platform branch protection 存在”作为当前 Gate 证据。若未来经授权切换 Public 或方案能力变化，必须重新读取平台实际能力；只有确认规则真实启用后，才能把平台 enforcement 纳入 Gate 证据。无论 visibility 如何，所有自动化继续禁止直接 push/merge main，实际治理依赖 feature branch → PR → exact-head CI → Candidate Freeze → release-candidate Preview + Candidate Browser Blackbox → 黑盒证据复核 → Release Gate → 人工 merge 决策。
 
 Migration 治理采用以下硬规则：
 
@@ -119,7 +119,7 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 
 ### 球搭子问题整改
 - 唯一自动修复者。
-- 每轮读取动态 PR #20 head，不缓存旧 head。
+- 每轮读取动态 V7 开发 PR #24 exact head，不缓存旧 head。
 - 原则上只认领 `OPEN` 且未被占用的问题；已由本任务认领的 `IN_PROGRESS` 可继续。
 - 每轮处理已认领 AUD 时同时读取 `details/evidence`，按 §4.1 执行 CONTROL_NOTE 协作规则。
 - 优先级 `P0 → P1 → P2`。
@@ -139,7 +139,7 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 
 黑盒任务属于 candidate-driven condition watch，而不是“无候选也强行跑”的普通巡检。每轮必须最先：
 
-1. 实时读取 PR #20 exact head SHA；
+1. 实时读取 V7 开发 PR #24 exact head SHA；
 2. 实时读取 Vercel `qiudazi-h5` deployments；
 3. 只有找到 `READY`、`githubCommitRef=release-candidate` 且 `githubCommitSha` 与 exact head 完全一致的 Preview，才继续；不存在时为 `WAITING_FOR_CANDIDATE`，不是产品缺陷，不创建 AUD；
 4. 锁定 deployment id / URL / head SHA，禁止测试过程中切换候选；
@@ -182,10 +182,12 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 
 ## 8. 发布规则
 
-- 发布与候选分支顺序的 canonical source 是 `docs/RELEASE_GOVERNANCE.md`；真实浏览器证据的 canonical source 是 `docs/BROWSER_BLACKBOX_BASELINE.md`；本节定义审计/自动化如何执行这些规则。
+- 发布与候选分支顺序的 canonical source 是 `docs/RELEASE_GOVERNANCE.md`；真实浏览器证据的 canonical source 是 `docs/BROWSER_BLACKBOX_BASELINE.md`；repository visibility 变更的 canonical source 是 `docs/PUBLIC_READINESS.md`；本节定义审计/自动化如何执行这些规则。
 - CI green 不等于功能/Visual/权限/Gate 通过。
-- H5 Build Check 的 repository visibility、server-secret、migration preflight、Supabase clean replay、后端结构断言均属于 Release Gate 必要证据；任何一项失败都必须读实际日志根因，禁止仅按 step 名称推断。
-- Repository 必须保持 Private；意外变回 public 直接阻塞发布。
+- H5 Build Check 的 server-secret、migration preflight、Supabase clean replay、后端结构断言均属于 Release Gate 必要证据；任何一项失败都必须读实际日志根因，禁止仅按 step 名称推断。Repository visibility 作为运行时环境身份单独核对，不再要求永久固定为 Private。
+- Repository 当前为 Private。未经 Owner 授权的 visibility change 直接阻塞发布；按照 `docs/PUBLIC_READINESS.md` 完成前置条件并取得 Owner 明确授权后的 Public 转换，不因“Public”这一事实自动阻塞候选。
+- Visibility change 与 release authorization 是两条独立边界：授权 Public 不等于授权移动 `release-candidate`、启动 Release Gate、merge `main` 或 Production deploy。
+- Visibility 发生受控变更后，任何 release evidence 被接受前必须重新核验 repository metadata、GitHub Actions/fork/PR permissions、Vercel Git link/GitHub App、Supabase authorization boundary，以及 ruleset/branch-protection 的实际可用与启用状态。
 - Vercel Git deployment 长期只允许 `release-candidate` 与 `main`；普通 feature/docs/fix commit 不应产生 deployment。
 - Candidate Freeze 前必须完成 canonical 文档与 Browser Blackbox 基础设施同步；Freeze 后任何代码、migration、测试基础设施或 canonical 文档变更都使旧 candidate 和旧 browser evidence 自动失效。
 - `release-candidate` 只作为受控触发器，不承载独立开发；只有 PR exact-head CI green 后才允许移动到该 head。
@@ -198,7 +200,7 @@ AUD 编号格式为 `AUD-YYYYMMDD-NNN`；已使用编号永久保持原语义，
 - live backlog 暂不可达时 Gate 不得 PASS；先保留 `DEGRADED_LIVE_BACKLOG_UNAVAILABLE`，待正式路径恢复后复核。
 - 不得为了触发部署提前 merge/push main，也不得用 main Production 代替 Preview 验证。
 - 未通过 Gate 不进入 CloudBase 正式候选，不自动 merge `main`；Gate PASS 后仍由用户/总控决定是否 merge。
-- 当前 private repository 在现有 GitHub 方案下无法使用 repository ruleset；main 保护采用 feature branch → PR → exact-head H5 Build Check → Candidate Freeze → `release-candidate` exact-head Preview + Candidate Browser Blackbox → 黑盒证据复核 → Release Gate → 人工 merge 的流程治理。所有自动化禁止直接 push/merge main。若未来升级 GitHub Pro 并恢复 ruleset，必须运行时验证后再把平台保护作为 Gate 证据。
+- 当前 Private/free 运行态下 repository ruleset 不可用；main 保护采用 feature branch → PR → exact-head H5 Build Check → Candidate Freeze → `release-candidate` exact-head Preview + Candidate Browser Blackbox → 黑盒证据复核 → Release Gate → 人工 merge 的流程治理。若未来经授权切换 Public 或方案能力变化，必须运行时验证 ruleset/branch-protection 后才能把平台 enforcement 纳入 Gate；无论平台保护能力如何，所有自动化均禁止直接 push/merge main。
 
 ## 9. 当前迁移事实（2026-08-30）
 
