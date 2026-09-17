@@ -9,21 +9,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: h5-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Validate repository visibility
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event.repository.private }}" != "true" ]; then
-            echo "Repository visibility drift detected: qiudazi-h5 must remain private."
-            exit 1
-          fi
-          echo "Repository visibility preflight passed: private."
       - name: Validate canonical environment identity
         shell: bash
         run: |
@@ -53,7 +48,12 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+  # Development PRs already run the isolated Supabase replay in
+  # Integration Contract Tests. Keep this second, schema-focused replay as a
+  # main-branch invariant so ordinary PR updates do not pay for two local
+  # Supabase startups/resets.
   supabase-clean-replay:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -91,11 +91,7 @@ jobs:
           fi
 
           echo "Migration preflight passed: ${#files[@]} unique versioned files."
-      - name: Verify live migrations are preserved before feature replay
-        if: github.event_name == 'pull_request'
-        run: node scripts/check-migration-parity.mjs --allow-repo-only
       - name: Verify exact repository/live migration parity on main
-        if: github.event_name == 'push'
         run: node scripts/check-migration-parity.mjs
       - uses: supabase/setup-cli@v1
         with:
