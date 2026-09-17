@@ -1,6 +1,6 @@
 # 球搭子发布与候选部署治理基线
 
-> 本文是「球搭子」发布分支、Candidate Freeze、Vercel Preview、真实浏览器黑盒、Release Gate 与 main/CloudBase 发布顺序的 canonical source。真实浏览器执行能力的专项规则见 `docs/BROWSER_BLACKBOX_BASELINE.md`。本文定义工程发布治理，不改变产品业务规则。
+> 本文是「球搭子」发布分支、Candidate Freeze、Vercel Preview、真实浏览器黑盒、Release Gate 与 main/CloudBase 发布顺序的 canonical source。真实浏览器执行能力的专项规则见 `docs/BROWSER_BLACKBOX_BASELINE.md`；环境身份见 `docs/ENVIRONMENT_BASELINE.md`；repository visibility 变更前置条件见 `docs/PUBLIC_READINESS.md`。本文定义工程发布治理，不改变产品业务规则。
 
 ## 1. 三层发布模型
 
@@ -8,12 +8,14 @@
 
 1. **feature / docs / fix 开发层**
    - 日常开发、整改、文档和迁移均在 feature 分支完成。
-   - GitHub CI 正常运行，但 Vercel Git deployment 默认关闭。
-   - 目的：避免每个开发 commit 都消耗 Hobby Preview 配额，也避免把未冻结代码误当候选。
+   - 开发期 CI 采用 **affected-scope evidence**：普通产品代码运行 Unit + H5 Build；DB/RPC/migration/Edge/integration 相关变更额外运行 Integration；docs-only 变更可跳过普通产品 CI；同一 PR/ref 的 stale run 可由 concurrency 取消。
+   - Vercel Git deployment 默认关闭。
+   - 开发期 affected-scope evidence 用于快速发现回归和控制配额，**不得继承为 Candidate Freeze / Release Gate 的完整证据**。
 
 2. **release-candidate 候选层**
    - `release-candidate` 不是开发分支，只是受控 Preview 触发器。
-   - Candidate Freeze 后，由总控把它精确移动到已经通过 exact-head CI 的 PR head。
+   - Candidate Freeze 前必须切换到 **strict exact-SHA evidence**，重新满足候选所需 Unit / Integration / Build / clean replay 等完整链路；不得因开发期某 workflow 被 scope skip 就视为候选已验证。
+   - Candidate Freeze 后，由总控把它精确移动到满足 strict exact-head CI 的 PR head。
    - 该移动同时触发 Vercel Git Integration 的候选 Preview，以及 GitHub Actions `Candidate Browser Blackbox` 的真实浏览器验证。
    - 黑盒 / Visual / English / 双用户权限验证与 Release Gate 只消费这个 exact-head candidate。
 
@@ -25,7 +27,9 @@
 
 标准路径：
 
-`feature/* → PR → exact-head H5 Build Check → Candidate Freeze → release-candidate → exact-head Vercel Preview + Candidate Browser Blackbox → ChatGPT 黑盒证据复核 → Release Gate → merge main 决策 → CloudBase/正式发布`
+`feature/* → PR → affected-scope development CI → Candidate Freeze preflight → strict exact-SHA Unit/Integration/Build/clean replay → release-candidate → exact-head Vercel Preview + Candidate Browser Blackbox → ChatGPT 黑盒证据复核 → Release Gate → merge main 决策 → CloudBase/正式发布`
+
+Repository visibility 不改变这条发布路径。Private → Public 属于独立受控环境配置变化，必须先满足 `docs/PUBLIC_READINESS.md` 并取得 Owner 明确授权；Public 本身不构成 Release Gate PASS，也不能替代任何 candidate evidence。
 
 ## 2. Vercel 分支白名单
 
@@ -46,7 +50,8 @@
 - 必须使用 `**` 作为默认关闭规则，以覆盖 `feature/...` 等包含 `/` 的分支名；单星号 `*` 不能可靠覆盖斜杠分支。
 - feature/docs/fix push 不应产生 Vercel deployment。
 - `release-candidate` 与 `main` 是唯一允许 Git 自动部署的长期分支。
-- 若未来改变该策略，必须同步更新本文、`docs/ENVIRONMENT_BASELINE.md`、README、P0、审计治理、Browser Blackbox 基线和 CHANGELOG，并重新验证实际 Vercel behavior。
+- repository visibility 发生受控变化后，必须重新验证 Vercel GitHub App access、Git link、branch mapping 与 deployment metadata；不得假设 Private 阶段验证结果自动适用于 Public。
+- 若未来改变部署策略，必须同步更新本文、`docs/ENVIRONMENT_BASELINE.md`、README、P0、审计治理、Browser Blackbox 基线和 CHANGELOG，并重新验证实际 Vercel behavior。
 
 ## 3. Candidate Freeze 条件
 
@@ -54,20 +59,21 @@
 
 - 当前 PR exact head 已实时读取，不使用缓存 SHA。
 - release-blocking P0/P1 仅指有明确 same-head 证据的 PRODUCT / SECURITY / DATA 一致性缺陷、repo/live migration parity 失败，或会直接阻塞 Gate 的 canonical 规则冲突；这些问题不得处于 `OPEN` / `IN_PROGRESS`。明确延期且非 Gate 阻塞的 P2 可保留。
-- QA/HARNESS_FAILURE、测试身份命名、测试覆盖完整度、一般技术债及其它不证明产品失败的测试治理事项，在 exact-head Domain Unit + Integration + H5 Build/clean replay 全绿且不存在对应 PRODUCT / SECURITY / DATA / parity failure 时，不得仅因其 `OPEN` / `IN_PROGRESS` 状态机械阻止 Candidate Freeze。`FIXED_PENDING_VERIFY` 本身也不是再次整改或阻止独立验证的理由。
-- H5 Build Check 对该 exact head `completed/success`，包括前端 build、migration preflight 与 Supabase clean replay。
+- QA/HARNESS_FAILURE、测试身份命名、测试覆盖完整度、一般技术债及其它不证明产品失败的测试治理事项，在 strict exact-head Unit + Integration + H5 Build/clean replay 全绿且不存在对应 PRODUCT / SECURITY / DATA / parity failure 时，不得仅因其 `OPEN` / `IN_PROGRESS` 状态机械阻止 Candidate Freeze。`FIXED_PENDING_VERIFY` 本身也不是再次整改或阻止独立验证的理由。
+- Candidate Freeze 使用 strict exact-SHA CI，不使用开发期 affected-scope skip 作为完整验证替代：Unit、Integration、H5 Build、migration preflight、Supabase clean replay 等当前 Gate 要求必须针对准备冻结的同一 exact head 建立有效证据。
 - repo/live migration version 与 SQL 语义一致；关键 RPC/RLS/Storage/Edge Function 无已知发布阻塞漂移。
 - canonical 文档已经同步到准备冻结的同一 PR head。
-- Browser Blackbox workflow / Playwright 若存在已由发布总控或独立验证明确分类、可复现的 QA/HARNESS_FAILURE，必须先做最小 harness 修复，之后才能接受该新 exact head 的 Browser/Gate 证据；该类 harness failure 不得改记为 PRODUCT failure，也不得借机扩大到产品代码。legacy test identity naming、覆盖广度等非阻塞测试治理债不得机械阻止 Freeze。
-- 自动整改任务暂停或处于不会继续推产品改动的状态，避免 freeze 后 head 持续移动。
+- repository visibility / Git link 等基础环境必须与 `docs/ENVIRONMENT_BASELINE.md` 的当前运行态一致。Public visibility 若已按 `docs/PUBLIC_READINESS.md` 完成前置检查、Owner 授权、实际配置变更及 canonical 同步，不得仅因“Public”本身阻塞 Candidate；未经授权或未同步的 visibility 变化属于环境漂移并阻塞。
+- Browser Blackbox workflow / Playwright 若存在已由发布总控或独立验证明确分类、可复现的 QA/HARNESS_FAILURE，必须先做最小 harness 修复，之后才能接受该新 exact head 的 Browser/Gate 证据；该类 harness failure 不得改记为 PRODUCT failure，也不得借机扩大到产品代码。
+- 自动整改任务暂停或处于不会继续推动产品改动的状态，避免 freeze 后 head 持续移动。
 
-Candidate Freeze 后，任何新的代码、migration、canonical 文档或测试基础设施提交都会产生新的 PR head，并自动使旧 candidate 失去 exact-head 资格。此时必须：暂停黑盒/Gate → 完成新 head CI → 再移动 `release-candidate` → 只测试新的 Preview。
+Candidate Freeze 后，任何新的代码、migration、canonical 文档或测试基础设施提交都会产生新的 PR head，并自动使旧 candidate 失去 exact-head 资格。此时必须：暂停黑盒/Gate → 完成新 head strict CI → 再移动 `release-candidate` → 只测试新的 Preview。
 
 ## 4. release-candidate 的移动规则
 
 - `release-candidate` 必须直接指向 PR exact head，不创建额外内容 commit，不 cherry-pick 独立修复，不承载人工开发。
 - 移动前再次读取 PR exact head，防止在 CI 等待期间 head 已前移。
-- 若新 head 只包含发布治理/文档/测试基础设施变化，也必须重新跑 exact-head CI；不能继承旧 SHA 的 green 结论。
+- 若新 head 只包含发布治理/文档/测试基础设施变化，也必须重新建立 Candidate 所需 strict exact-head evidence；不能继承旧 SHA 的 green 结论。
 - `release-candidate` 可以被后续候选覆盖；它表示“当前唯一候选”，不是历史归档分支。
 
 ## 5. Vercel Candidate 身份判定
@@ -80,18 +86,11 @@ Vercel Preview 只有同时满足以下条件才是正式 candidate：
 - Preview `/build-meta.json.sha = 当前 PR exact head`；
 - Preview `/build-meta.json.ref = release-candidate`；
 - Git repository 与 canonical repo 一致；
-- repository visibility / Git link 等基础环境没有漂移。
+- repository visibility / Git link 等基础环境与 `docs/ENVIRONMENT_BASELINE.md` 当前运行态一致，且任何 visibility 变化已完成 `docs/PUBLIC_READINESS.md` 要求与 Owner 授权。
 
 Preview URL、deployment id、SHA 都是运行时事实，不写成长期固定值。
 
-以下均不能替代 exact-head candidate：
-
-- 旧 Preview；
-- feature branch 上相近 SHA 的 Preview；
-- HTTP 200；
-- 本地 build；
-- 单独 CI green；
-- Vercel branch alias 指向未知旧 deployment。
+以下均不能替代 exact-head candidate：旧 Preview、feature branch 上相近 SHA 的 Preview、HTTP 200、本地 build、单独 CI green、开发期 affected-scope evidence、Vercel branch alias 指向未知旧 deployment。
 
 ## 6. 真实浏览器黑盒与 Release Gate
 
@@ -110,7 +109,7 @@ Preview URL、deployment id、SHA 都是运行时事实，不写成长期固定�
 
 ### ChatGPT「球搭子全功能测试」
 
-该任务现在是**黑盒总控 / 证据复核者**，不是浏览器执行器：
+该任务是**黑盒总控 / 证据复核者**，不是浏览器执行器：
 
 - 先执行 Candidate Preflight；
 - 再读取同一 exact SHA 的 `Candidate Browser Blackbox` workflow run；
@@ -123,16 +122,17 @@ Preview URL、deployment id、SHA 都是运行时事实，不写成长期固定�
 
 Gate 只有在以下证据属于同一 exact head 时才可给最终结论：
 
-- H5 Build Check success；
+- strict exact-SHA Unit / Integration / H5 Build / migration preflight / clean replay 满足当前发布要求；
 - READY Vercel candidate；
 - `Candidate Browser Blackbox` completed/success；
 - artifact `candidate-browser-evidence-<same SHA>` 存在；
 - `result.json.ok=true` 与 `full-lifecycle-result.json.ok=true`；
 - 对该 deployment 的真实 mobile / Visual / English / 双用户 / 主生命周期浏览器证据；
 - live backlog 与发布相关 P0/P1 状态；
-- repo/live Supabase 与安全一致性证据。
+- repo/live Supabase 与安全一致性证据；
+- repository visibility / Git integration 与 canonical 当前运行态一致。
 
-缺少 candidate 或对应真实浏览器证据时，Gate 只能 `WAITING_FOR_CANDIDATE_OR_BLACKBOX`，不能把“没有 Preview/浏览器能力”登记成产品缺陷。
+GitHub Actions quota/billing/runner 条件导致 job 在 workflow steps 前无法启动时，属于 infrastructure blocker，不是产品回归证据。缺少 candidate 或对应真实浏览器证据时，Gate 只能 `WAITING_FOR_CANDIDATE_OR_BLACKBOX`，不能把“没有 Preview/浏览器能力”登记成产品缺陷。
 
 ## 7. main 与生产边界
 
@@ -140,13 +140,16 @@ Gate 只有在以下证据属于同一 exact head 时才可给最终结论：
 - 不得用 main Production 代替 Preview 验证。
 - Gate PASS 之前所有自动化禁止直接 merge/push main。
 - Gate PASS 也不等于自动 merge；最终 merge 决策仍由用户/总控做出。
+- repository visibility change 与 main merge 是两个独立 Owner-controlled action；授权 Public 不自动授权 merge main，授权 merge main 也不自动授权改变 visibility。
 - 若 main merge 后生产部署失败，应按发布事故处理，不回写成“候选已经通过所以忽略”。
 
-## 8. Hobby 配额治理
+## 8. Hobby / CI 配额治理
 
 - 日常开发不自动部署是主动成本控制策略，不是 Vercel 故障。
+- affected-scope CI、docs-only skip 与 concurrency cancel 是开发期成本/配额治理，不得降低 Candidate/Release strict exact-SHA 证据要求。
 - 一个候选周期原则上只移动一次 `release-candidate` 并产生一份 Preview。
-- 若 candidate freeze 后确有必要更新代码、测试基础设施或 canonical 文档，应接受旧 candidate 作废，并在新 exact-head CI green 后重新生成 candidate；不得为了节省一次 Preview 而测试旧 SHA。
+- 若 candidate freeze 后确有必要更新代码、测试基础设施或 canonical 文档，应接受旧 candidate 作废，并在新 exact-head strict CI green 后重新生成 candidate；不得为了节省一次 Preview 而测试旧 SHA。
+- GitHub Actions included minutes / budget / visibility 造成的 job-start blocker必须单独分类。job `steps=[]` 或未启动时先核对 quota/billing/visibility，不得自动归因为产品、Supabase 或 workflow regression。
 - 手动通用 Deploy 若不能证明 Git source SHA，不作为 Gate 证据；优先使用 `release-candidate` Git Integration。
 
 ## 9. 2026-08-30 首次实证与浏览器能力收口
@@ -165,16 +168,17 @@ Gate 只有在以下证据属于同一 exact head 时才可给最终结论：
 
 ## 10. 文档同步要求
 
-任何发布模型、Vercel 分支策略或 Browser Blackbox 能力变化，必须在同一轮同步：
+任何发布模型、Vercel 分支策略、Browser Blackbox 能力或 repository visibility 变化，必须在同一受控变更切片同步：
 
 1. `docs/RELEASE_GOVERNANCE.md`；
 2. `docs/BROWSER_BLACKBOX_BASELINE.md`；
 3. `docs/ENVIRONMENT_BASELINE.md`；
 4. `docs/AUDIT_AUTOMATION_GOVERNANCE.md`；
-5. `docs/P0_ACCEPTANCE.md`；
-6. README；
-7. `vercel.json` / CI / Playwright 等实际配置；
-8. `CHANGELOG.md`；
-9. 相关自动化 prompt。
+5. `docs/PUBLIC_READINESS.md`（若涉及 visibility）；
+6. `docs/P0_ACCEPTANCE.md`；
+7. README；
+8. `vercel.json` / CI / Playwright 等实际配置；
+9. `CHANGELOG.md`（实际配置变化时）；
+10. 相关自动化 prompt。
 
-禁止只更新 workflow、只更新 `vercel.json` 或只在聊天中约定。
+禁止只更新 workflow、只更新 `vercel.json` 或只在聊天中约定。Public Readiness 文档准备不等于实际 visibility change；真正改变 repository visibility 仍必须由 Owner 明确授权。
