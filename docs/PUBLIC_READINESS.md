@@ -19,45 +19,30 @@ Current username/nickname test identity behavior remains intentionally supported
 
 ## CI preparation already applied in V7
 
-Development CI is being made visibility-neutral and quota-efficient:
-
-- documentation-only changes do not consume ordinary Unit/Build jobs;
-- stale runs for the same PR/ref are cancelled with workflow concurrency;
-- Integration Contract Tests on pull requests are scoped to backend/database/integration-relevant paths;
-- `main` still runs the full Integration path;
-- the schema-focused Supabase clean replay in H5 Build is not duplicated on ordinary pull-request updates and remains a main/manual invariant;
-- workflows retain least-privilege repository permissions unless a workflow has an explicit release/browser need.
+Development CI is visibility-neutral and quota-efficient: documentation-only changes skip ordinary Unit/Build jobs; stale runs for the same PR/ref are cancelled; Integration Contract Tests on pull requests are scoped to backend/database/integration-relevant paths; `main` retains the full Integration path; and the schema-focused Supabase clean replay in H5 Build is not duplicated on ordinary pull-request updates and remains a main/manual invariant. Workflows retain least-privilege repository permissions unless a workflow has an explicit release/browser need.
 
 The former build assertion that repository visibility must be private is no longer a valid Public-prep invariant.
 
 ## Public-source exposure accepted by design
 
-The following are not server secrets and must not be treated as security controls:
-
-- repository source code and migrations;
-- Supabase project ref/API host used by the browser;
-- browser publishable/anon key;
-- product and engineering documentation that the owner explicitly elects to publish.
-
-Private data must remain protected even when an attacker knows all of the above.
+Repository source/migrations, Supabase project ref/API host, browser publishable/anon key, and product/engineering documentation explicitly elected for publication are not server secrets. Private data must remain protected even when an attacker knows all of the above.
 
 ## Hardening / cleanup before formal public operation
 
 - Pin third-party GitHub Actions, especially OIDC-capable browser workflows, to reviewed immutable commit SHAs.
 - Review Edge Function CORS origin policy and prefer an explicit production/preview allowlist where practical.
 - Keep event-photo originals private and preserve organizer/participant authorization for signed access.
-- Consider consolidating original-photo signed URL issuance through the protected server path for a simpler authorization boundary.
 - Decide whether internal audit/Workboard/governance history is intentionally part of the public project documentation.
 
 ## Legacy restore/package assets
 
 `bundle/chunk*.txt`, `source.bundle.b64`, `scripts/restore-source.mjs`, the packaging script, and the restore workflow are a linked legacy restore/package path. They must **not** be deleted piecemeal merely because they look old. First prove that the restore/package path and its release/audit trace value have been intentionally retired; only then remove the linked assets as one controlled cleanup slice.
 
-A public repository makes historical source snapshots easier to inspect, so retirement remains desirable if the path no longer has operational or audit value.
+## Full-history scan execution note
+
+Current ChatGPT GitHub access can inspect repository files, commits, diffs, trees and workflow evidence, but it does not expose a writable Git worktree/clone primitive or an equivalent dedicated Gitleaks/TruffleHog full-history scanner. Therefore API/code searches and tracked-file preflights must **not** be recorded as a full-history PASS. This gate remains pending until a real history scanner can execute over all reachable Git objects/refs. No owner action is required merely to keep preparing the repository; this becomes actionable only before the actual visibility change.
 
 ## Visibility-change checklist
-
-Before the owner changes the repository to Public:
 
 1. Dedicated full-history secret scan reviewed.
 2. Current-head tracked-file secret preflight clean.
@@ -65,7 +50,7 @@ Before the owner changes the repository to Public:
 4. CI workflows reviewed for fork/PR permissions; no unsafe `pull_request_target` checkout pattern.
 5. OIDC/write-capable workflows reviewed and restricted to trusted refs/events.
 6. Public documentation scope explicitly accepted.
-7. Visibility changed by the owner only after the above checks.
+7. Visibility changed only after explicit owner authorization.
 8. After change, verify repository metadata, GitHub Actions, Vercel Git link/deploy behavior, Supabase authorization boundaries, and available GitHub ruleset/branch-protection capabilities.
 
 ## Current non-blocking infrastructure facts
