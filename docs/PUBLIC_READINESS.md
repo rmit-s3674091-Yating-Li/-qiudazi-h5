@@ -19,11 +19,11 @@ Current username/nickname test identity behavior remains intentionally supported
 
 ## Canonical migration status
 
-The V7 branch has already migrated `README.md`, `docs/ENVIRONMENT_BASELINE.md`, and `docs/RELEASE_GOVERNANCE.md` to visibility-neutral governance. Development uses affected-scope evidence; Candidate Freeze and Release Gate retain strict exact-SHA evidence. The former H5 Build assertion that `github.event.repository.private=true` is mandatory has been removed.
+The V7 branch has migrated `README.md`, `docs/ENVIRONMENT_BASELINE.md`, `docs/RELEASE_GOVERNANCE.md`, and `docs/AUDIT_AUTOMATION_GOVERNANCE.md` to visibility-neutral governance. Development uses affected-scope evidence; Candidate Freeze and Release Gate retain strict exact-SHA evidence. The former H5 Build assertion that `github.event.repository.private=true` is mandatory has been removed.
 
-`docs/AUDIT_AUTOMATION_GOVERNANCE.md` still contains historical Private-only wording and remains a canonical documentation-drift item. Because the current connector truncates that large file and only supports complete-file replacement, it must not be overwritten from an incomplete response. This is a safe-edit constraint, not a Public security finding. Public visibility must not be changed until that canonical drift is safely reconciled.
+The Audit governance migration was completed safely from the complete Git blob rather than a truncated contents response. It now treats Private as the current runtime state, requires Owner authorization plus `docs/PUBLIC_READINESS.md` gates before Public conversion, treats an authorized conversion as a controlled environment change rather than automatic drift, and requires post-change revalidation before platform enforcement can be counted as Gate evidence. It also corrects the V7 dynamic development PR reference from historical PR #20 to PR #24.
 
-`docs/V7_WORKBOARD.md` also contains stale blocker prose: `V7-SCORE-01`, `V7-ID-01B`, and `V7-VENUE-01A` still describe generic no-step runner failures rather than the confirmed GitHub Actions quota exhaustion; `V7-VENUE-01C` still claims missing provider credentials even though Baidu browser AK/Referer/Vercel environment configuration is complete. These are governance-evidence synchronization items. They do not convert into product regressions and must not be force-overwritten from truncated file content.
+`docs/V7_WORKBOARD.md` remains the principal stale governance-evidence item. Its complete current blob has now been retrieved, so the stale rows are precisely known; however, because it is a very large machine-consumed table and the available write primitive is complete-file replacement, it must still be changed only by a full-content optimistic-concurrency write. The required semantic corrections are: `V7-SCORE-01`, `V7-ID-01B`, and `V7-VENUE-01A` must attribute the no-step CI condition to the confirmed GitHub Actions included-minute exhaustion (2,000 / 2,000), and `V7-VENUE-01C` must stop claiming missing provider credentials because Baidu browser AK/Referer/Vercel environment configuration is complete. The remaining venue blocker is safe host wiring of the compressed `EventFormPage.tsx` through the current replacement-only editing capability. This is governance synchronization, not a product regression and not a reason to invent a new Workboard state enum.
 
 ## CI preparation already applied in V7
 
@@ -97,7 +97,7 @@ Baidu browser AK/Referer/Vercel environment configuration for the V7 Standard Ev
 
 At the current preparation stage, the remaining Public-specific gates are intentionally narrow:
 
-- safely reconcile the remaining Audit/Workboard canonical drift without overwriting truncated content;
+- safely synchronize the remaining Workboard blocker evidence by complete-content optimistic-concurrency write;
 - execute and review the dedicated full-Git-history secret scan;
 - refresh the exact-head tracked-source preflight after the last Public-prep commit;
 - confirm the intended public scope of retained governance/history/legacy artifacts;
