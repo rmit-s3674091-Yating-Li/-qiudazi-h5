@@ -23,8 +23,9 @@
 16. `docs/RELEASE_GOVERNANCE.md`
 17. `docs/BROWSER_BLACKBOX_BASELINE.md`
 18. `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
-19. `CHANGELOG.md`
-20. 当前源码、migration、Edge Functions 与 CI / Browser evidence
+19. `docs/PUBLIC_READINESS.md` — Private/Public 可见性准备边界与公开前检查
+20. `CHANGELOG.md`
+21. 当前源码、migration、Edge Functions 与 CI / Browser evidence
 
 当前开发迭代中，`docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md` 明确批准的变更优先于尚未逐段迁移的旧专项描述；未被其修改的专项规则继续有效。Quick Start 规则以 next-version baseline + `docs/QUICK_START_BASELINE.md` 为准；赛事对阵/轮次/Match 卡话术以 `docs/TOURNAMENT_PRESENTATION_BASELINE.md` 为准；自动化测试命名与 Hall 隔离以 `docs/TEST_DATA_GOVERNANCE.md` 为准。
 
@@ -78,20 +79,21 @@
 
 ## Environment
 
-- GitHub repository：`rmit-s3674091-Yating-Li/-qiudazi-h5`，canonical visibility 为 Private。
+- GitHub repository：`rmit-s3674091-Yating-Li/-qiudazi-h5`。当前运行态仍为 Private；repository visibility 不是应用安全边界。V7 正在执行 Public Readiness，真正改变 visibility 必须先满足 `docs/PUBLIC_READINESS.md` 并获得 Owner 明确授权。
 - canonical Supabase：`qiudazi-test`，project ref `rtmjzmgrhifjzxaliltm`。
 - Vercel：feature 不自动部署；`release-candidate` 生成 exact-head Preview；`main` 生产。
 - 中国区 CloudBase 作为前端测试部署，仍连接 canonical Supabase；CloudBase 部署成功不替代 Vercel Candidate / Release Gate。
 
-完整环境规则见 `docs/ENVIRONMENT_BASELINE.md`。
+完整环境规则见 `docs/ENVIRONMENT_BASELINE.md`、`docs/PUBLIC_READINESS.md`。
 
 ## Release / CI
 
 - 开发只写 feature branch；不得自动 merge `main`。
-- 每个候选 exact head 必须通过 H5 Build Check + Supabase clean replay。
+- **开发阶段采用 affected-scope evidence**：普通相关代码运行 Unit + H5 Build；DB/RPC/migration/Edge/integration 相关改动额外运行 Integration；docs-only 变更不机械消耗产品 CI；同一 PR/ref 的 stale run 可由 concurrency 取消。
+- `main` 与显式完整验证仍保留完整 Integration / Supabase clean replay invariants；不得因开发期节流降低发布要求。
 - repo migration 文件名 version 必须与 live `supabase_migrations.schema_migrations.version` **完全一致**，不仅 SQL 语义相同。
-- Candidate Freeze 后任何代码、migration 或 canonical docs commit 都会移动 exact head，旧 Preview / Browser / Gate 证据失效。
-- `release-candidate` 必须 fast-forward 到通过 CI 的 exact feature SHA。
+- **Candidate Freeze 后切换 strict exact-SHA evidence**：Unit / Integration / Build / Preview / Browser / Gate 必须属于同一 candidate SHA；任何代码、migration 或 canonical docs commit 移动 exact head 后，旧 candidate evidence 失效。
+- `release-candidate` 必须 fast-forward 到通过要求的 exact feature SHA。
 - Vercel Preview `/build-meta.json` 必须与 expected SHA/ref 一致。
 - Candidate Browser 与 Exploratory Browser 必须读取同一 SHA；workflow 绿灯不能替代 JSON 内部 `ok/pass/fail` 检查。
 - live P0/P1 blocker 为 0 后才能 Release Gate PASS；最终 merge main 必须由用户明确授权。
