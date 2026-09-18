@@ -23,9 +23,9 @@ The V7 branch has migrated `README.md`, `docs/ENVIRONMENT_BASELINE.md`, `docs/RE
 
 The Audit governance migration was completed safely from the complete Git blob rather than a truncated contents response. It now treats Private as the current runtime state, requires Owner authorization plus `docs/PUBLIC_READINESS.md` gates before Public conversion, treats an authorized conversion as a controlled environment change rather than automatic drift, and requires post-change revalidation before platform enforcement can be counted as Gate evidence. It also corrects the V7 dynamic development PR reference from historical PR #20 to PR #24.
 
-`docs/PUBLIC_PREP_RUNTIME_EVIDENCE.md` now preserves the corrected live blocker facts that cannot yet be safely written back into the large Workboard: Actions quota exhaustion for SCORE/ID/VENUE DB verification, and the resolved Baidu credential with remaining safe-edit/tooling blocker for VENUE-01C. It is supplemental evidence only and does not replace the Workboard state machine.
+`docs/PUBLIC_PREP_RUNTIME_EVIDENCE.md` preserves the corrected blocker facts captured while the large Workboard could not yet be edited safely. Those facts have now also been synchronized into the canonical `docs/V7_WORKBOARD.md`; the supplemental file remains historical/runtime evidence and does not replace the Workboard state machine.
 
-`docs/V7_WORKBOARD.md` remains the principal stale governance-evidence item. Its complete current blob has now been retrieved, so the stale rows are precisely known; however, because it is a very large machine-consumed table and the available write primitive is complete-file replacement, it must still be changed only by a full-content optimistic-concurrency write. The required semantic corrections are: `V7-SCORE-01`, `V7-ID-01B`, and `V7-VENUE-01A` must attribute the no-step CI condition to the confirmed GitHub Actions included-minute exhaustion (2,000 / 2,000), and `V7-VENUE-01C` must stop claiming missing provider credentials because Baidu browser AK/Referer/Vercel environment configuration is complete. The remaining venue blocker is safe host wiring of the compressed `EventFormPage.tsx` through the current replacement-only editing capability. This is governance synchronization, not a product regression and not a reason to invent a new Workboard state enum.
+`docs/V7_WORKBOARD.md` has now been safely synchronized by complete-content optimistic-concurrency write. `V7-SCORE-01`, `V7-ID-01B`, and `V7-VENUE-01A` attribute the no-step CI condition to the confirmed GitHub Actions included-minute exhaustion (2,000 / 2,000), while `V7-VENUE-01C` records that Baidu browser AK/Referer/Vercel environment configuration is complete and the remaining blocker is safe host wiring of the compressed `EventFormPage.tsx`. No new Workboard state enum was invented.
 
 ## CI preparation already applied in V7
 
@@ -60,7 +60,7 @@ Public conversion will also expose repository history and currently retained eng
 - Pin third-party GitHub Actions, especially OIDC-capable browser workflows, to reviewed immutable commit SHAs. Do not guess SHAs; pin only after the exact upstream commit is verified.
 - Review Edge Function CORS origin policy and prefer an explicit production/preview allowlist where practical.
 - Keep event-photo originals private and preserve organizer/participant authorization for signed access.
-- Decide whether internal audit/Workboard/governance history is intentionally part of the public project documentation.
+- Internal audit/Workboard/governance history and the retained legacy restore/package/audit artifacts have been reviewed dependency-first and are intentionally accepted as part of the public project scope for this transition; they must not be deleted piecemeal merely to manufacture readiness.
 
 These hardening items must be classified by actual security effect. The deferred full-history scan remains a recorded residual risk rather than a fabricated PASS; non-blocking defense-in-depth work must not be mechanically promoted into a product regression.
 
@@ -101,12 +101,11 @@ Baidu browser AK/Referer/Vercel environment configuration for the V7 Standard Ev
 
 ## Remaining gates before requesting Owner authorization
 
-At the current preparation stage, the remaining Public-specific gates are intentionally narrow:
+At the current preparation stage, Workboard synchronization, full-history-scan disposition, and publication-scope review are complete. The remaining Public-specific preparation gate is intentionally narrow:
 
-- safely synchronize the remaining Workboard blocker evidence by complete-content optimistic-concurrency write; until that safe edit is possible, the authoritative corrected runtime facts are preserved in `docs/PUBLIC_PREP_RUNTIME_EVIDENCE.md` rather than by an unsafe partial Workboard overwrite;
-- preserve the explicit Owner-approved full-history-scan deferral and residual-risk record; no paid runner/plan upgrade is required solely for this item;
 - refresh the exact-head tracked-source preflight after the last Public-prep commit;
-- confirm the intended public scope of retained governance/history/legacy artifacts; current inventory specifically includes Workboard/audit governance and the branch-scoped legacy restore/package workflow plus bundle/source artifacts;
-- then request explicit Owner authorization for the visibility change.
+- if that refresh has no unresolved server-credential finding, request explicit Owner authorization for the actual visibility change.
+
+No paid runner/plan upgrade is required solely for the deferred full-history scan. Publication-scope acceptance does not authorize merge main, move release-candidate, start Release Gate, or deploy Production.
 
 Until those gates are satisfied, status remains **PUBLIC-PREP READY**, not `PUBLIC-READY`. No Public conversion, `main` merge, Production deployment, `release-candidate` movement, or Release Gate is authorized by this document.
