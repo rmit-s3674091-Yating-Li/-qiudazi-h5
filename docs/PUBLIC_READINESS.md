@@ -72,6 +72,8 @@ The same conservative rule applies to specialist audit workflows/scripts and exe
 
 ## Full-history scan execution note
 
+The reachable-ref scope for the eventual scanner has now been inventoried from GitHub rather than assumed. Current heads are `main`, `release-candidate`, the active V7 branch, the retained V6/postdeploy branches, and five retained `fix/*` branches; the repository currently exposes no tag refs. The scanner must cover history reachable from **all current heads**, not only `main` or PR #24. If refs change before execution, this inventory must be refreshed first.
+
 Current ChatGPT GitHub access can inspect repository files, commits, diffs, trees and workflow evidence, but it does not expose a writable Git worktree/clone primitive or an equivalent dedicated Gitleaks/TruffleHog full-history scanner. Therefore API/code searches and tracked-file preflights must **not** be recorded as a full-history PASS. This gate remains pending until a real history scanner can execute over all reachable Git objects/refs.
 
 A full-history result must record at least the scanner/tool and version, repository/ref scope, execution time, findings reviewed, any credential rotation/remediation required, and the exact V7 head used for the final tracked-source follow-up. Sampling recent commits or searching only the default branch is insufficient.
