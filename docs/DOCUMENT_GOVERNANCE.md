@@ -23,12 +23,13 @@
 - `docs/RELEASE_GOVERNANCE.md`
 - `docs/BROWSER_BLACKBOX_BASELINE.md`
 - `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
+- `docs/PUBLIC_READINESS.md` — repository visibility 变更的准备边界、full-history secret scan、公开范围确认、Owner 授权与 post-change revalidation 真源
 - 本文件 `docs/DOCUMENT_GOVERNANCE.md`
 
 专项规则仍放在专项基线。处于下一版本开发期间，若 `NEXT_VERSION_PRODUCT_BASELINE_20260902.md` 明确写出“变更/新增”规则，则该变更是专项文件下一次同步更新的输入；未被明确修改的既有规则继续有效。禁止因为旧专项文件尚未完成逐段迁移而回退已批准产品决策。
 
 ### B. Runtime truth
-用于回答“现在实际上是什么状态”。GitHub 当前 main/开发 PR exact head、Supabase live schema/RPC/RLS/Storage、Vercel deployment、自动化状态等运行时事实优先于静态文档中的旧状态描述。
+用于回答“现在实际上是什么状态”。GitHub 当前 main/开发 PR exact head、repository visibility、Supabase live schema/RPC/RLS/Storage、Vercel deployment、自动化状态等运行时事实优先于静态文档中的旧状态描述。Repository visibility 是 owner-controlled runtime fact，不是应用安全边界；visibility 变更前置条件与授权边界以 `docs/PUBLIC_READINESS.md` 为准。
 
 ### C. Evidence / changelog
 Git commit/PR、CHANGELOG、CI/Browser evidence 用于证明某时点发生了什么，但不能覆盖当前 canonical policy。
@@ -62,7 +63,7 @@ Git commit/PR、CHANGELOG、CI/Browser evidence 用于证明某时点发生了�
 
 阶段建议：产品规则 → 实现 + Unit/Integration → 稳定后 whitebox → remediation → 功能收口后 blackbox → candidate → Gate → 人工决定是否 merge/release。
 
-任何自动化均不得自行 merge main 或触发 Production。
+任何自动化均不得自行 merge main 或触发 Production。Repository visibility 同样不得由自动化自行改变；Public-prep 可以继续推进，但只有 `docs/PUBLIC_READINESS.md` 的前置条件完成且 Owner 明确授权后才允许切换。Public 授权不等于 `release-candidate`、Release Gate、merge main 或 Production 授权。
 
 ## 5. 当前关键产品决策索引
 
