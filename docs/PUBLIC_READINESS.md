@@ -23,6 +23,8 @@ The V7 branch has migrated `README.md`, `docs/ENVIRONMENT_BASELINE.md`, `docs/RE
 
 The Audit governance migration was completed safely from the complete Git blob rather than a truncated contents response. It now treats Private as the current runtime state, requires Owner authorization plus `docs/PUBLIC_READINESS.md` gates before Public conversion, treats an authorized conversion as a controlled environment change rather than automatic drift, and requires post-change revalidation before platform enforcement can be counted as Gate evidence. It also corrects the V7 dynamic development PR reference from historical PR #20 to PR #24.
 
+`docs/PUBLIC_PREP_RUNTIME_EVIDENCE.md` now preserves the corrected live blocker facts that cannot yet be safely written back into the large Workboard: Actions quota exhaustion for SCORE/ID/VENUE DB verification, and the resolved Baidu credential with remaining safe-edit/tooling blocker for VENUE-01C. It is supplemental evidence only and does not replace the Workboard state machine.
+
 `docs/V7_WORKBOARD.md` remains the principal stale governance-evidence item. Its complete current blob has now been retrieved, so the stale rows are precisely known; however, because it is a very large machine-consumed table and the available write primitive is complete-file replacement, it must still be changed only by a full-content optimistic-concurrency write. The required semantic corrections are: `V7-SCORE-01`, `V7-ID-01B`, and `V7-VENUE-01A` must attribute the no-step CI condition to the confirmed GitHub Actions included-minute exhaustion (2,000 / 2,000), and `V7-VENUE-01C` must stop claiming missing provider credentials because Baidu browser AK/Referer/Vercel environment configuration is complete. The remaining venue blocker is safe host wiring of the compressed `EventFormPage.tsx` through the current replacement-only editing capability. This is governance synchronization, not a product regression and not a reason to invent a new Workboard state enum.
 
 ## CI preparation already applied in V7
@@ -99,7 +101,7 @@ Baidu browser AK/Referer/Vercel environment configuration for the V7 Standard Ev
 
 At the current preparation stage, the remaining Public-specific gates are intentionally narrow:
 
-- safely synchronize the remaining Workboard blocker evidence by complete-content optimistic-concurrency write;
+- safely synchronize the remaining Workboard blocker evidence by complete-content optimistic-concurrency write; until that safe edit is possible, the authoritative corrected runtime facts are preserved in `docs/PUBLIC_PREP_RUNTIME_EVIDENCE.md` rather than by an unsafe partial Workboard overwrite;
 - execute and review the dedicated full-Git-history secret scan;
 - refresh the exact-head tracked-source preflight after the last Public-prep commit;
 - confirm the intended public scope of retained governance/history/legacy artifacts; current inventory specifically includes Workboard/audit governance and the branch-scoped legacy restore/package workflow plus bundle/source artifacts;
