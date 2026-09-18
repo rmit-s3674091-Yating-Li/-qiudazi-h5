@@ -41,9 +41,11 @@ The final application authorization boundary remains Auth/RLS/RPC ACL/Storage/Ed
 
 ## Workflow / fork trust review
 
-Ordinary development workflows do not use an unsafe `pull_request_target` checkout pattern. Workflows that require elevated capabilities such as OIDC or release/browser operations must remain restricted to trusted events/refs and must not become a path for untrusted fork code to obtain privileged execution merely because the repository becomes public.
+Current-head workflow inventory has been re-read from the repository tree. Ordinary PR development workflows (`H5 Build Check`, `Domain Unit Tests`, `Integration Contract Tests`) use read-only repository permissions and do not use `pull_request_target`. Candidate/exploratory/AUD-015 browser workflows request `id-token: write` plus read permissions, but they are triggered only from `release-candidate`, manual dispatch, and (for Candidate Browser) Vercel `repository_dispatch`; they are not pull-request-triggered and explicitly checkout `release-candidate`. This keeps untrusted fork PR code out of the OIDC path under the current workflow definitions.
 
-After Public conversion, re-check the effective fork/PR permission model, Actions behavior, ruleset/branch-protection availability, and Vercel GitHub App authorization. A capability that was unavailable while the repository was private/free must not be assumed to remain unavailable after Public conversion.
+The legacy `Restore readable source` workflow has `contents: write`, but it is branch-scoped to `chore/restore-readable-source` and explicitly checks out/pushes that branch. It is part of the linked legacy restore/package path and is therefore an intentional publication-scope item to review, not a reason to delete bundle assets piecemeal.
+
+No unsafe `pull_request_target` checkout path was found in the current workflow inventory. After Public conversion, re-check the effective fork/PR permission model, Actions behavior, ruleset/branch-protection availability, Vercel GitHub App authorization, and whether legacy branch write workflows remain intentionally enabled. A capability that was unavailable while the repository was private/free must not be assumed to remain unavailable after Public conversion.
 
 ## Public-source exposure accepted by design
 
@@ -100,7 +102,7 @@ At the current preparation stage, the remaining Public-specific gates are intent
 - safely synchronize the remaining Workboard blocker evidence by complete-content optimistic-concurrency write;
 - execute and review the dedicated full-Git-history secret scan;
 - refresh the exact-head tracked-source preflight after the last Public-prep commit;
-- confirm the intended public scope of retained governance/history/legacy artifacts;
+- confirm the intended public scope of retained governance/history/legacy artifacts; current inventory specifically includes Workboard/audit governance and the branch-scoped legacy restore/package workflow plus bundle/source artifacts;
 - then request explicit Owner authorization for the visibility change.
 
 Until those gates are satisfied, status remains **PUBLIC-PREP READY**, not `PUBLIC-READY`. No Public conversion, `main` merge, Production deployment, `release-candidate` movement, or Release Gate is authorized by this document.
