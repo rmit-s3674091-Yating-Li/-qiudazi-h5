@@ -12,7 +12,7 @@ Current username/nickname test identity behavior remains intentionally supported
 
 ## Required before changing visibility
 
-- Run a dedicated full-Git-history secret scan (for example Gitleaks or TruffleHog in history mode) and review findings. Current tracked-file scanning is useful but is not proof that arbitrary historical blobs never contained a secret.
+- Full-Git-history secret scanning is recommended defense-in-depth, but Owner has explicitly accepted deferral for this V7 Public transition. The accepted residual risk is that an old reachable commit could contain a credential that is absent from the current tracked tree. This deferral is not a scan PASS and must never be represented as one.
 - Re-read the current exact PR head and confirm no newly introduced server credential, private key, database password, service-role key, PAT, or other server secret is tracked.
 - Synchronize canonical environment/release/audit documentation. `Private` may be recorded as the current runtime fact, but must not be treated as a permanent application-security invariant.
 - Revalidate GitHub/Vercel/Supabase integration behavior after the visibility change before accepting any release evidence.
@@ -37,7 +37,7 @@ The former build assertion that repository visibility must be private is no long
 
 The current V7 tracked-source review has not identified a committed Supabase service-role key, GitHub PAT, database password/connection URL, private key, or equivalent server credential. References to secret variable names, scanner patterns, browser-visible Supabase project identity, and browser publishable/anon configuration are not by themselves server-secret findings.
 
-This is deliberately classified as **tracked-source preflight evidence only**. It is not a substitute for the required full-Git-history scan, and it must be refreshed against the exact head immediately before a visibility change because subsequent commits can invalidate it.
+This is deliberately classified as **tracked-source preflight evidence only**. It does not prove that arbitrary historical blobs never contained a secret. For this V7 Public transition, Owner has explicitly accepted that residual history risk and deferred the automated full-history scan; the exact-head preflight must still be refreshed immediately before a visibility change because subsequent commits can invalidate it.
 
 The final application authorization boundary remains Auth/RLS/RPC ACL/Storage/Edge server-side checks rather than source secrecy. Event-photo originals remain private; sensitive Edge operations authenticate the caller and keep service-role material server-side. Existing CORS reflection and browser-side signed-URL patterns remain hardening candidates, not evidence that repository visibility itself grants data access.
 
@@ -62,7 +62,7 @@ Public conversion will also expose repository history and currently retained eng
 - Keep event-photo originals private and preserve organizer/participant authorization for signed access.
 - Decide whether internal audit/Workboard/governance history is intentionally part of the public project documentation.
 
-These hardening items must be classified by actual security effect. They must not be used to disguise a missing full-history scan, nor should non-blocking defense-in-depth work be mechanically promoted into a product regression.
+These hardening items must be classified by actual security effect. The deferred full-history scan remains a recorded residual risk rather than a fabricated PASS; non-blocking defense-in-depth work must not be mechanically promoted into a product regression.
 
 ## Legacy restore/package assets
 
@@ -74,15 +74,15 @@ The same conservative rule applies to specialist audit workflows/scripts and exe
 
 The reachable-ref scope for the eventual scanner has now been inventoried from GitHub rather than assumed. Current heads are `main`, `release-candidate`, the active V7 branch, the retained V6/postdeploy branches, and five retained `fix/*` branches; the repository currently exposes no tag refs. The scanner must cover history reachable from **all current heads**, not only `main` or PR #24. If refs change before execution, this inventory must be refreshed first.
 
-Current ChatGPT GitHub access can inspect repository files, commits, diffs, trees and workflow evidence, but it does not expose a writable Git worktree/clone primitive or an equivalent dedicated Gitleaks/TruffleHog full-history scanner. Therefore API/code searches and tracked-file preflights must **not** be recorded as a full-history PASS. This gate remains pending until a real history scanner can execute over all reachable Git objects/refs.
+Current ChatGPT GitHub access can inspect repository files, commits, diffs, trees and workflow evidence, but it does not expose a writable Git worktree/clone primitive or an equivalent dedicated Gitleaks/TruffleHog full-history scanner. API/code searches and tracked-file preflights must **not** be recorded as a full-history PASS. Owner has explicitly accepted deferring this scan for the V7 Public transition rather than purchasing or provisioning an external runner; the residual history-secret risk remains documented and a future real scanner should still cover all reachable Git objects/refs.
 
 A full-history result must record at least the scanner/tool and version, repository/ref scope, execution time, findings reviewed, any credential rotation/remediation required, and the exact V7 head used for the final tracked-source follow-up. Sampling recent commits or searching only the default branch is insufficient.
 
-No owner action is required merely to keep preparing the repository. If no safe history-scanner execution capability becomes available in this environment, that single capability becomes an explicit final prerequisite before asking for visibility authorization; it must not be silently waived.
+No additional paid runner or plan upgrade is required for this Public transition solely to satisfy history scanning. If a safe/free scanner capability becomes available later, run it and record the result; until then, the deferral remains explicit and must not be silently relabeled as PASS.
 
 ## Visibility-change checklist
 
-1. Dedicated full-history secret scan executed over all reachable history/refs and findings reviewed.
+1. Full-history secret scan status recorded: **DEFERRED BY OWNER / residual history-secret risk accepted for this V7 Public transition**. This is not a scan PASS; a future safe/free scanner should still cover all reachable history/refs.
 2. Current exact-head tracked-source secret preflight refreshed and clean, with no unresolved server credential finding.
 3. Canonical visibility wording synchronized across README, environment, release, audit governance, Public Readiness, and relevant Workboard evidence.
 4. CI workflows reviewed for fork/PR permissions; no unsafe `pull_request_target` checkout pattern.
@@ -104,7 +104,7 @@ Baidu browser AK/Referer/Vercel environment configuration for the V7 Standard Ev
 At the current preparation stage, the remaining Public-specific gates are intentionally narrow:
 
 - safely synchronize the remaining Workboard blocker evidence by complete-content optimistic-concurrency write; until that safe edit is possible, the authoritative corrected runtime facts are preserved in `docs/PUBLIC_PREP_RUNTIME_EVIDENCE.md` rather than by an unsafe partial Workboard overwrite;
-- execute and review the dedicated full-Git-history secret scan;
+- preserve the explicit Owner-approved full-history-scan deferral and residual-risk record; no paid runner/plan upgrade is required solely for this item;
 - refresh the exact-head tracked-source preflight after the last Public-prep commit;
 - confirm the intended public scope of retained governance/history/legacy artifacts; current inventory specifically includes Workboard/audit governance and the branch-scoped legacy restore/package workflow plus bundle/source artifacts;
 - then request explicit Owner authorization for the visibility change.
