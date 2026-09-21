@@ -79,7 +79,7 @@
 
 ## Environment
 
-- GitHub repository：`rmit-s3674091-Yating-Li/-qiudazi-h5`。当前运行态仍为 Private；repository visibility 不是应用安全边界。V7 正在执行 Public Readiness，真正改变 visibility 必须先满足 `docs/PUBLIC_READINESS.md` 并获得 Owner 明确授权。
+- GitHub repository：`rmit-s3674091-Yating-Li/-qiudazi-h5`。当前运行态为 Public；repository visibility 不是应用安全边界。该可见性切换已由 Owner 明确授权并完成，但不构成 merge `main`、移动 `release-candidate`、启动 Release Gate 或 Production deploy 的授权；过渡与残余风险记录见 `docs/PUBLIC_READINESS.md`。
 - canonical Supabase：`qiudazi-test`，project ref `rtmjzmgrhifjzxaliltm`。
 - Vercel：feature 不自动部署；`release-candidate` 生成 exact-head Preview；`main` 生产。
 - 中国区 CloudBase 作为前端测试部署，仍连接 canonical Supabase；CloudBase 部署成功不替代 Vercel Candidate / Release Gate。

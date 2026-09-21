@@ -1,3 +1,11 @@
+## 2026-09-21 — V7 development close-out (unreleased)
+
+- Repository visibility is now Public under explicit Owner authorization; this environment change does not authorize merge `main`, `release-candidate` movement, Release Gate, or Production deploy.
+- V7 scoring idempotency, nickname identity exchange/account switching, and Standard Event venue persistence foundation are independently VERIFIED.
+- Standard Event POI search/select host wiring is implemented behind the provider-neutral MapProvider boundary and is awaiting/under independent verification; Quick Start remains free of map/POI/geolocation steps.
+- Public GitHub-hosted Actions are executing normally again; current development uses affected-scope evidence, while Candidate/Release stages retain strict exact-SHA requirements.
+- Remaining non-code close-out is primarily Browser/real-device verification plus final documentation cleanup.
+
 # 球搭子 H5 — CHANGELOG
 
 本文件记录影响产品行为、数据模型、权限、技术架构和发布状态的主要变化。更细的逐提交证据保留在 Git history、PR discussion、GitHub Actions artifacts 与 Issue #21 append-only 工作日志中。当前产品规则以 canonical baseline 为准，CHANGELOG 只记录发生过什么，不覆盖当前规范。

@@ -1,8 +1,8 @@
 # Public Repository Readiness
 
-> Status: **PUBLIC-PREP READY / visibility change not yet authorized**.
+> Status: **PUBLIC / visibility transition completed; release remains unauthorized**.
 >
-> This document records the preparation boundary only. It does not authorize changing repository visibility, merging `main`, moving `release-candidate`, deploying Production, or starting Release Gate.
+> This document now serves as the preparation and transition audit record. Repository visibility has been changed to Public under explicit Owner authorization. That environment change does not authorize merging `main`, moving `release-candidate`, deploying Production, or starting Release Gate.
 
 ## Decision boundary
 
@@ -25,7 +25,7 @@ The Audit governance migration was completed safely from the complete Git blob r
 
 `docs/PUBLIC_PREP_RUNTIME_EVIDENCE.md` preserves the corrected blocker facts captured while the large Workboard could not yet be edited safely. Those facts have now also been synchronized into the canonical `docs/V7_WORKBOARD.md`; the supplemental file remains historical/runtime evidence and does not replace the Workboard state machine.
 
-`docs/V7_WORKBOARD.md` has now been safely synchronized by complete-content optimistic-concurrency write. `V7-SCORE-01`, `V7-ID-01B`, and `V7-VENUE-01A` attribute the no-step CI condition to the confirmed GitHub Actions included-minute exhaustion (2,000 / 2,000), while `V7-VENUE-01C` records that Baidu browser AK/Referer/Vercel environment configuration is complete and the remaining blocker is safe host wiring of the compressed `EventFormPage.tsx`. No new Workboard state enum was invented.
+`docs/V7_WORKBOARD.md` is synchronized through complete-content optimistic-concurrency writes. The former private-repository Actions included-minute blocker is resolved after the Public transition. `V7-VENUE-01C` no longer has a credential or safe-edit blocker: Standard Event POI host wiring is implemented and is tracked through the normal NEEDS_VERIFY → VERIFIED/CODE_REOPEN state machine. No new Workboard state enum was invented.
 
 ## CI preparation already applied in V7
 
@@ -99,13 +99,10 @@ The September 2026 CI interruption was caused by the private-repository GitHub A
 
 Baidu browser AK/Referer/Vercel environment configuration for the V7 Standard Event venue-search slice has already been supplied by the owner. Any remaining inability to wire the large compressed `EventFormPage.tsx` through a replacement-only connector is a tooling/edit-capability blocker, not a missing-provider-credential blocker.
 
-## Remaining gates before requesting Owner authorization
+## Post-change record
 
-At the current preparation stage, Workboard synchronization, full-history-scan disposition, and publication-scope review are complete. The remaining Public-specific preparation gate is intentionally narrow:
+The Public visibility transition has already been completed under explicit Owner authorization. Post-change GitHub-hosted Actions are executing normally again on PR #24, so the former private-repository included-minute rejection is no longer an active infrastructure blocker.
 
-- refresh the exact-head tracked-source preflight after the last Public-prep commit;
-- if that refresh has no unresolved server-credential finding, request explicit Owner authorization for the actual visibility change.
+The full-history secret scan remains **DEFERRED BY OWNER / residual history-secret risk accepted for this V7 Public transition**. This remains an explicit residual risk, not a scan PASS. A future safe/free scanner should still cover all reachable history/refs.
 
-No paid runner/plan upgrade is required solely for the deferred full-history scan. Publication-scope acceptance does not authorize merge main, move release-candidate, start Release Gate, or deploy Production.
-
-Until those gates are satisfied, status remains **PUBLIC-PREP READY**, not `PUBLIC-READY`. No Public conversion, `main` merge, Production deployment, `release-candidate` movement, or Release Gate is authorized by this document.
+No paid runner/plan upgrade is required solely for that deferred scan. Public visibility does not authorize merge `main`, move `release-candidate`, start Release Gate, or deploy Production; those release actions remain subject to their separate governance and explicit user authorization.
