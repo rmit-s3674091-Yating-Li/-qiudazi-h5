@@ -5,7 +5,7 @@
 ## 1. GitHub
 
 - Repository：`rmit-s3674091-Yating-Li/-qiudazi-h5`
-- 当前运行态 visibility：**Private**。repository visibility 是受控环境配置，不是应用安全边界，也不再要求永久固定为 Private。任何 Private → Public 变更必须先满足 `docs/PUBLIC_READINESS.md` 的 full-Git-history secret scan、current-head tracked-file preflight、canonical docs sync、integration/fork 权限复核等要求，并取得 Owner 明确授权；在授权前不得改变 visibility。
+- 当前运行态 visibility：**Public**。repository visibility 是受控环境配置，不是应用安全边界。该 Private → Public 变更已经在 Owner 明确授权后完成；它不授权 merge `main`、移动 `release-candidate`、启动 Release Gate 或 Production deploy。过渡前置条件、已接受的残余风险与 post-change 记录以 `docs/PUBLIC_READINESS.md` 为准。
 - `.github/workflows/build.yml` 不再以 `github.event.repository.private=true` 作为产品/发布 invariant。Build 继续校验 canonical Supabase identity、migration/preflight、tracked server-secret 模式与实际构建；visibility 合法性由本文 + `docs/PUBLIC_READINESS.md` 的受控配置流程判断。
 - 默认分支：`main`
 - 当前 remediation 开发分支、PR 编号与 exact head 均属于运行时事实；每轮必须直接读取当前受控 remediation PR 的 head branch / exact head，不在本文固化。
@@ -14,9 +14,9 @@
 - GitHub Actions：`.github/workflows/build.yml` 的 `H5 Build Check` 是基础 Build CI；开发阶段按 affected-scope evidence 节流，Candidate Freeze / Release 阶段恢复 strict exact-SHA full-chain evidence。
 - GitHub Actions：`.github/workflows/candidate-browser-blackbox.yml` 是当前唯一正式候选真实浏览器执行器；仅针对 `release-candidate` exact head，使用 Playwright 启动 Chromium / WebKit，并上传 exact-SHA browser evidence artifact。
 - Browser Blackbox 使用 GitHub Actions `id-token: write` 获取短时 OIDC token 访问受保护 Vercel Preview，不在仓库保存长期 Vercel bypass secret。
-- 当前 Private + 账号方案下，repository ruleset API 已返回“Upgrade to GitHub Pro or make this repository public to enable this feature”；因此**当前不得声称 main 已由 GitHub ruleset 平台强制保护**。若后续经 Owner 授权改为 Public，应重新读取 ruleset/branch-protection 能力并按实际可用能力配置或记录，不得沿用 Private 阶段结论。
+- repository 已切换为 Public，Private 阶段“ruleset 不可用”的历史结论已失效；**当前仍不得在未实时读取平台配置前声称 main 已由 GitHub ruleset/branch protection 强制保护**。Candidate Freeze / Release Gate 前必须重新读取实际 ruleset/branch-protection 状态，只有真实启用的 enforcement 才能作为 Gate 证据。
 - 当前 main 保护采用流程治理：所有开发只写当前受控 feature branch → 当前 PR → 开发期 affected-scope CI → Candidate Freeze → strict exact-SHA CI → `release-candidate` exact-head Preview + Candidate Browser Blackbox → 黑盒证据复核 → Release Gate → 人工 merge 决策；所有自动化均禁止直接 merge/push main。
-- ChatGPT GitHub connector 当前可正常读取当前 Private PR。若后续 visibility 发生受控变化，连接器权限、PR、Vercel Git link 与 Actions 行为都必须在变更后重新验证，不得把历史 Private 验证结果自动外推到 Public。
+- ChatGPT GitHub connector 当前可正常读取当前 Public PR。Public 切换后的 GitHub Actions 已恢复真实执行；连接器权限、Vercel Git link 与 deployment metadata 仍应在 Candidate/Release 阶段按实时状态复核，不得把历史 Private 阶段结果当成当前证据。
 
 > 分支 head SHA、PR merge SHA、workflow run id 属于动态运行事实，不写成长期固定值；每轮工作必须实时读取。
 
@@ -84,7 +84,7 @@
 - 现役自动化涉及 Supabase 前均必须先验证本文的 environment identity；不得从任务 prompt、旧运行结果或 snapshot 自己猜 project_id。
 - 环境映射与本文不一致时，停止写操作并报告 `ENVIRONMENT_IDENTITY_MISMATCH`；不得通过不断尝试不同 project_id 来“碰运气”。
 - GitHub repository visibility 与本文记录的当前运行态不一致时属于**未受控配置漂移**；审计/Release Gate 应报告并阻塞候选。经 `docs/PUBLIC_READINESS.md` 完成前置检查、Owner 明确授权、运行时完成 visibility change 并同步本文后，Public 本身不得再被自动判定为安全事故或产品失败。
-- 当前 Private + 非 Pro 运行态下，不得把“ruleset/platform branch protection 存在”当成 Gate 证据；若 Public 后平台能力发生变化，必须重新读取并记录实际 ruleset/branch-protection 状态后才能作为证据。无论 visibility 如何，所有自动化继续严格禁止直接 merge main。
+- 当前 Public 运行态下，同样不得在未实时读取平台配置前把“ruleset/platform branch protection 存在”当成 Gate 证据；必须记录实际 ruleset/branch-protection 状态后才能作为证据。无论 visibility 如何，所有自动化继续严格禁止直接 merge main。
 - 黑盒和 Gate 必须以 `docs/RELEASE_GOVERNANCE.md` 与 `docs/BROWSER_BLACKBOX_BASELINE.md` 的 exact-head candidate / browser evidence 条件为准；没有 current-head READY candidate 或没有 same-SHA Browser Blackbox artifact 时不得给最终 Gate PASS。
 - Browser runner/OIDC/DNS/Playwright 自身故障统一标记 `BROWSER_INFRA_FAILURE`，不是产品 AUD；真实浏览器进入产品后复现的业务/权限/视觉问题才进入正式 backlog。
 - GitHub Actions quota/billing 类 job-start blocker 属于基础设施证据。若 job 在 workflow steps 前被拒绝，不得把无 steps 的 failure 自动解释为产品、Supabase 或 workflow regression；应先核对账户 Actions allowance/budget/visibility 条件。
