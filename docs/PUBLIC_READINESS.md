@@ -97,7 +97,7 @@ No additional paid runner or plan upgrade is required for this Public transition
 
 The September 2026 CI interruption was caused by the private-repository GitHub Actions included-minute allowance being exhausted (2,000 / 2,000 minutes), causing jobs to be rejected before workflow steps started. This is infrastructure/quota evidence, not evidence of a product regression. Repeated reruns while the quota/budget condition is unchanged create churn and are not evidence. Public standard GitHub-hosted runner behavior and any billing/budget configuration must still be rechecked at the time visibility is actually changed.
 
-Baidu browser AK/Referer/Vercel environment configuration for the V7 Standard Event venue-search slice has already been supplied by the owner. Any remaining inability to wire the large compressed `EventFormPage.tsx` through a replacement-only connector is a tooling/edit-capability blocker, not a missing-provider-credential blocker.
+Baidu browser AK/Referer/Vercel environment configuration for the V7 Standard Event venue-search slice has already been supplied by the owner. The former large-file safe-edit/tooling blocker has been resolved; Standard Event POI host wiring is implemented and now follows the normal independent verification state machine.
 
 ## Post-change record
 
