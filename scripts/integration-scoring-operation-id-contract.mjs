@@ -17,7 +17,7 @@ requireText(edge, "path: [\"operation_id\"]", "missing point operation UUID is a
 requireText(edge, ".eq(\"id\", cmd.operation_id)", "edge retries resolve Point Log by operation UUID");
 requireText(edge, "return cmd.operation_id", "operation UUID becomes authoritative Point Log id");
 requireText(edge, "OPERATION_CONFLICT", "operation UUID cannot be reused for a different point");
-requireText(edge, "const recovered = await findPointOperation(client, cmd)", "version-conflict loser rechecks committed operation");
+requireText(edge, "const recovered = await findPointOperation(client, cmd, user.id)", "version-conflict loser rechecks committed operation with actor context");
 requireText(matchPage, "type PendingPoint={side:Side;operationId:string}", "optimistic queue retains a stable operation UUID per point");
 requireText(matchPage, "operation_id:pending.operationId", "point persistence sends the queued operation UUID");
 requireText(matchPage, "operationId:crypto.randomUUID()", "operation UUID is allocated once when the user point is enqueued");
