@@ -46,10 +46,9 @@ export function ProtectedEventPhoto({previewPath,originalPath,alt,allowOriginal=
     finally{setSaving(false);}
   }
   return <div className="protected-photo">
-    {originalUrl ? <><img className="photo" src={originalUrl} alt={alt}/><button className="button secondary full" onClick={()=>setOriginalUrl(undefined)}><X size={17}/>{language==="en"?"Close HD view":"关闭高清查看"}</button></> : <>
+    {originalUrl ? <><img className="photo" src={originalUrl} alt={alt}/><div className="photo-actions single"><button className="secondary photo-action-button" onClick={()=>setOriginalUrl(undefined)}><X size={17}/>{language==="en"?"Close HD view":"关闭高清查看"}</button></div></> : <>
       {previewUrl ? <img className="photo" src={previewUrl} alt={alt}/> : <div className="photo-frame-preview"><span>{error||(language==="en"?"Loading protected preview…":"正在加载受保护预览…")}</span></div>}
-      {allowOriginal&&originalPath&&<button className="button secondary full" disabled={busy||!previewUrl} onClick={()=>void openOriginal()}><Eye size={17}/>{busy?(language==="en"?"Authorizing HD…":"正在授权高清…"):(language==="en"?"View HD photo":"查看高清")}</button>}
-      {allowOriginal&&originalPath&&<button className="button secondary full" disabled={saving||!previewUrl} onClick={()=>void saveOriginal()}><Download size={17}/>{saving?(language==="en"?"Preparing save…":"正在准备保存…"):(language==="en"?"Save to device":"保存到手机")}</button>}
+      {allowOriginal&&originalPath&&<div className="photo-actions"><button className="secondary photo-action-button" disabled={busy||!previewUrl} onClick={()=>void openOriginal()}><Eye size={17}/>{busy?(language==="en"?"Authorizing HD…":"正在授权高清…"):(language==="en"?"View HD photo":"查看高清")}</button><button className="secondary photo-action-button" disabled={saving||!previewUrl} onClick={()=>void saveOriginal()}><Download size={17}/>{saving?(language==="en"?"Preparing save…":"正在准备保存…"):(language==="en"?"Save to device":"保存到手机")}</button></div>}
     </>}
     {error&&previewUrl&&<p className="muted small">{error}</p>}
   </div>;
