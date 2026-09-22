@@ -23,7 +23,7 @@ export function PrivacyPage(){
   function toggle(k:keyof Prefs){setPrefs(p=>p?{...p,[k]:!p[k]} as Prefs:p);setSaved(false);}
   function setAlbumVisibility(value:"private"|"partners"){setPrefs(p=>p?{...p,participant_album_visibility:value}:p);setSaved(false);}
   async function save(){if(!prefs)return;setBusy(true);setError("");try{const payload=normalizePrefs(prefs);const p=await rpc<Partial<Prefs>>("save_my_preferences",{p_settings:payload});setPrefs(normalizePrefs(p));setSaved(true);}catch(e){setError(explainError(e));}finally{setBusy(false);}}
-  return <><Header title={t("settings")}/><main className="page">
+  return <><Header title={t("settings")} backTo="/me"/><main className="page">
     <span className="eyebrow">{t("privacy")}</span><h1>{t("settings")}</h1>
     <section className="settings-section"><h2>{t("language")}</h2><div className="segmented"><button className={language==="zh-CN"?"active":""} onClick={()=>setLanguage("zh-CN")}>简体中文</button><button className={language==="en"?"active":""} onClick={()=>setLanguage("en")}>English</button></div></section>
     {!prefs&&!error&&<Loading/>}<ErrorNotice message={error}/>
