@@ -57,11 +57,11 @@ Hall 的筛选 Sheet / Bottom Sheet / Modal 以及其中 `input[type=date]`、`i
 - 选择单打/双打后，可从“本人 self Player + accepted Connection 的真实球搭子 self Player + 本人创建的未认领临时 Player”中选择参赛者，并允许现场新增临时 Player；
 - 单打至少 2 人；双打至少 4 人且为偶数；双打选择参赛者后必须进入明确“确认双打队友”步骤，让用户看到并调整每队两人组合，不能把勾选顺序作为不可见最终组队规则；
 - 城市 optional、场地 optional；不得默认写入北京或任何推断城市。满足参赛者最低人数并配置赛制/计分规则后即可执行“一键开赛”；服务端创建 Event + Entry + EntryPlayer，`event_mode='quick'`，名单直接进入 locked；
-- 创建成功后系统自动生成首次对阵并进入最贴近下一步操作的 Draw/Match 路径，正常路径不要求用户额外点击“生成对阵”；
+- 创建成功后系统自动生成首次对阵并自动进入 `ongoing`，再进入最贴近下一步操作的 Draw/Match 路径；正常路径既不要求额外点击“生成对阵”，也不要求再点击一次“开始赛事”；唯一真实 Match 直接进入 Match，多 Match 先进入 Draw；
 - `locked` 是 Quick Event 名单已固定的正确创建状态，不代表 draw 已完成；draw 完成前可以保持 locked + draw_generated=false；
 - 如果 Event/Entry 已创建但首次自动 draw 因网络、Edge 或事务临时失败，系统保留已创建赛事并进入“开赛未完成 / 恢复开赛”状态；恢复只能重试该赛事的 draw，**不得再次调用 create_quick_event 产生重复赛事**；刷新页面后也应能恢复该 pending event；
 - 新建正常 Quick Event 默认 public 并进入赛事大厅，但 Hall 不提供报名/候补入口；
-- 开赛前仍可通过赛事管理的调整/解锁能力修改人员后重新生成对阵；正式开赛后遵循普通赛事相同的记分、排名、完赛、战绩和照片规则。
+- “一键开赛”提交前允许返回修改人员；成功链路进入 `ongoing` 后不再提供普通解锁名单作为主路径。正式开赛后遵循普通赛事相同的记分、排名、完赛、战绩和照片规则。
 
 快速开赛不得为了复用标准赛事逻辑伪造未来开赛时间或报名截止时间。`registration_deadline` 对 quick event 不承担权限边界；quick event 的名单由创建动作直接锁定。
 
@@ -115,6 +115,8 @@ organizer 在赛事页执行“删除照片”是真删除源照片：删除源 
 
 ## 12. 性能、缓存与错误
 稳定页面禁止默认 10–15 秒轮询；优先缓存、stale-while-revalidate、mutation 精准失效。身份/权限敏感页面不得只信本地缓存。用户错误不得暴露 JWT、SQL、RPC、RLS、Supabase raw stack。
+
+错误与提示分级：业务校验说明“发生了什么 + 下一步”；并发冲突只在真实编辑冲突时阻断；后台刷新已有可用缓存时不得用阻塞错误覆盖页面；网络类提示只描述可观察事实，不猜测“网络慢”；成功反馈、普通状态、警告和错误不得长期共用同一视觉/语义层级。
 
 ## 13. 发布原则
 功能行为变化必须同步 PRD / PRODUCT / INTERACTION / QUICK_START / P0 / CHANGELOG 和必要专项基线。正式候选需通过 build、Supabase clean replay、repo/live migration same-version、权限/Storage 审计、真实黑盒、English 375/390/430 Visual QA 和 Release Gate；不得自动 merge main，不得无节制触发 Vercel。
