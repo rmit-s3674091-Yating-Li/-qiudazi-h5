@@ -25,7 +25,7 @@ export function useQuery<T>(key:string,load:()=>Promise<T>,interval=0){
       if(!pending){pending=ref.current();inFlight.set(key,pending);}
       const result=await pending;cache.set(key,{data:result,updatedAt:Date.now()});
       if(id===requestId.current){setData(result);setError("");}return result;
-    }catch(e){if(id===requestId.current)setError(explainError(e));throw e;}
+    }catch(e){if(id===requestId.current){setError(data===null?explainError(e):"");}throw e;}
     finally{inFlight.delete(key);if(id===requestId.current)setLoading(false);}
   },[key,interval]);
   useEffect(()=>{
