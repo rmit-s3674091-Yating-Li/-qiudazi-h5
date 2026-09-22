@@ -105,18 +105,16 @@
 - 开赛时间变化时 auto deadline 随之变化；
 - 用户手动设定更早截止后，再调整开赛时间，合法 manual 值保持。
 
-### 4.5 `quick_start_event_creation_and_draw_are_not_atomic` Quick Start 故障恢复
+### 4.5 `quick_start_event_creation_and_start_are_recoverable` Quick Start 一键开赛与故障恢复
 
 正式 AUD provenance：`AUD-20260830-006`。
 
 通过 Playwright 网络故障注入真实验证：
 
-- `create_quick_event` 已成功后，主动中断第一次 `tournament-command` draw；
-- 页面出现已创建赛事恢复状态；
-- `sessionStorage qiudazi-pending-quick-draw` 保存原 event id/version；
-- 解除故障后点击 Retry draw；
-- 必须复用同一 event id，仅重试 draw，并清除 pending key；
-- 不创建第二场 quick event。
+- 正常路径：`create_quick_event` → draw → start 连续完成，Event 最终为 `ongoing`；唯一真实 Match 直接进入 Match，多 Match 进入 Draw；不得再次出现 Standard Event 的“开始赛事”前置；Quick Match 不显示“标记本场已开始”。
+- draw 故障：`create_quick_event` 已成功后主动中断第一次 draw；恢复状态保存同一 event id/version + `phase=draw`，解除故障后只继续该 Event，不创建第二场。
+- start 故障：允许 draw 成功后主动中断 start；恢复状态必须更新为 draw 返回的新 event version + `phase=start`，重试只 start，不得重新 draw 或 create。
+- 两类恢复成功后均清除 `sessionStorage qiudazi-pending-quick-draw`。
 
 ### 4.6 Settings / Privacy
 
