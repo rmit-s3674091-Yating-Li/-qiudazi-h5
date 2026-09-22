@@ -12,21 +12,23 @@ async function shareUrl(title:string,text:string,url:string,copied:string){if(na
 const badgeClass=(s:Status)=>s==="accepted"?"success":s==="pending"?"":"finished";
 
 export function PartnerInvitesPage(){
-  const{language,t}=useLanguage();const en=language==="en";const[feedback,setFeedback]=useState("");const[busyId,setBusyId]=useState("");
+  const{language,t}=useLanguage();const en=language==="en";const[feedback,setFeedback]=useState("");const[busyId,setBusyId]=useState("");const[clearing,setClearing]=useState(false);
   const ordinary=useQuery("my-connection-invites",()=>rpc<ConnectionInviteRow[]>("list_my_connection_invites"));
   const claims=useQuery("my-player-claim-invites",()=>rpc<ClaimInviteRow[]>("list_my_player_claim_invites"));
   const dateText=(v:string)=>new Date(v).toLocaleDateString(en?"en-US":"zh-CN");
   const statusText=(s:Status,claim=false)=>s==="pending"?(en?"Waiting to join":"等待加入"):s==="accepted"?(claim?(en?"Linked":"已关联"):(en?"Joined":"已加入")):s==="cancelled"?(en?"Cancelled":"已取消"):(en?"Expired":"已失效");
   async function reshareOrdinary(invite:ConnectionInviteRow){const url=`${window.location.origin}${window.location.pathname}?connect=${encodeURIComponent(invite.token)}`;try{setFeedback(await shareUrl(en?"Tennis partner invitation":"球搭子邀请",en?"Join me on Qiu Dazi so we can play together.":"邀请你加入球搭子，一起打球。",url,en?"Invitation link copied":"邀请链接已复制"));}catch(e){if((e as Error).name!=="AbortError")setFeedback(en?"Sharing failed. Please try again.":"分享失败，请重试");}}
-  async function cancelOrdinary(invite:ConnectionInviteRow){setBusyId(invite.id);setFeedback("");try{await rpc("cancel_connection_invite",{p_invite_id:invite.id});await ordinary.refresh();setFeedback(en?"Invitation cancelled":"邀请已取消");}catch(e){setFeedback(explainError(e));}finally{setBusyId("");}}
+  async function cancelOrdinary(invite:ConnectionInviteRow){setBusyId(invite.id);setFeedback("");try{await rpc("cancel_connection_invite",{p_invite_id:invite.id});await ordinary.refresh();}catch(e){setFeedback(explainError(e));}finally{setBusyId("");}}
   async function reshareClaim(invite:ClaimInviteRow){const url=`${window.location.origin}${window.location.pathname}?claim=${encodeURIComponent(invite.token)}`;try{setFeedback(await shareUrl(en?`Invite ${invite.player_name} to join Qiu Dazi`:`邀请 ${invite.player_name} 加入球搭子`,en?"I have already recorded some matches for you. After you join, those records can be linked to your tennis profile.":"我之前已经在球搭子里帮你记录过比赛。加入后，这些记录可以关联到你的打球档案。",url,en?"Invitation link copied":"邀请链接已复制"));}catch(e){if((e as Error).name!=="AbortError")setFeedback(en?"Sharing failed. Please try again.":"分享失败，请重试");}}
-  async function cancelClaim(invite:ClaimInviteRow){setBusyId(invite.id);setFeedback("");try{await rpc("cancel_player_claim_invite",{p_invite_id:invite.id});await claims.refresh();setFeedback(en?"Invitation cancelled":"邀请已取消");}catch(e){setFeedback(explainError(e));}finally{setBusyId("");}}
+  async function cancelClaim(invite:ClaimInviteRow){setBusyId(invite.id);setFeedback("");try{await rpc("cancel_player_claim_invite",{p_invite_id:invite.id});await claims.refresh();}catch(e){setFeedback(explainError(e));}finally{setBusyId("");}}
 
+  const cancelledCount=(ordinary.data?.filter(x=>x.status==="cancelled").length||0)+(claims.data?.filter(x=>x.status==="cancelled").length||0);
+  async function clearCancelled(){if(!cancelledCount)return;if(!window.confirm(en?`Clear ${cancelledCount} cancelled invitation record${cancelledCount===1?"":"s"}? This cannot be undone.`:`清理这 ${cancelledCount} 条已取消邀请记录？此操作不可撤销。`))return;setClearing(true);setFeedback("");try{await rpc("clear_cancelled_partner_invites");await Promise.all([ordinary.refresh(),claims.refresh()]);}catch(e){setFeedback(explainError(e));}finally{setClearing(false);}}
   const firstLoading=ordinary.loading&&!ordinary.data&&claims.loading&&!claims.data;
   const hasAny=!!ordinary.data?.length||!!claims.data?.length;
   return <><Header title={t("partnerInviteHistory")}/><main className="page">
     <span className="eyebrow">{en?"PARTNER INVITATIONS":"邀请记录"}</span><h1>{t("partnerInviteHistory")}</h1>
-    <p className="muted">{en?"This page tracks partner invitations you have sent. New invitations still start from Partners.":"这里记录你发出的球搭子邀请。邀请入口仍然都在“球搭子们”。"}</p>
+    <div className="section-heading"><div><p className="muted">{en?"This page tracks partner invitations you have sent. New invitations still start from Partners.":"这里记录你发出的球搭子邀请。邀请入口仍然都在“球搭子们”。"}</p></div>{cancelledCount>0&&<button className="text-button" disabled={clearing} onClick={clearCancelled}>{clearing?(en?"Clearing…":"正在清理…"):(en?"Clear cancelled":"清理已取消")}</button>}</div>
     {feedback&&<div className="notice">{feedback}</div>}
     <ErrorNotice message={ordinary.error||claims.error} retry={()=>{ordinary.refresh();claims.refresh();}}/>
     {firstLoading?<Loading/>:!hasAny?<Empty title={en?"No partner invitation history yet":"还没有球搭子邀请记录"}><p>{en?"Invite a new partner, or invite a temporary partner to join, and progress will appear here.":"邀请新的球搭子，或邀请临时球搭子加入后，进度会出现在这里。"}</p></Empty>:<>
