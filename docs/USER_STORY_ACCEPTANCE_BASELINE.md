@@ -133,7 +133,7 @@
 ### AC
 - 可选本人、accepted Partner 的 self Player、本人临时 Player，并可现场新增临时 Player。
 - 单打至少 2 人。
-- 创建后 Event 为 quick，名单 locked，自动生成首次 draw。
+- 创建后 Event 为 quick，名单先 locked，自动生成首次 draw，并自动进入 ongoing；唯一真实 Match 直接进入 Match，多 Match 进入 Draw。
 - create 成功但 draw 失败时刷新后仍能恢复同一 Event，不得重复创建赛事。
 - quick event 默认 public 可进 Hall，但不开放标准报名/候补。
 
@@ -158,6 +158,10 @@
 - 仅两个 Entry 且唯一一场 knockout 时显示“单场对决”，不显示“决赛”。
 - 多轮淘汰赛按 1/4 决赛、半决赛、决赛等合理命名。
 - 双打两名队友保持在同一侧。
+
+## US-D Quick 一键开赛补充 AC
+- Quick 正常路径不再要求第二次“开始赛事”；Quick Match 不要求“标记本场已开始”。
+- draw/start 任一失败都恢复同一 Event；draw 已完成而 start 失败时不得重新生成签表。
 
 ## US-E02 Organizer 开始赛事/比赛
 **作为** Organizer，**我希望**在对阵确认后开始赛事和比赛，**以便**进入可记分状态。
