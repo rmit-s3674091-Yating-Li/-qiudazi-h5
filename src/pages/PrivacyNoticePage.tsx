@@ -3,7 +3,7 @@ import { useLanguage } from "../i18n";
 
 export function PrivacyNoticePage(){
   const{language}=useLanguage();const en=language==="en";
-  return <><Header title={en?"Usage & privacy notice":"使用与隐私说明"}/><main className="page">
+  return <><Header title={en?"Usage & privacy notice":"使用与隐私说明"} home={false}/><main className="page">
     <span className="eyebrow">{en?"CONTROLLED TEST BUILD":"受控测试版"}</span>
     <h1>{en?"Usage & privacy notice":"使用与隐私说明（测试版）"}</h1>
     <p className="muted">{en?"Qiu Dazi is currently a controlled test build, not a public commercial service. This page explains how test data is used before you sign in or create a test profile.":"球搭子当前仍为受控测试版，并非正式对外运营服务。本页面用于在登录或创建测试档案前说明测试数据的基本使用方式。"}</p>
