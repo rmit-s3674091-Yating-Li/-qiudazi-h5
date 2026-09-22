@@ -29,7 +29,6 @@ result="$("${PSQL[@]}" "begin;
   select (public.create_quick_event(
     jsonb_build_object(
       'name','IT Quick contract',
-      'city','Test City',
       'match_type','singles',
       'format','knockout',
       'scoring_type','games_4'
@@ -49,6 +48,7 @@ result="$("${PSQL[@]}" "begin;
       and e.visibility='public'
       and e.status='locked'
       and e.entry_limit=2
+      and e.city is null
       and (select count(*) from public.entries en where en.event_id=e.id and en.status='confirmed')=2
       and (select count(*) from public.entry_players ep where ep.event_id=e.id and ep.active)=2
       and (select count(distinct ep.player_id) from public.entry_players ep where ep.event_id=e.id and ep.active)=2
