@@ -10,7 +10,7 @@
 - Fixed tournament-command actor/viewer context across begin/score/point/retry paths, including auth-alias identities.
 - Tightened direct-score form version handling so only true concurrent edits become stale conflicts.
 - Normalized user-facing errors: background refresh failures with usable data do not block the page; network copy is factual; retry/loading labels are generic; raw backend details remain hidden.
-- Approved a new Quick product rule: “one-tap start” must auto-draw and auto-start into ongoing, then route directly to Match/Draw. This requirement is documented but remains a known implementation gap under the current feature freeze.
+- Implemented the approved Quick true one-tap start: create → draw → start to ongoing, single real Match routes directly to Match, multi-Match routes to Draw, and start-phase recovery does not repeat draw/create. Quick Match no longer shows a redundant “mark match started” action.
 - Added `docs/SECURITY_TEST_BASELINE.md` as the canonical security-test scope for the stabilization/release cycle.
 - SECURITY DEFINER execute-grant hardening: removed anonymous execution of preference RPCs and restricted `lock_expired_event_registrations()` to service_role after white-box security review found it could be anonymously triggered.
 
