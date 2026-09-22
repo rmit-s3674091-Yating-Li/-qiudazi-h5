@@ -66,6 +66,9 @@ V7 测试阶段遵循最低成本原则：在免费/试用配额足以满足 MVP
 
 实现时需保持 create/edit UI、provider abstraction、schema/migration、save_event/RPC、snapshot/detail、外部地图 handoff、权限与测试链一致。真实 POI provider/credential 未配置时应分类为 EXTERNAL_BLOCKED，不得阻塞其他 V7 P0/P1 开发。
 
+### Quick 一键开赛补充决策（2026-09-22）
+Quick 的“一键开赛”即真正开赛：创建 Event/Entry → locked → auto draw → auto start 到 `ongoing`。唯一真实 Match 直接进入 Match，多 Match 进入 Draw；正常路径不再要求再次点击“开始赛事”，Quick Match 也不要求“标记本场已开始”。draw/start 任一阶段失败均恢复同一 Event，禁止重复 create；start-phase 恢复不得重跑已完成 draw。
+
 ## 5. Quick / 标准赛事生命周期
 
 Quick 开赛前：创建人可“取消比赛”；非创建人的实际参赛者可“退出比赛”。退出后若人数低于比赛类型最低人数，必须明确提示并按规则取消/终止未开始比赛，不得留下不可进行的幽灵赛事。
