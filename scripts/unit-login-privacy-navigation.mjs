@@ -16,4 +16,9 @@ expect(ui.includes('backTo?navigate(backTo,{replace:true})'),"Header must replac
 expect(ui.includes('home?:boolean'),"Header must support secondary-page home navigation");
 expect(ui.includes('to="/events" aria-label={language==="en"?"Home / Events":"主页 / 赛事大厅"}'),"secondary Header must expose Events home");
 expect(profile.includes('home={false}'),"first-use profile must not expose authenticated home");
+const publicNotice=fs.readFileSync("src/pages/PrivacyNoticePage.tsx","utf8");
+expect(publicNotice.includes("只有赛事组织者可以上传、管理或删除本场赛事的赛事源照片"),"only event organizers can manage source event photos");
+expect(publicNotice.includes("参赛者不能向赛事源相册上传、修改或删除赛事照片"),"participants must not be described as source-photo uploaders");
+expect(publicNotice.includes("形成与赛事源照片相互独立的个人相册副本"),"personal event-album copy must be described as independent");
+expect(publicNotice.includes("受保护预览内容"),"partner-visible personal albums must be described as protected previews");
 console.log("Login/privacy navigation unit tests passed");
