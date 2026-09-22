@@ -39,13 +39,13 @@ const schema = z.object({
 });
 type Command = z.infer<typeof schema>;
 
-async function findPointOperation(client: ReturnType<typeof createClient>, cmd: Command) {
+async function findPointOperation(client: ReturnType<typeof createClient>, cmd: Command, actorAuthUserId: string) {
   if (cmd.type !== "point" || !cmd.operation_id) return null;
   const { data, error } = await client.from("point_logs").select("id,match_id,winner_side").eq("id", cmd.operation_id).maybeSingle();
   if (error) throw error;
   if (!data) return null;
   if (data.match_id !== cmd.match_id || data.winner_side !== cmd.side) return { conflict: true as const, snapshot: null };
-  const { data: snapshot, error: snapshotError } = await client.rpc("get_event_snapshot", { p_event_id: cmd.event_id });
+  const { data: snapshot, error: snapshotError } = await client.rpc("get_event_snapshot_for_actor", { p_event_id: cmd.event_id, p_actor_auth_user_id: actorAuthUserId });
   if (snapshotError) throw snapshotError;
   return { conflict: false as const, snapshot: snapshot as Snapshot };
 }
@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
     if (profileError) throw profileError;
     const profile = Array.isArray(profiles) ? profiles[0] : profiles;
     if (!profile || profile.profile_status !== "completed") return json({ error: "PROFILE_REQUIRED" }, 403);
-    const existing = await findPointOperation(client, cmd);
+    const existing = await findPointOperation(client, cmd, user.id);
     if (existing?.conflict) return json({ error: "operation_id 已用于另一条得分操作", code: "OPERATION_CONFLICT" }, 409);
     if (existing?.snapshot) return json(existing.snapshot);
 
@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
     const result = await client.rpc("commit_tournament", { p_event_id: cmd.event_id, p_actor_auth_user_id: user.id, p_expected_version: cmd.event_version, p_snapshot: next });
     if (result.error) {
       if (cmd.type === "point" && cmd.operation_id && String(result.error.message || "").includes("VERSION_CONFLICT")) {
-        const recovered = await findPointOperation(client, cmd);
+        const recovered = await findPointOperation(client, cmd, user.id);
         if (recovered?.conflict) return json({ error: "operation_id 已用于另一条得分操作", code: "OPERATION_CONFLICT" }, 409);
         if (recovered?.snapshot) return json(recovered.snapshot);
       }
