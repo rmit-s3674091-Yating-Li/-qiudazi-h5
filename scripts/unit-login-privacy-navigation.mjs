@@ -1,0 +1,15 @@
+import fs from "node:fs";
+const login=fs.readFileSync("src/pages/LoginPage.tsx","utf8");
+const profile=fs.readFileSync("src/pages/InviteAwareProfilePage.tsx","utf8");
+const privacy=fs.readFileSync("src/pages/PrivacyPage.tsx","utf8");
+const main=fs.readFileSync("src/main.tsx","utf8");
+const ui=fs.readFileSync("src/components/UI.tsx","utf8");
+const expect=(v,m)=>{if(!v)throw new Error(m);};
+expect(login.includes('to="/privacy-notice"'),"login privacy notice link missing");
+expect(profile.includes('to="/privacy-notice"'),"profile consent must use public privacy notice");
+expect(main.includes('path="/privacy-notice" element={<PrivacyNoticePage/>}'),"public privacy notice route missing");
+expect(!main.includes('path="/privacy-notice" element={<IdentityGate>'),"privacy notice must not require login");
+expect(privacy.includes('backTo="/me"'),"settings page must have deterministic exit to /me");
+expect(ui.includes('backTo?:string'),"Header explicit back destination missing");
+expect(ui.includes('backTo?navigate(backTo,{replace:true})'),"Header must replace history for explicit exit");
+console.log("Login/privacy navigation unit tests passed");
