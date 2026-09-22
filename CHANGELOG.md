@@ -12,6 +12,7 @@
 - Normalized user-facing errors: background refresh failures with usable data do not block the page; network copy is factual; retry/loading labels are generic; raw backend details remain hidden.
 - Approved a new Quick product rule: “one-tap start” must auto-draw and auto-start into ongoing, then route directly to Match/Draw. This requirement is documented but remains a known implementation gap under the current feature freeze.
 - Added `docs/SECURITY_TEST_BASELINE.md` as the canonical security-test scope for the stabilization/release cycle.
+- SECURITY DEFINER execute-grant hardening: removed anonymous execution of preference RPCs and restricted `lock_expired_event_registrations()` to service_role after white-box security review found it could be anonymously triggered.
 
 ## 2026-09-22 — V7 login/privacy navigation remediation (unreleased)
 
