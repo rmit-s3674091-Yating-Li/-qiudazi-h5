@@ -3,6 +3,7 @@ const ui=fs.readFileSync("src/components/UI.tsx","utf8");
 const me=fs.readFileSync("src/pages/MyProfileHome.tsx","utf8");
 const photo=fs.readFileSync("src/components/ProtectedEventPhoto.tsx","utf8");
 const panel=fs.readFileSync("src/components/TournamentPanels.tsx","utf8");
+const eventPage=fs.readFileSync("src/pages/EventPage.tsx","utf8");
 const css=fs.readFileSync("src/polish.css","utf8");
 const expect=(v,m)=>{if(!v)throw new Error(m);};
 expect(ui.includes('tabIndex={-1}')&&ui.includes('focus({preventScroll:true})'),"sheet must focus dialog, not Close button");
@@ -14,4 +15,8 @@ expect(photo.includes('photo-action-button'),"photo controls must use compact mo
 expect(panel.includes('photo-delete-action'),"delete source photo must be lightweight");
 expect(panel.includes('photo-upload-row'),"upload action must use compact row");
 expect(css.includes('.photo-action-button{min-height:44px'),"photo controls must retain mobile tap target");
+expect(panel.includes("canImportPersonal"),"photo panel must separate participant import permission from owner permission");
+expect(eventPage.includes('canImportPersonal={own?.status==="confirmed"}'),"confirmed participant state must drive personal-album import access");
+expect(panel.includes('{canImportPersonal&&<button className="secondary photo-album-action"'),"participants must see personal event-album import action even when also owner");
+expect(!panel.includes('<div className="photo-frame-preview" aria-hidden="true"><ImagePlus'),"empty event-photo state must not reserve a decorative icon placeholder below the hint");
 console.log("Mobile UI control regression tests passed");
