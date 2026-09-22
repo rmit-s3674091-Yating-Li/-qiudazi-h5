@@ -1,3 +1,18 @@
+## 2026-09-22 — V7 stabilization bundle (unreleased)
+
+- Expanded the public pre-login test privacy policy for an individual operator and separated it from authenticated Settings & Privacy.
+- Added deterministic secondary-page navigation: authenticated detail pages expose a Home/Events escape route; Settings & Privacy returns to Me.
+- Polished mobile Hall filter focus, profile sign-out visibility and photo controls.
+- Split event-photo permissions: organizer source-photo management and actual-participant personal-album import are independent; a user may hold both.
+- Removed the decorative empty photo placeholder below the empty-state hint.
+- Added cancelled partner-invite cleanup and removed redundant “invitation cancelled” global success feedback.
+- Fixed Quick optional city end to end, including shared-test DB behavior without weakening Standard Event city constraints.
+- Fixed tournament-command actor/viewer context across begin/score/point/retry paths, including auth-alias identities.
+- Tightened direct-score form version handling so only true concurrent edits become stale conflicts.
+- Normalized user-facing errors: background refresh failures with usable data do not block the page; network copy is factual; retry/loading labels are generic; raw backend details remain hidden.
+- Approved a new Quick product rule: “one-tap start” must auto-draw and auto-start into ongoing, then route directly to Match/Draw. This requirement is documented but remains a known implementation gap under the current feature freeze.
+- Added `docs/SECURITY_TEST_BASELINE.md` as the canonical security-test scope for the stabilization/release cycle.
+
 ## 2026-09-22 — V7 login/privacy navigation remediation (unreleased)
 
 - Added a public pre-login `/privacy-notice` route and wired login/profile consent links to it.
