@@ -1,3 +1,9 @@
+## 2026-09-22 — V7 login/privacy navigation remediation (unreleased)
+
+- Added a public pre-login `/privacy-notice` route and wired login/profile consent links to it.
+- Fixed the authenticated Settings & Privacy navigation trap by making `/privacy` return explicitly to `/me` rather than relying on browser history.
+- Added a Unit regression contract for both navigation paths. This product-code change invalidates the previous Candidate Freeze SHA and requires a new exact-head CI / Preview / Browser chain.
+
 ## 2026-09-21 — V7 development close-out (unreleased)
 
 - Repository visibility is now Public under explicit Owner authorization; this environment change does not authorize merge `main`, `release-candidate` movement, Release Gate, or Production deploy.
