@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
       return json(result.data);
     }
 
-    const { data: snapshot, error } = await client.rpc("get_event_snapshot", { p_event_id: cmd.event_id });
+    const { data: snapshot, error } = await client.rpc("get_event_snapshot_for_actor", { p_event_id: cmd.event_id, p_actor_auth_user_id: user.id });
     if (error) throw error;
     let firstId = true;
     const next = applyCommand(snapshot as Snapshot, profile.id, cmd, {
