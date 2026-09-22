@@ -10,7 +10,7 @@
 - 默认分支：`main`
 - 当前 remediation 开发分支、PR 编号与 exact head 均属于运行时事实；每轮必须直接读取当前受控 remediation PR 的 head branch / exact head，不在本文固化。
 - 发布候选分支：`release-candidate`。该分支不是长期开发分支，只在 Candidate Freeze 后由总控移动到已经通过要求的 PR exact head，用于触发一份可追溯 Vercel Preview；任何独立开发、cherry-pick 或额外内容 commit 都不得落在该分支。
-- 当前 remediation PR 在整改与收口阶段保持 Draft；未通过 Release Gate 不 merge main。
+- 当前 V7 PR 已完成开发整改收口并进入开发冻结，保持 Draft；剩余 Browser/真机项应在后续 Browser/Candidate 阶段验证。未通过 Release Gate 不 merge main。
 - GitHub Actions：`.github/workflows/build.yml` 的 `H5 Build Check` 是基础 Build CI；开发阶段按 affected-scope evidence 节流，Candidate Freeze / Release 阶段恢复 strict exact-SHA full-chain evidence。
 - GitHub Actions：`.github/workflows/candidate-browser-blackbox.yml` 是当前唯一正式候选真实浏览器执行器；仅针对 `release-candidate` exact head，使用 Playwright 启动 Chromium / WebKit，并上传 exact-SHA browser evidence artifact。
 - Browser Blackbox 使用 GitHub Actions `id-token: write` 获取短时 OIDC token 访问受保护 Vercel Preview，不在仓库保存长期 Vercel bypass secret。

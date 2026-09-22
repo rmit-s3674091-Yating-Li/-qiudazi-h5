@@ -2,9 +2,9 @@
 
 - Repository visibility is now Public under explicit Owner authorization; this environment change does not authorize merge `main`, `release-candidate` movement, Release Gate, or Production deploy.
 - V7 scoring idempotency, nickname identity exchange/account switching, and Standard Event venue persistence foundation are independently VERIFIED.
-- Standard Event POI search/select host wiring is implemented behind the provider-neutral MapProvider boundary and is awaiting/under independent verification; Quick Start remains free of map/POI/geolocation steps.
+- Standard Event POI search/select host wiring is implemented behind the provider-neutral MapProvider boundary and is independently VERIFIED; Quick Start remains free of map/POI/geolocation steps.
 - Public GitHub-hosted Actions are executing normally again; current development uses affected-scope evidence, while Candidate/Release stages retain strict exact-SHA requirements.
-- Remaining non-code close-out is primarily Browser/real-device verification plus final documentation cleanup.
+- Development-stage actionable work is closed: no TODO / CODE_REOPEN / NEEDS_VERIFY / IN_PROGRESS blockers remain. Remaining work is Browser/real-device verification before any Candidate/Release phase; documentation cleanup is closed for the current development scope.
 
 # 球搭子 H5 — CHANGELOG
 
