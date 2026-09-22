@@ -3,13 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.12.0" },
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "restore": "node scripts/restore-source.mjs",
     "pack": "node scripts/pack-source.mjs",
     "predev": "node scripts/generate-share-cover-png.mjs",
     "dev": "vite --host 0.0.0.0",
-    "test:unit": "node scripts/unit-test.mjs && node scripts/unit-scoring-parameters.mjs && node scripts/unit-hall-filter.mjs && node scripts/unit-mobile-overflow.mjs && node scripts/unit-quick-lifecycle.mjs && node scripts/unit-identity-session.mjs && node scripts/unit-identity-exchange.mjs && node scripts/unit-photo-save.mjs && node scripts/unit-brand-assets.mjs && node scripts/unit-venue-location.mjs && node scripts/unit-baidu-map-provider.mjs",
+    "test:unit": "node scripts/unit-test.mjs && node scripts/unit-scoring-parameters.mjs && node scripts/unit-hall-filter.mjs && node scripts/unit-mobile-overflow.mjs && node scripts/unit-quick-lifecycle.mjs && node scripts/unit-identity-session.mjs && node scripts/unit-identity-exchange.mjs && node scripts/unit-photo-save.mjs && node scripts/unit-brand-assets.mjs && node scripts/unit-venue-location.mjs && node scripts/unit-baidu-map-provider.mjs && node scripts/unit-login-privacy-navigation.mjs",
     "test:integration": "node scripts/integration-scoring-operation-id-contract.mjs && bash scripts/integration-contract-tests.sh && bash scripts/integration-event-lifecycle-started-behavior.sh && bash scripts/integration-quick-start-behavior.sh && bash scripts/integration-quick-participant-withdraw-behavior.sh && bash scripts/integration-quick-started-exit-behavior.sh && bash scripts/integration-photo-asset-decoupling-behavior.sh && bash scripts/integration-scoring-persistence-behavior.sh && bash scripts/integration-event-list-avatar-privacy-behavior.sh && bash scripts/integration-venue-location-behavior.sh",
     "prebuild": "node scripts/generate-share-cover-png.mjs",
     "build": "node scripts/write-build-meta.mjs && tsc --noEmit && vite build",
