@@ -1,0 +1,17 @@
+import fs from "node:fs";
+const ui=fs.readFileSync("src/components/UI.tsx","utf8");
+const me=fs.readFileSync("src/pages/MyProfileHome.tsx","utf8");
+const photo=fs.readFileSync("src/components/ProtectedEventPhoto.tsx","utf8");
+const panel=fs.readFileSync("src/components/TournamentPanels.tsx","utf8");
+const css=fs.readFileSync("src/polish.css","utf8");
+const expect=(v,m)=>{if(!v)throw new Error(m);};
+expect(ui.includes('tabIndex={-1}')&&ui.includes('focus({preventScroll:true})'),"sheet must focus dialog, not Close button");
+expect(css.includes('.sheet:focus{outline:none}'),"sheet focus ring must not render as oversized close pill");
+expect(me.includes('profile-menu-button'),"sign-out card needs explicit visible card-button styling");
+expect(css.includes('.profile-menu-button{width:100%;background:#fffefa;color:var(--ink)'),"profile action text/icon must stay visible");
+expect(photo.includes('className="photo-actions"'),"HD/save controls must be grouped");
+expect(photo.includes('photo-action-button'),"photo controls must use compact mobile actions");
+expect(panel.includes('photo-delete-action'),"delete source photo must be lightweight");
+expect(panel.includes('photo-upload-row'),"upload action must use compact row");
+expect(css.includes('.photo-action-button{min-height:44px'),"photo controls must retain mobile tap target");
+console.log("Mobile UI control regression tests passed");
