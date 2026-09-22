@@ -2,6 +2,7 @@
 
 - Added a public pre-login `/privacy-notice` route and wired login/profile consent links to it.
 - Fixed the authenticated Settings & Privacy navigation trap by making `/privacy` return explicitly to `/me` rather than relying on browser history.
+- Standardized authenticated secondary-page headers with a Home/Events shortcut so pages without the bottom tab bar still have a deterministic route back to the app home; pre-login privacy/profile setup pages do not expose this authenticated shortcut.
 - Added a Unit regression contract for both navigation paths. This product-code change invalidates the previous Candidate Freeze SHA and requires a new exact-head CI / Preview / Browser chain.
 
 ## 2026-09-21 — V7 development close-out (unreleased)
