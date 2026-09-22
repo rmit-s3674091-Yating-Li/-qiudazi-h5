@@ -22,6 +22,7 @@
 - `docs/ENVIRONMENT_BASELINE.md`
 - `docs/RELEASE_GOVERNANCE.md`
 - `docs/BROWSER_BLACKBOX_BASELINE.md`
+- `docs/SECURITY_TEST_BASELINE.md` — 安全测试范围、方法、越权/RLS/RPC/Edge/Storage/身份/隐私边界真源
 - `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
 - `docs/PUBLIC_READINESS.md` — repository visibility 变更的准备边界、full-history secret scan、公开范围确认、Owner 授权与 post-change revalidation 真源
 - 本文件 `docs/DOCUMENT_GOVERNANCE.md`
@@ -53,6 +54,7 @@ Git commit/PR、CHANGELOG、CI/Browser evidence 用于证明某时点发生了�
 - Hall/mobile filter：PRODUCT / INTERACTION / VISUAL / USER_STORY。
 - 生命周期：EVENT_LIFECYCLE / PRODUCT / INTERACTION / USER_STORY。
 - 对阵/轮次：TOURNAMENT_PRESENTATION / PRODUCT / INTERACTION / USER_STORY。
+- 安全边界/RLS/RPC/Edge/Storage/alias/隐私变化：SECURITY_TEST_BASELINE / Integration / 必要 Browser security smoke。
 - 所有行为变更写 CHANGELOG。
 
 纯实现优化若不改变已批准行为，不机械改 PRD；一旦可观察行为/AC 改变，必须同步对应专项与 User Story。
