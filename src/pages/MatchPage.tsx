@@ -61,7 +61,7 @@ export function MatchPage({mode="detail"}:{mode?:"detail"|"direct"|"live"}){
         q.replace(next);invalidateEventReads();
       }
     }catch(e){
-      setOptimisticPoints([...pointQueue.current]);setError(en?"Point sync is pending. Retry keeps the same operation id to prevent double scoring.":"该分仍待同步；重试会复用同一操作编号，避免重复记分。 "+explainError(e));
+      setOptimisticPoints([...pointQueue.current]);const detail=explainError(e);setError(en?`This point was not synced. It is kept for a safe retry and will not be counted twice.${detail?` ${detail}`:""}`:`这一分尚未同步成功，系统已保留为安全重试，不会重复记分。${detail?` ${detail}`:""}`);
     }finally{pointFlush.current=false}
   }
 
