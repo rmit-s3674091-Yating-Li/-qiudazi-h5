@@ -9,7 +9,11 @@ expect(login.includes('to="/privacy-notice"'),"login privacy notice link missing
 expect(profile.includes('to="/privacy-notice"'),"profile consent must use public privacy notice");
 expect(main.includes('path="/privacy-notice" element={<PrivacyNoticePage/>}'),"public privacy notice route missing");
 expect(!main.includes('path="/privacy-notice" element={<IdentityGate>'),"privacy notice must not require login");
+expect(fs.readFileSync("src/pages/PrivacyNoticePage.tsx","utf8").includes('home={false}'),"privacy notice must remain pre-login and not expose authenticated home");
 expect(privacy.includes('backTo="/me"'),"settings page must have deterministic exit to /me");
 expect(ui.includes('backTo?:string'),"Header explicit back destination missing");
 expect(ui.includes('backTo?navigate(backTo,{replace:true})'),"Header must replace history for explicit exit");
+expect(ui.includes('home?:boolean'),"Header must support secondary-page home navigation");
+expect(ui.includes('to="/events" aria-label={language==="en"?"Home / Events":"主页 / 赛事大厅"}'),"secondary Header must expose Events home");
+expect(profile.includes('home={false}'),"first-use profile must not expose authenticated home");
 console.log("Login/privacy navigation unit tests passed");
