@@ -72,8 +72,8 @@ console.log("Quick lifecycle unit contract PASS");
 // Quick one-tap start must actually start play, not stop at locked/draw.
 const quickStartPage=fs.readFileSync("src/pages/QuickStartPage.tsx","utf8");
 const matchPage=fs.readFileSync("src/pages/MatchPage.tsx","utf8");
-assert.match(quickStartPage,/type:"draw"[sS]*phase:"start"[sS]*type:"start"/,"Quick one-tap start must auto-start after draw");
-assert.match(quickStartPage,/real.length===1[sS]*\/matches\//,"Single real Quick match must route directly to Match");
+assert.match(quickStartPage,/type:"draw"[\s\S]*phase:"start"[\s\S]*type:"start"/,"Quick one-tap start must auto-start after draw");
+assert.match(quickStartPage,/real\.length===1[\s\S]*\/matches\//,"Single real Quick match must route directly to Match");
 assert.match(quickStartPage,/else navigate\(.*tab=draw/,"Multi-match Quick must route to Draw");
 assert.match(quickStartPage,/parsed\.phase==="start"\?"start":"draw"/,"Legacy pending draw state must recover as draw while start phase persists explicitly");
 assert.match(matchPage,/m\.status==="not_started"&&e\.event_mode!=="quick"/,"Quick Match must not show redundant mark-started action");
