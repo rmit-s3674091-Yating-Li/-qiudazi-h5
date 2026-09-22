@@ -79,6 +79,6 @@ Quick Start 全链路统一 canonical profile 解析：`list_quick_start_players
 18. 任一真实 Match 开始后普通退出入口关闭，服务端也拒绝 ordinary withdrawal；中途离开只能通过 Retirement/Walkover 结果流程；
 19. cancelled Quick Event 为只读历史，不能继续开赛、记分或修改参赛关系。
 
-## 12. 当前冻结实现差距（2026-09-22）
+## 12. 当前实现状态（2026-09-22）
 
-已批准的产品规则是“一键开赛即真正开赛”。当前 feature head 在 2026-09-22 功能冻结时仍存在已知实现差距：Quick 创建 + draw 后仍可能停留在 `locked`，并复用 Standard Event 的“开始赛事 / 标记本场已开始”交互。该差距必须保留在 Workboard，并在后续整改前由黑盒明确报告；不得用旧规则把它判定为通过。
+“一键开赛即真正开赛”已实现到开发分支：create → draw → start 连续完成；draw 成功而 start 失败时保存 start-phase 恢复状态，只恢复同一 Event，不重复 draw/create；唯一真实 Match 直接进入 Match，多 Match 进入 Draw；Quick Match 不再展示“标记本场已开始”。该实现仍需 exact-head Unit / Integration / Browser 独立验证后方可标记 VERIFIED。
