@@ -96,7 +96,10 @@ async function createDoublesEvent(owner, name) {
   await labelInput(owner, 'Start time').fill('20:00');
   await labelInput(owner, 'City *').fill('QA City');
   await labelInput(owner, 'Venue').fill('QA Court');
+  const saveResponsePromise = owner.waitForResponse(r => r.url().includes('/rest/v1/rpc/save_event') && r.request().method() === 'POST', { timeout: 30000 });
   await owner.getByRole('button', { name: 'Create event', exact: true }).click();
+  const saveResponse = await saveResponsePromise;
+  record(`${evidenceId} standard event save_event accepts current form contract`, saveResponse.ok(), `status=${saveResponse.status()}`);
   await owner.waitForURL(/#\/events\/[0-9a-f-]+\/manage/, { timeout: 30000 });
   const id = owner.url().match(/#\/events\/([0-9a-f-]+)\/manage/)?.[1];
   record(`${evidenceId} doubles event created through real UI`, !!id, owner.url());
