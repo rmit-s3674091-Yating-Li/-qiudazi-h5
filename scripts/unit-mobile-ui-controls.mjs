@@ -13,7 +13,8 @@ expect(css.includes('.profile-menu-button{width:100%;background:#fffefa;color:va
 expect(photo.includes('className="photo-actions"'),"HD/save controls must be grouped");
 expect(photo.includes('photo-action-button'),"photo controls must use compact mobile actions");
 expect(panel.includes('photo-delete-action'),"delete source photo must be lightweight");
-expect(panel.includes('photo-upload-row'),"upload action must use compact row");
+expect(panel.includes('photo-upload-inline')&&panel.includes('photo-upload-compact'),"upload actions must be contextual to empty/non-empty album states");
+expect(!panel.includes('photo-upload-row'),"orphaned bottom-right upload row must stay removed");
 expect(css.includes('.photo-action-button{min-height:44px'),"photo controls must retain mobile tap target");
 expect(panel.includes("canImportPersonal"),"photo panel must separate participant import permission from owner permission");
 expect(eventPage.includes('canImportPersonal={own?.status==="confirmed"}'),"confirmed participant state must drive personal-album import access");
