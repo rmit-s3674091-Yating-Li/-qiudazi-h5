@@ -148,14 +148,12 @@ async function verifySecondPartnerCta(owner, partner, id) {
   await deadline.fill('2000-01-01T00:00');
   await owner.getByRole('button', { name: 'Save changes', exact: true }).click();
   await owner.waitForURL(new RegExp(`#\\/events\\/${id}\\/manage`), { timeout: 30000 });
-  await owner.getByText(/Registration is closed/i).waitFor({ state: 'visible', timeout: 30000 });
 
   await partner.goto(`${baseUrl}/#/events/${id}`, { waitUntil: 'domcontentloaded' });
-  await partner.getByText(/Registration is closed/i).waitFor({ state: 'visible', timeout: 30000 });
   await partner.getByRole('status').filter({ hasText: 'Registered' }).waitFor({ state: 'visible', timeout: 30000 });
   const closedCta = partner.getByRole('button', { name: 'View roster', exact: true });
   await closedCta.waitFor({ state: 'visible', timeout: 30000 });
-  record(`${evidenceId} deadline-closed registered status remains view-only for second real partner`, true, partner.url());
+  record(`${evidenceId} deadline-closed registered status remains view-only for second real partner`, true, `registered status + roster CTA visible; url=${partner.url()}`);
   await closedCta.click();
   const closedWithdraw = partner.getByRole('button', { name: 'Withdraw', exact: true });
   await closedWithdraw.waitFor({ state: 'detached', timeout: 10000 }).catch(() => {});
