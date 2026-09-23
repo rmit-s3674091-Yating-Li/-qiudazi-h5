@@ -1,0 +1,11 @@
+import fs from "node:fs";
+const guest=fs.readFileSync("supabase/functions/guest-session/index.ts","utf8");
+const retired=fs.readFileSync("supabase/functions/qiudazi-auth-check/index.ts","utf8");
+const expect=(v,m)=>{if(!v)throw new Error(m);};
+expect(guest.includes('SUPABASE_SERVICE_ROLE_KEY'),"guest-session service credential use must be visible in repo for audit");
+expect(guest.includes('auth.admin.createUser'),"guest-session must only provision a new disposable Auth user");
+expect(guest.includes('GUEST_RATE_LIMITED'),"guest-session must retain an explicit provisioning throttle");
+expect(guest.includes('Cache-Control":"no-store'),"guest-session credential response must not be cached");
+expect(!guest.includes("return json({serviceKey"),"guest-session must never return the service-role key");
+expect(retired.includes("retired:true"),"qiudazi-auth-check must remain an explicit retired compatibility stub");
+console.log("Edge function traceability security contract passed");
