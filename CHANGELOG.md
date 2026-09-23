@@ -1,5 +1,7 @@
 ## 2026-09-22 — V7 stabilization bundle (unreleased)
 
+- Redesigned the personal event album as a compact thumbnail grid instead of full-screen photo cards; HD now opens in a dedicated lightbox, HD/save actions have explicit spacing, and personal removal is visually downgraded.
+
 - Renamed partner-invite history cleanup to “清理失效邀请 / Clear inactive invitations”, moved it into a dedicated list-management toolbar, and aligned behavior to remove cancelled + expired records only while preserving pending/accepted invites.
 
 - Recovered the live `guest-session` and retired `qiudazi-auth-check` Edge Function sources into the repository, added a traceability security contract, and redeployed both from repo as shared-test version 3.
