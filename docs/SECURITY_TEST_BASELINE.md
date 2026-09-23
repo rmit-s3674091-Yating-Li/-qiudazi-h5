@@ -45,7 +45,7 @@
 
 ### 4.4 邀请与关系
 - invite token 不可用于建立与目标不符的关系；重复/取消/过期状态不可绕过。
-- “清理已取消”只能删除当前用户自己发出的 cancelled，不能删除其他用户或 pending/accepted/expired。
+- “清理失效邀请”只能删除当前用户自己发出的 `cancelled + expired`，不能删除其他用户或 `pending/accepted`。
 
 ### 4.5 记分与并发
 - begin/score/point/undo 均校验 owner、event version、match version。
