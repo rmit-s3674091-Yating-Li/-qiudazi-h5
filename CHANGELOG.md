@@ -1,6 +1,9 @@
 ## 2026-09-22 — V7 stabilization bundle (unreleased)
 
-- Made the Privacy Policy directly discoverable after login from both Me and Settings & Privacy, while keeping the same `/privacy-notice` route publicly accessible before login.
+- Changed finished-event primary task from “View roster” to “View results”; participant status now reflects that the event is finished rather than continuing to say Registered.
+- Moved event-photo upload into the album context: empty albums show Upload photos inside the empty-state card, while non-empty albums use a compact section action instead of a floating bottom-right button.
+
+- Consolidated post-login Privacy Policy discoverability under Me → Settings & Privacy, removing the duplicate Me-menu row while keeping the same `/privacy-notice` publicly accessible before login.
 
 - Redesigned the personal event album as a compact thumbnail grid instead of full-screen photo cards; HD now opens in a dedicated lightbox, HD/save actions have explicit spacing, and personal removal is visually downgraded.
 
