@@ -1,5 +1,7 @@
 ## 2026-09-22 — V7 stabilization bundle (unreleased)
 
+- Synchronized Browser, security and user-story baselines with the latest UX contracts: single post-login Privacy Policy entry, finished-event View Results CTA, contextual event-photo upload, personal-album thumbnail gallery, and cancelled+expired inactive-invite cleanup.
+
 - Changed finished-event primary task from “View roster” to “View results”; participant status now reflects that the event is finished rather than continuing to say Registered.
 - Moved event-photo upload into the album context: empty albums show Upload photos inside the empty-state card, while non-empty albums use a compact section action instead of a floating bottom-right button.
 
