@@ -1,5 +1,8 @@
 ## 2026-09-22 — V7 stabilization bundle (unreleased)
 
+- Recovered the live `guest-session` and retired `qiudazi-auth-check` Edge Function sources into the repository, added a traceability security contract, and redeployed both from repo as shared-test version 3.
+- Repaired shared-test database drift: the canonical 2026-09-03 through 2026-09-05 migrations were missing live, causing current Standard Event `save_event` payloads to fail with `INVALID_FIELDS`; applied the missing migrations, restored exact repo migration versions in the ledger, and re-applied alias/security hardening.
+
 - Expanded the public pre-login test privacy policy for an individual operator and separated it from authenticated Settings & Privacy.
 - Added deterministic secondary-page navigation: authenticated detail pages expose a Home/Events escape route; Settings & Privacy returns to Me.
 - Polished mobile Hall filter focus, profile sign-out visibility and photo controls.
