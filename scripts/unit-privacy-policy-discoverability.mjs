@@ -1,0 +1,11 @@
+import fs from "node:fs";
+const me=fs.readFileSync("src/pages/MyProfileHome.tsx","utf8");
+const settings=fs.readFileSync("src/pages/PrivacyPage.tsx","utf8");
+const main=fs.readFileSync("src/main.tsx","utf8");
+const expect=(v,m)=>{if(!v)throw new Error(m);};
+expect(me.includes('to="/privacy-notice"'),"Me page must expose a direct Privacy Policy entry");
+expect(me.includes('en?"Privacy Policy":"隐私政策"'),"Me page privacy-policy entry must be bilingual");
+expect(settings.includes('to="/privacy-notice"'),"Settings & Privacy must expose the Privacy Policy");
+expect(settings.includes('en?"Read Privacy Policy":"查看隐私政策"'),"Settings privacy-policy CTA must be explicit");
+expect(main.includes('<Route path="/privacy-notice" element={<PrivacyNoticePage/>}/>'),"Privacy Policy must remain a public route outside IdentityGate");
+console.log("Privacy policy discoverability contract passed");
