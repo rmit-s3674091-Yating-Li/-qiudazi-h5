@@ -1,5 +1,7 @@
 ## 2026-09-22 — V7 stabilization bundle (unreleased)
 
+- Renamed partner-invite history cleanup to “清理失效邀请 / Clear inactive invitations”, moved it into a dedicated list-management toolbar, and aligned behavior to remove cancelled + expired records only while preserving pending/accepted invites.
+
 - Recovered the live `guest-session` and retired `qiudazi-auth-check` Edge Function sources into the repository, added a traceability security contract, and redeployed both from repo as shared-test version 3.
 - Repaired shared-test database drift: the canonical 2026-09-03 through 2026-09-05 migrations were missing live, causing current Standard Event `save_event` payloads to fail with `INVALID_FIELDS`; applied the missing migrations, restored exact repo migration versions in the ledger, and re-applied alias/security hardening.
 
