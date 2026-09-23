@@ -215,3 +215,35 @@ Release Gate 不能仅凭 workflow 绿色图标。至少应核对：run SHA、ar
 5. 重新在新的 exact-head candidate 上跑通真实浏览器 workflow。
 
 禁止出现“文档要求真实黑盒，但自动化实际只能 HTTP fetch”或“页面壳已渲染就被误判为身份/业务已就绪”的能力漂移。
+
+
+### 4.9 `post_login_privacy_policy_discoverability`
+- 登录前可直接打开 `/privacy-notice`，不经过 IdentityGate；
+- 登录后“我的”不重复出现第二个“隐私政策”主菜单项；
+- 从“我的 → 设置与隐私 → 查看隐私政策”进入同一份公开政策正文；
+- 返回链路稳定：政策页返回设置/“我的”不会跳回登录页或制造循环。
+
+### 4.10 `finished_event_primary_task_is_results`
+- 对已结束且当前用户实际参赛的 Event，状态区显示“赛事已结束”，不得继续显示“已报名”；
+- 底部主 CTA 为“查看赛果 / View results”，点击后进入 Ranking/Results；
+- “查看名单”仍可通过 Roster Tab 找到，但不得作为 finished 状态的底部主 CTA；
+- owner + participant、普通 participant、single-match Quick、round robin 各至少覆盖一例。
+
+### 4.11 `event_photo_upload_action_is_contextual`
+- finished owner + 空相册：Upload photos 位于空状态卡内部；
+- finished owner + 非空相册：Upload photos 位于相册区顶部的紧凑次级操作；
+- 不得出现孤立的右下角/卡片外漂浮上传按钮；
+- participant 非 owner 不显示源照片上传入口。
+
+### 4.12 `personal_event_album_is_gallery_not_detail_page`
+- 375 / 390 / 430px 下个人参与赛事相册为两列或等价紧凑缩略图浏览；
+- 单张预览不占据近整屏；
+- HD / Save 操作分离且有明确间距；Remove 为弱危险操作；
+- HD 打开独立 lightbox，关闭后回到原网格位置；
+- 长赛事名、中英文、1 张和多张照片均无按钮粘连或横向溢出。
+
+### 4.13 `inactive_invite_cleanup_scope_and_placement`
+- 邀请记录页使用“清理失效邀请 / Clear inactive invitations”；
+- 操作位于邀请历史管理区域，不挤在页面说明文字右侧；
+- 只清当前用户的 cancelled + expired，pending / accepted 保留；
+- 清理后数量与列表即时一致。
