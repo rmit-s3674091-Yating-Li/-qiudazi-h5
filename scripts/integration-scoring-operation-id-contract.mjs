@@ -24,7 +24,7 @@ requireText(matchPage, "operationId:crypto.randomUUID()", "operation UUID is all
 requireText(matchPage, "const reconciled=await q.refresh()", "lost response reconciles against authoritative snapshot before retry");
 requireText(matchPage, "log.id===pending.operationId", "reconcile recognizes an already committed Point Log by the same operation UUID");
 requireText(matchPage, "next=await command(current.event.id,{type:\"point\"", "unconfirmed lost response retries the original pending operation");
-requireText(matchPage, "setOptimisticPoints([...pointQueue.current]);setError", "failed recovery retains pending operation instead of clearing its UUID");
+requireText(matchPage, "setOptimisticPoints([...pointQueue.current]);const detail=explainError(e);setError", "failed recovery retains pending operation before surfacing a user-facing sync error");
 if (matchPage.includes("pointQueue.current=[];setOptimisticPoints([])")) {
   console.error("FAIL: scoring error path must not discard pending operation UUIDs");
   process.exit(1);
