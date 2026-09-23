@@ -8,3 +8,6 @@
 
 /* Mobile control polish: avoid focused sheet close pill, invisible card buttons, and oversized photo action stacks. */
 .sheet:focus{outline:none}.profile-menu-button{width:100%;background:#fffefa;color:var(--ink);font-weight:500;text-align:left}.profile-menu-button>span{color:var(--ink)}.profile-menu-button>svg{color:var(--ink)}.photo-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}.photo-actions.single{grid-template-columns:minmax(0,1fr)}.photo-action-button{min-height:44px;padding:10px 12px;font-size:13px;margin:0}.photo-delete-action{color:#965d43;margin-top:6px;padding:6px 2px;align-self:flex-start}.photo-album-action{min-height:44px;padding:10px 14px;font-size:13px;width:100%}.photo-upload-row{display:flex;justify-content:flex-end;margin-top:14px}.photo-upload-button{min-height:44px;padding:10px 16px;margin:0;width:auto;font-size:13px}.sheet .row.between>h2{margin-right:12px}@media(max-width:390px){.photo-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.photo-action-button{padding-inline:8px}.photo-upload-button{width:auto;max-width:100%}}
+
+.invite-history-tools{display:flex;justify-content:flex-end;align-items:center;margin:18px 0 8px}.invite-history-tools .text-button{padding:6px 4px}
+@media(max-width:390px){.invite-history-tools{justify-content:flex-start;margin-top:14px}}
