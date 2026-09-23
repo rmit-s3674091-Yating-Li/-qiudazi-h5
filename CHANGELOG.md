@@ -1,5 +1,7 @@
 ## 2026-09-22 — V7 stabilization bundle (unreleased)
 
+- Made the Privacy Policy directly discoverable after login from both Me and Settings & Privacy, while keeping the same `/privacy-notice` route publicly accessible before login.
+
 - Redesigned the personal event album as a compact thumbnail grid instead of full-screen photo cards; HD now opens in a dedicated lightbox, HD/save actions have explicit spacing, and personal removal is visually downgraded.
 
 - Renamed partner-invite history cleanup to “清理失效邀请 / Clear inactive invitations”, moved it into a dedicated list-management toolbar, and aligned behavior to remove cancelled + expired records only while preserving pending/accepted invites.
