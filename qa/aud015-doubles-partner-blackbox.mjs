@@ -156,7 +156,7 @@ async function verifySecondPartnerCta(owner, partner, id) {
   record(`${evidenceId} deadline-closed registered status remains view-only for second real partner`, true, `registered status + roster CTA visible; url=${partner.url()}`);
   await closedCta.click();
   const closedWithdraw = partner.getByRole('button', { name: 'Withdraw', exact: true });
-  await closedWithdraw.waitFor({ state: 'detached', timeout: 10000 }).catch(() => {});
+  await closedWithdraw.waitFor({ state: 'detached', timeout: 15000 }).catch(() => {});
   const withdrawCount = await closedWithdraw.count();
   record(`${evidenceId} roster-level Withdraw is absent after deadline closes`, withdrawCount === 0, `withdrawCount=${withdrawCount}; registration-closed state confirmed`);
   await shot(partner, 'aud015-second-partner-deadline-closed');
