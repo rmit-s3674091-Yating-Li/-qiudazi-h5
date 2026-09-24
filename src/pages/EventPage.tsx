@@ -15,6 +15,7 @@ export function EventPage({ manage = false }: { manage?: boolean }) {
   const { language, t } = useLanguage(), en = language === "en";
   const q = useQuery("event-" + id, () => repository.event(id!), 10000);
   const myEntryQ = useQuery("my-event-entry-" + id, () => rpc<string | null>("get_my_event_entry_id", { p_event_id: id }), 10000);
+  useEffect(()=>{void Promise.all([q.refresh(),myEntryQ.refresh()]).catch(()=>{});},[id]);
   const [rosterStatus, setRosterStatus] = useState("confirmed");
   const [tab, setTab] = useState("info"), [signup, setSignup] = useState<"self" | "manual" | null>(null), [error, setError] = useState(""), [notice, setNotice] = useState(""), [busy, setBusy] = useState(false), [confirm, setConfirm] = useState<{ title:string; description:string; run:()=>Promise<unknown> } | null>(null);
   useEffect(()=>{if(params.get("join")==="1"&&auth.profile?.profile_status==="completed"){setSignup("self");setParams({}, {replace:true});}},[params,auth.profile?.profile_status]);
