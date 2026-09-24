@@ -33,7 +33,7 @@ export function useQuery<T>(key:string,load:()=>Promise<T>,interval=0){
     let lastFocusRefresh=0;
     const focus=()=>{if(document.hidden)return;const now=Date.now();if(now-lastFocusRefresh<1000)return;lastFocusRefresh=now;void refresh(false).catch(()=>{});};
     window.addEventListener("focus",focus);document.addEventListener("visibilitychange",focus);
-    const timer=interval?window.setInterval(()=>{if(!document.hidden)void refresh(false).catch(()=>{});},interval):null;
+    const timer=interval?window.setInterval(()=>{if(!document.hidden)void refresh(true).catch(()=>{});},interval):null;
     return()=>{requestId.current++;window.removeEventListener("focus",focus);document.removeEventListener("visibilitychange",focus);if(timer)clearInterval(timer);};
   },[refresh,interval,key]);
   return{data,error,loading,refresh:()=>refresh(true),replace};
