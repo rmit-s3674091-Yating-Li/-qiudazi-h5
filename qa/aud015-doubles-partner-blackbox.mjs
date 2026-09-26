@@ -122,8 +122,15 @@ async function registerRealDoublesTeam(owner, partner, id, eventName, partnerNam
   await owner.getByRole('button', { name: 'Register myself', exact: true }).click();
   await owner.getByText('Doubles registration', { exact: true }).waitFor({ state: 'visible', timeout: 20000 });
   const acceptedRow = owner.locator('.row').filter({ hasText: partnerName }).filter({ has: owner.getByRole('button', { name: 'Select', exact: true }) }).first();
-  await acceptedRow.getByRole('button', { name: 'Select', exact: true }).click();
-  await owner.getByRole('button', { name: 'Confirm registration', exact: true }).click();
+  const selectPartner = acceptedRow.getByRole('button', { name: 'Select', exact: true });
+  await selectPartner.waitFor({ state: 'visible', timeout: 20000 });
+  await owner.waitForFunction(() => { const b=[...document.querySelectorAll('button')].find(x=>x.textContent?.trim()==='Select'); return !!b && !b.disabled; }, null, { timeout: 20000 });
+  await selectPartner.click();
+  await owner.getByText(/is selected as your partner/i).waitFor({ state: 'visible', timeout: 20000 });
+  const confirmRegistration = owner.getByRole('button', { name: 'Confirm registration', exact: true });
+  await confirmRegistration.waitFor({ state: 'visible', timeout: 20000 });
+  await owner.waitForFunction(() => { const b=[...document.querySelectorAll('button')].find(x=>x.textContent?.trim()==='Confirm registration'); return !!b && !b.disabled; }, null, { timeout: 20000 });
+  await confirmRegistration.click();
   await owner.getByRole('status').filter({ hasText: 'Registered' }).waitFor({ state: 'visible', timeout: 30000 });
   await owner.getByRole('button', { name: 'View roster', exact: true }).waitFor({ state: 'visible', timeout: 30000 });
   record(`${evidenceId} doubles entry signup_user is first real user`, true, id);
