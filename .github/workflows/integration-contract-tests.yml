@@ -3,11 +3,23 @@ name: Integration Contract Tests
 on:
   pull_request:
     branches: [main]
+    paths:
+      - 'supabase/**'
+      - 'scripts/check-migration-parity.mjs'
+      - 'qa/integration-contract.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/integration-contract-tests.yml'
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: integration-contract-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   integration-contract:
@@ -20,7 +32,11 @@ jobs:
           node-version: '22.12.0'
           cache: npm
       - run: npm ci
-      - name: Verify repository migrations against canonical live manifest
+      - name: Verify live migrations are preserved before feature replay
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-migration-parity.mjs --allow-repo-only
+      - name: Verify exact repository/live migration parity on main
+        if: github.event_name == 'push'
         run: node scripts/check-migration-parity.mjs
       - uses: supabase/setup-cli@v1
         with:

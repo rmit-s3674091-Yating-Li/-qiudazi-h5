@@ -1,15 +1,20 @@
-import type { EventConfig, Entry } from "./types.js";
-import { ensure } from "./types.js";
+import type { EventConfig, Entry } from "./types.ts";
+import { ensure } from "./types.ts";
 const LEVELS=["≤2.0","2.5","3.0","3.5","4.0","≥4.5"];
 export function defaultRegistrationDeadline(date:string|null,time:string|null){if(!date||!time)return null;const normalizedTime=/^\d{2}:\d{2}(?::\d{2})?$/.test(time)?time.slice(0,5):time;const d=new Date(`${date}T${normalizedTime}:00`);if(Number.isNaN(d.getTime()))return null;d.setHours(d.getHours()-2);const pad=(n:number)=>String(n).padStart(2,"0");return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;}
 export function validateEvent(config: EventConfig): EventConfig {
-  const e = { ...config, name: config.name.trim(), city: config.city?.trim() || null, venue: config.venue?.trim() || null };
+  const venueName=config.venue_name?.trim()||config.venue?.trim()||null;
+  const e = { ...config, name: config.name.trim(), city: config.city?.trim() || null, venue: venueName, venue_name: venueName, venue_address: config.venue_address?.trim() || null, venue_place_id: config.venue_place_id?.trim() || null, venue_provider: config.venue_provider?.trim() || null, tiebreak_target: config.tiebreak_target ?? 7, tiebreak_win_by_two: config.tiebreak_win_by_two ?? true, games_win_by_two: config.games_win_by_two ?? true };
   ensure(e.name.length > 0 && e.name.length <= 80,"NAME_REQUIRED","请填写赛事名称（80字以内）");
   ensure(["public", "private"].includes(e.visibility),"VISIBILITY","请选择公开赛事或私有赛事");
   ensure(["singles", "doubles"].includes(e.match_type),"MATCH_TYPE","请选择单打或双打");
   ensure(["round_robin", "knockout", "group_knockout"].includes(e.format),"FORMAT","请选择赛制");
   ensure([1, 3, 5].includes(e.best_of), "BEST_OF", "盘数必须为1、3或5");
   ensure(["games_4","games_6","tiebreak_7","points_11","points_15","custom_games"].includes(e.scoring_type),"SCORING","请选择计分方式");
+  ensure(["advantage","no_ad"].includes(e.game_scoring),"GAME_SCORING","请选择占先制或平分金球制");
+  ensure(Number.isInteger(e.tiebreak_target) && e.tiebreak_target >= 1 && e.tiebreak_target <= 100,"TIEBREAK_TARGET","抢七目标分须为1–100的整数");
+  ensure(typeof e.tiebreak_win_by_two === "boolean","TIEBREAK_WIN_BY_TWO","请选择抢七是否要求净胜两分");
+  ensure(typeof e.games_win_by_two === "boolean","GAMES_WIN_BY_TWO","请选择每盘是否要求净胜两局");
   ensure(!!e.city && e.city.length <= 30, "CITY_REQUIRED", "请填写城市（30字以内）");
   ensure(!!e.event_date && !!e.event_time,"EVENT_TIME_REQUIRED","请填写比赛日期和开赛时间");
   const latest=defaultRegistrationDeadline(e.event_date,e.event_time);ensure(!!latest,"EVENT_TIME_REQUIRED","比赛日期或开赛时间不正确");
@@ -18,7 +23,11 @@ export function validateEvent(config: EventConfig): EventConfig {
   if(e.suggested_level_min)ensure(LEVELS.includes(e.suggested_level_min),"INVALID_LEVEL","参赛建议级别不正确");
   if(e.suggested_level_max)ensure(LEVELS.includes(e.suggested_level_max),"INVALID_LEVEL","参赛建议级别不正确");
   if(e.suggested_level_min&&e.suggested_level_max)ensure(LEVELS.indexOf(e.suggested_level_min)<=LEVELS.indexOf(e.suggested_level_max),"INVALID_LEVEL_RANGE","最低建议级别不能高于最高建议级别");
-  if (e.venue) ensure(e.venue.length <= 120, "VENUE", "比赛场地请控制在120字以内");
+  if (e.venue_name) ensure(e.venue_name.length <= 120, "VENUE", "比赛场地请控制在120字以内");
+  if (e.venue_address) ensure(e.venue_address.length <= 240, "VENUE_ADDRESS", "场地地址请控制在240字以内");
+  const hasLat=e.venue_latitude!==null&&e.venue_latitude!==undefined,hasLng=e.venue_longitude!==null&&e.venue_longitude!==undefined;
+  ensure(hasLat===hasLng,"VENUE_COORDINATES","场地经纬度需要同时提供");
+  if(hasLat&&hasLng){ensure(Number.isFinite(e.venue_latitude)&&e.venue_latitude!>=-90&&e.venue_latitude!<=90,"VENUE_COORDINATES","场地纬度无效");ensure(Number.isFinite(e.venue_longitude)&&e.venue_longitude!>=-180&&e.venue_longitude!<=180,"VENUE_COORDINATES","场地经度无效");}
   if (e.scoring_type === "games_4") ensure([3, 4].includes(e.tiebreak_trigger!),"TIEBREAK","4局制请选择3:3或4:4抢七");
   if (e.scoring_type === "games_6") ensure([5, 6].includes(e.tiebreak_trigger!),"TIEBREAK","6局制请选择5:5或6:6抢七");
   if (e.scoring_type === "custom_games") ensure(Number.isInteger(e.custom_games_target) && e.custom_games_target! >= 1 && e.custom_games_target! <= 100,"CUSTOM_GAMES","自定义局数须为1–100的整数");

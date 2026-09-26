@@ -118,6 +118,23 @@ jobs:
           VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: node qa/exploratory-browser-blackbox.mjs
 
+      - name: Assert exploratory scenarios passed
+        if: always()
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const path = 'qa-artifacts-exploratory/exploratory-result.json';
+          if (!fs.existsSync(path)) {
+            console.error('exploratory-result.json missing');
+            process.exit(1);
+          }
+          const r = JSON.parse(fs.readFileSync(path,'utf8'));
+          if (!r.ok) {
+            console.error(JSON.stringify({passCount:r.passCount,failCount:r.failCount,findings:r.findings}, null, 2));
+            process.exit(1);
+          }
+          console.log(`Exploratory PASS: ${r.passCount} scenarios`);
+          NODE
       - name: Publish exploratory summary
         if: always()
         env:

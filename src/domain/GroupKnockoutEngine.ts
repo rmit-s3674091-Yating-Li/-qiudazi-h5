@@ -1,6 +1,6 @@
-import type { DomainContext, Entry, Event, Match, Ranking } from "./types.js";
-import { roundRobin } from "./RoundRobinEngine.js";
-import { bracketSize, seedPositions, knockout } from "./KnockoutEngine.js";
+import type { DomainContext, Entry, Event, Match, Ranking } from "./types.ts";
+import { roundRobin } from "./RoundRobinEngine.ts";
+import { bracketSize, seedPositions, knockout } from "./KnockoutEngine.ts";
 export function snakeGroups(entries: Entry[], count: number): Entry[][] {
   const groups: Entry[][] = Array.from({ length: count }, () => []);
   entries.forEach((en, i) => {

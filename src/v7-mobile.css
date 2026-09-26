@@ -1,0 +1,25 @@
+/* V7 mobile native-control containment.
+ * Real iPhone Safari / WeChat WebView verification remains browser-phase evidence.
+ */
+:where(.app-shell, .page, .sheet, .bottom-sheet, .modal, form, label, .field, .form-field, .filter-sheet) {
+  min-width: 0;
+}
+
+:where(input[type="date"], input[type="datetime-local"], select) {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  font: inherit;
+}
+
+:where(.sheet, .bottom-sheet, .modal, .filter-sheet) {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+:where(.sheet, .bottom-sheet, .modal, .filter-sheet) > * {
+  min-width: 0;
+  max-width: 100%;
+}

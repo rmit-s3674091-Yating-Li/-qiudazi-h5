@@ -1,0 +1,12 @@
+import fs from "node:fs";
+const event=fs.readFileSync("src/pages/EventPage.tsx","utf8");
+const aud=fs.readFileSync("qa/aud015-doubles-partner-blackbox.mjs","utf8");
+const exp=fs.readFileSync("qa/exploratory-browser-blackbox.mjs","utf8");
+const expect=(v,m)=>{if(!v)throw new Error(m);};
+expect(event.includes('disabled={!selfPlayer} onClick={()=>choosePartner(i)}'),"accepted-partner Select must not be clickable before self player is ready");
+expect(aud.includes("is selected as your partner"),"AUD-015 must wait for actual doubles selection state before submitting");
+expect(aud.includes("Confirm registration'); return !!b && !b.disabled"),"AUD-015 must wait for registration CTA readiness");
+expect(exp.includes(".form-section .section-toggle').nth(2)"),"Exploratory event form must use stable section structure");
+expect(exp.includes("const visibilityButtons=albumSection.locator('.segmented button')"),"Exploratory privacy must use scoped segmented controls");
+expect(exp.includes(".quick-card').first().locator('button.full')"),"Exploratory Quick must use stable step structure");
+console.log("Browser harness readiness/race contracts passed");

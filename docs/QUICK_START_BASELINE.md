@@ -12,12 +12,19 @@
 单打至少2人，每个 Player 一个 Entry。双打至少4人且为偶数；必须显式确认队友并允许调整，不得把勾选顺序作为不可见最终规则。
 
 ## 4. 正常流程
-**选择单/双打 → 选择参赛者 →（双打）确认队友 → 设置城市/场地/赛制/计分 → 一键开赛 → 创建赛事并锁定名单 → 自动生成首次对阵 → 进入赛事管理。**
+**选择单/双打 → 选择参赛者 →（双打）确认队友 → 设置赛制/计分；城市、场地均 optional → 一键开赛 → 创建赛事并锁定名单 → 自动生成首次对阵 → 自动进入 ongoing → 直接进入最贴近下一步操作的 Draw/Match。**
 
-首次 draw 失败时保留同一 Event，进入“开赛未完成 / 恢复开赛”；恢复只重试 draw，不重复创建 Event。
+Quick 的最低前置仅为满足比赛类型最低人数的参赛者 + 比比赛制/计分规则。城市不得带必填星号，不得自动写入“北京”或任何推断城市。首次 draw 或后续 auto-start 失败时保留同一 Event，进入“开赛未完成 / 恢复开赛”；恢复只继续完成同一 Event，不重复创建。创建并成功生成对阵后，系统应自动把 Event 进入 `ongoing`：唯一真实 Match 直接进入该 Match；多 Match 赛事进入 Draw。正常路径不得再要求用户额外点击一次“开始赛事”。
 
-## 5. 状态
-Quick Event 不走报名/候补/deadline。创建后 `locked` 表示名单固定；draw 后仍待用户正式开始赛事；开始后 `ongoing`。
+## 5. 状态与生命周期
+Quick Event 不走报名/候补/deadline。创建后可短暂经过 `locked` 作为名单固定/生成对阵的中间状态；正常“一键开赛”成功链路必须自动进入 `ongoing`，不得把 Standard Event 的“开始赛事”二次确认继续暴露给用户。
+
+开赛前（尚无真实 Match `ongoing` / `finished`）：
+- 创建人可取消比赛；取消进入只读 `cancelled` 终态并保留必要参与历史，不允许继续普通编辑、开赛、记分或报名。
+- 非创建人的实际参赛者可退出比赛；退出必须由服务端校验本人参赛关系，不能只靠前端隐藏入口。
+- 退出后若剩余参赛单元低于比赛类型最低人数，必须明确提示并取消/终止该未开始 Quick Event，不得留下不可进行的幽灵赛事。
+
+真正开始 Match 后，不再提供普通“退出比赛”。此后的中途离开进入 Retirement / Walkover 等结果语义，保留参赛关系与比赛历史；不得通过删除 Entry 伪装成退出。生命周期权限、状态/version 边界必须由 RPC/服务端强制执行。
 
 **单场 Quick Event 特例：若全赛事只有一个真实 Match，则该 Match 完成后 Event 自动进入 `finished` 并写入 `finished_at`。** 不要求用户再回赛事管理额外点击一次“结束赛事”。这样 Hall、赛事详情、结果和相册权限必须同时切换为已结束。
 
@@ -30,12 +37,14 @@ Quick Start 不另造计分规则，统一遵循网球 point → game → set �
 - `best_of=1` 表达为“1盘制”；一盘完成即 Match 完成。
 - 推荐完整表达：`1盘制 · 每盘先到6局 · 6:6抢七`。
 - 比赛详情主入口叫“录入比分”，并同时提供“逐分实时记分”；不以“直接录入最终比分”误导用户。
+- Quick 正常链路不展示“标记本场已开始”作为额外前置动作；首次真实记分/录分即进入该 Match 的实际比赛过程。
 - 已完成 Match 才进入“更正比分”；单场赛事的更正确认不展示无关的级联/其他参赛者话术。
 
 ## 7. 单场赛事展示
 只有两支 Entry、唯一一个真实 Match 时：
 - 轮次叫“单场对决”，不叫“决赛”；
 - 完赛结果叫“本场胜方 / 另一方”，不叫“冠军 / 亚军”；
+- 只有唯一合法对阵，不显示“重新生成对阵”；仅当当前参赛结构存在多个合法对阵方案时才允许重新生成；
 - Match 完成后 Quick Event 自动 finished；
 - organizer 的赛事照片上传入口立即开放；
 - Hall 必须同步显示“已结束”，不得继续显示“进行中”。
@@ -57,9 +66,19 @@ Quick Start 全链路统一 canonical profile 解析：`list_quick_start_players
 5. draw 失败恢复同一 event；
 6. 正常 Quick Event 出 Hall，测试 Event 不污染 Hall；
 7. private standard event 仍脱敏可发现；
-8. 两 Entry 显示单场对决；
+8. 两 Entry 显示单场对决，且唯一合法对阵时不显示重新生成；
 9. `1盘制 + 每盘先到6局` 文案无“6轮”歧义；
 10. 单场 Match 完成后 Event 自动 finished；
 11. Hall/详情/结果/照片状态一致；
 12. 单场结果不显示冠亚军；
-13. 完赛后 organizer 可上传赛事照片。
+13. 完赛后 organizer 可上传赛事照片；
+14. city/venue 均可留空，且不会自动出现“北京”或其他推断城市；
+15. 创建成功后自动进入 `ongoing` 并进入 Draw/Match，不要求再次点击“开始赛事”；唯一真实 Match 直接进入 Match，多 Match 进入 Draw；
+16. Quick 未开赛时 owner 可取消，participant 可退出；非 owner 不得取消赛事；
+17. participant 退出后低于最低人数时，Event 明确进入取消/终止状态，不保留可继续开赛的幽灵赛事；
+18. 任一真实 Match 开始后普通退出入口关闭，服务端也拒绝 ordinary withdrawal；中途离开只能通过 Retirement/Walkover 结果流程；
+19. cancelled Quick Event 为只读历史，不能继续开赛、记分或修改参赛关系。
+
+## 12. 当前实现状态（2026-09-22）
+
+“一键开赛即真正开赛”已实现到开发分支：create → draw → start 连续完成；draw 成功而 start 失败时保存 start-phase 恢复状态，只恢复同一 Event，不重复 draw/create；唯一真实 Match 直接进入 Match，多 Match 进入 Draw；Quick Match 不再展示“标记本场已开始”。该实现仍需 exact-head Unit / Integration / Browser 独立验证后方可标记 VERIFIED。

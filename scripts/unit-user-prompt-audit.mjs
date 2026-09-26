@@ -1,0 +1,13 @@
+import fs from "node:fs";
+const sup=fs.readFileSync("src/repositories/supabase.ts","utf8");
+const query=fs.readFileSync("src/hooks/useQuery.ts","utf8");
+const ui=fs.readFileSync("src/components/UI.tsx","utf8");
+const match=fs.readFileSync("src/pages/MatchPage.tsx","utf8");
+const expect=(v,m)=>{if(!v)throw new Error(m);};
+expect(!sup.includes("网络连接有点慢"),"network errors must not guess that the connection is merely slow");
+expect(sup.includes("请求没有完成，请检查网络后重试。"),"network message must describe the observable failure");
+expect(query.includes('setError(data===null?explainError(e):"")'),"background refresh failures with usable cached data must not surface as blocking errors");
+expect(ui.includes('language==="en"?"Try again":"重试"'),"generic error action must say retry, not reload");
+expect(ui.includes('language==="en"?"Loading…":"正在加载…"'),"generic loading text must not imply a specific backend activity");
+expect(match.includes("这一分尚未同步成功，系统已保留为安全重试，不会重复记分。"),"live scoring retry copy must explain user impact without raw transaction wording");
+console.log("User-facing prompt audit regression tests passed");
