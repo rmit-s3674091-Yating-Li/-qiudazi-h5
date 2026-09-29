@@ -9,7 +9,9 @@ const readme=read("README.md");
 const assert=(v,m)=>{if(!v)throw new Error(m);};
 
 assert(state.schema_version===1,"CURRENT_STATE schema_version must be 1");
-assert(state.truth_precedence.includes("verification_ledger"),"CURRENT_STATE must declare verification ledger precedence");
+assert(state.precedence?.product_rule?.[0]==="topic_owner_canonical","Product rule precedence must start with topic owner canonical");
+assert(state.precedence?.verification?.[0]==="verification_ledger","Verification precedence must start with verification ledger");
+assert(state.precedence?.runtime?.[0]==="runtime_exact_head","Runtime precedence must start with exact head");
 assert(governance.includes("Topic Owner + Current State"),"DOCUMENT_GOVERNANCE must define Topic Owner / Current State rules");
 assert(governance.includes("docs/CURRENT_STATE.json"),"DOCUMENT_GOVERNANCE must reference CURRENT_STATE");
 assert(workboard.includes("verification ledger"),"Workboard must declare ledger boundary");
@@ -30,6 +32,13 @@ for(const change of state.active_changes){
     const row=workboard.split("\n").find(line=>line.startsWith(`| ${id} |`))||"";
     assert(row,`Invalidated verification row missing: ${id}`);
     assert(!/\| VERIFIED \|/.test(row),`Invalidated verification still VERIFIED: ${id}`);
+  }
+  const scope=(change.marker_scope||[]).map(p=>read(p)).join("\n");
+  for(const marker of change.required_markers||[]){
+    assert(scope.includes(marker),`Required current-rule marker missing for ${change.change_id}: ${marker}`);
+  }
+  for(const marker of change.forbidden_markers||[]){
+    assert(!scope.includes(marker),`Superseded rule marker still present for ${change.change_id}: ${marker}`);
   }
 }
 console.log("Document governance drift contract passed");

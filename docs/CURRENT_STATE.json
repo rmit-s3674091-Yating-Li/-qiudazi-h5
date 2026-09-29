@@ -4,15 +4,6 @@
   "project": "球搭子 V7",
   "pr": 24,
   "branch": "feature/20260902-next-version-scoring-quick-photo",
-  "truth_precedence": [
-    "runtime_exact_head",
-    "docs/CURRENT_STATE.json",
-    "topic_owner_canonical",
-    "verification_ledger",
-    "docs/V7_WORKBOARD.md",
-    "evidence_changelog",
-    "historical_snapshot"
-  ],
   "verification": {
     "authoritative_source": "PR #24 comment marker <!-- v7-verification-ledger -->",
     "workboard_role": "implementation_and_queue_mirror",
@@ -90,6 +81,18 @@
         "全功能黑盒",
         "Browser收口",
         "白盒巡检"
+      ],
+      "required_markers": [
+        "地图选点",
+        "使用当前位置"
+      ],
+      "forbidden_markers": [
+        "轻量 POI 搜索",
+        "输入已知场地/地址关键词 → 地图服务返回 POI 候选"
+      ],
+      "marker_scope": [
+        "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
+        "docs/V7_WORKBOARD.md"
       ]
     },
     {
@@ -111,6 +114,12 @@
         "全功能黑盒",
         "Browser收口",
         "白盒巡检"
+      ],
+      "required_markers": [
+        "不得影响“我的赛事”"
+      ],
+      "marker_scope": [
+        "docs/PRODUCT_BASELINE.md"
       ]
     },
     {
@@ -129,7 +138,36 @@
         "全功能黑盒",
         "Browser收口",
         "白盒巡检"
+      ],
+      "required_markers": [
+        "分享 / 保存"
+      ],
+      "forbidden_markers": [
+        "另提供保存到手机"
+      ],
+      "marker_scope": [
+        "docs/DOCUMENT_GOVERNANCE.md",
+        "README.md"
       ]
     }
-  ]
+  ],
+  "precedence": {
+    "product_rule": [
+      "topic_owner_canonical",
+      "supporting_canonical",
+      "README_summary",
+      "evidence_changelog",
+      "historical_snapshot"
+    ],
+    "verification": [
+      "verification_ledger",
+      "docs/V7_WORKBOARD.md_verification_mirror",
+      "historical_evidence"
+    ],
+    "runtime": [
+      "runtime_exact_head",
+      "live_service_state",
+      "static_runtime_summary"
+    ]
+  }
 }

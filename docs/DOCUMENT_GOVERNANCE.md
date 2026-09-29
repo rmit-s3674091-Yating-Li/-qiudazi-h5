@@ -53,6 +53,15 @@ Git commit/PR、CHANGELOG、CI/Browser evidence 用于证明某时点发生了�
 - 自动任务不得长期硬编码当前产品细节；当前产品事实按 `CURRENT_STATE.json` → topic owner 实时读取。
 - 可观察行为变化必须同步：topic owner canonical + `CURRENT_STATE.json` change impact + 必要 supporting docs + CHANGELOG。缺一项即 governance drift。
 
+## 1.2 三类真源禁止混用
+
+产品规则、验证状态、运行时事实分开判定：
+- 产品规则：topic owner canonical → supporting canonical → README 摘要。
+- 验证状态：verification ledger → Workboard 人类可读镜像。
+- 运行时事实：PR exact head / live Supabase / Vercel / CI → 静态运行态摘要。
+
+禁止使用“最新 runtime”覆盖产品规范，也禁止使用旧 Workboard 状态覆盖更新的 ledger verdict。
+
 ## 2. 冲突解释顺序
 
 1. 先判断是规范冲突还是运行时事实冲突。
@@ -84,14 +93,15 @@ Git commit/PR、CHANGELOG、CI/Browser evidence 用于证明某时点发生了�
 
 ## 5. 当前关键产品决策索引
 
-详细规则以 `NEXT_VERSION_PRODUCT_BASELINE_20260902.md` 为准，当前包括：
+本节仅作人类可读摘要，不是规则 Owner；若与 `docs/CURRENT_STATE.json` 指向的 topic owner 冲突，以 topic owner 为准。当前包括：
 - Match → Set → Game → Point；Point Log 单一真源；Advantage/No-Ad/Tiebreak；规则参数化；局/盘进度明确。
 - 记分 UI optimistic near-instant，后台可靠持久化且保持幂等/版本/失败恢复。
 - Quick city/venue optional，禁止默认北京；最低前置为参赛者 + 赛制/计分规则。
 - 两人单打唯一对阵不显示重新生成；仅多合法方案时允许重新生成。
 - Quick 开赛前创建人取消、参赛者退出；开赛后进入退赛/弃权结果语义。
-- 实际参赛者从赛事相册主动导入个人参赛相册；personal copy 与 source 解耦；另提供保存到手机。
-- Hall 增加 city filter；移动端原生日期/选择控件不得溢出。
+- 实际参赛者从赛事相册主动导入个人参赛相册；personal copy 与 source 解耦；另提供“分享 / 保存”。
+- Hall 支持 match type + city + level + date 联合筛选，且筛选只作用于赛事大厅，不得影响“我的赛事”；移动端原生日期/选择控件不得溢出。
+- Standard Venue 采用手填场地名称/地址 + 可选“使用当前位置 / 地图选点”，中心准星确认静态坐标；当前不以 POI 关键词搜索作为 V7 主链路。
 - 单循环按轮次组织；Match 状态及 Result/Draw/Ranking 跨页面一致。
 
 ## 6. 自动化读取规则
