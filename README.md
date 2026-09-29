@@ -8,25 +8,25 @@
 1. `docs/DOCUMENT_GOVERNANCE.md`
 2. `docs/CURRENT_STATE.json` — 当前 topic owner、supersede、change-impact 与 verification invalidation 的机器可读索引
 3. `docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md` — 当前 V7 已批准变更总基线；其明确变更项优先于旧专项描述
-3. `docs/PRODUCT_BASELINE.md`
-4. `docs/PRD_V6_EVENT_LIFECYCLE_PRIVACY_I18N.md`
-5. `docs/INTERACTION_BASELINE.md`
-6. `docs/QUICK_START_BASELINE.md` — Quick Start / 快速赛事专项真源
-7. `docs/EVENT_LIFECYCLE_BASELINE.md` — 赛事取消、退出、终态与结果语义专项真源
-8. `docs/TOURNAMENT_PRESENTATION_BASELINE.md` — 对阵、轮次命名与 Match 卡展示专项真源
-9. `docs/TEST_DATA_GOVERNANCE.md` — 自动化测试身份/命名/隔离专项真源
-10. `docs/PHOTO_ALBUM_BASELINE.md`
-11. `docs/VISUAL_DESIGN_BASELINE.md`
-12. `docs/BRAND_ASSET_BASELINE.md`
-13. `docs/USER_STORY_ACCEPTANCE_BASELINE.md`
-14. `docs/P0_ACCEPTANCE.md`
-15. `docs/ENVIRONMENT_BASELINE.md`
-16. `docs/RELEASE_GOVERNANCE.md`
-17. `docs/BROWSER_BLACKBOX_BASELINE.md`
-18. `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
-19. `docs/PUBLIC_READINESS.md` — Private/Public 可见性准备边界与公开前检查
-20. `CHANGELOG.md`
-21. 当前源码、migration、Edge Functions 与 CI / Browser evidence
+4. `docs/PRODUCT_BASELINE.md`
+5. `docs/PRD_V6_EVENT_LIFECYCLE_PRIVACY_I18N.md`
+6. `docs/INTERACTION_BASELINE.md`
+7. `docs/QUICK_START_BASELINE.md` — Quick Start / 快速赛事专项真源
+8. `docs/EVENT_LIFECYCLE_BASELINE.md` — 赛事取消、退出、终态与结果语义专项真源
+9. `docs/TOURNAMENT_PRESENTATION_BASELINE.md` — 对阵、轮次命名与 Match 卡展示专项真源
+10. `docs/TEST_DATA_GOVERNANCE.md` — 自动化测试身份/命名/隔离专项真源
+11. `docs/PHOTO_ALBUM_BASELINE.md`
+12. `docs/VISUAL_DESIGN_BASELINE.md`
+13. `docs/BRAND_ASSET_BASELINE.md`
+14. `docs/USER_STORY_ACCEPTANCE_BASELINE.md`
+15. `docs/P0_ACCEPTANCE.md`
+16. `docs/ENVIRONMENT_BASELINE.md`
+17. `docs/RELEASE_GOVERNANCE.md`
+18. `docs/BROWSER_BLACKBOX_BASELINE.md`
+19. `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
+20. `docs/PUBLIC_READINESS.md` — Private/Public 可见性准备边界与公开前检查
+21. `CHANGELOG.md`
+22. 当前源码、migration、Edge Functions 与 CI / Browser evidence
 
 当前开发迭代中，`docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md` 明确批准的变更优先于尚未逐段迁移的旧专项描述；未被其修改的专项规则继续有效。Quick Start 规则以 next-version baseline + `docs/QUICK_START_BASELINE.md` 为准；赛事对阵/轮次/Match 卡话术以 `docs/TOURNAMENT_PRESENTATION_BASELINE.md` 为准；自动化测试命名与 Hall 隔离以 `docs/TEST_DATA_GOVERNANCE.md` 为准。
 

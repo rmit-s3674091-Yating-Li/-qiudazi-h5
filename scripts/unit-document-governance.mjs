@@ -14,6 +14,9 @@ assert(governance.includes("Topic Owner + Current State"),"DOCUMENT_GOVERNANCE m
 assert(governance.includes("docs/CURRENT_STATE.json"),"DOCUMENT_GOVERNANCE must reference CURRENT_STATE");
 assert(workboard.includes("verification ledger"),"Workboard must declare ledger boundary");
 assert(readme.includes("docs/CURRENT_STATE.json"),"README read-chain must include CURRENT_STATE");
+const canonicalBlock=readme.split("## Canonical sources")[1].split("## Product summary")[0];
+const canonicalNumbers=[...canonicalBlock.matchAll(/^(\\d+)\\. /gm)].map(m=>Number(m[1]));
+assert(canonicalNumbers.every((v,i)=>v===i+1),"Canonical source numbering must be sequential");
 
 for(const [topic,cfg] of Object.entries(state.topic_owners)){
   assert(fs.existsSync(path.join(root,cfg.owner)),`Missing owner for ${topic}: ${cfg.owner}`);
