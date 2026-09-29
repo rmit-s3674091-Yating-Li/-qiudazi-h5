@@ -12,6 +12,8 @@ function test(name, fn) { try { fn(); console.log(`✓ ${name}`); } catch (error
 
 try {
   const source = await readFile(new URL("src/domain/HallFilters.ts", root), "utf8");
+  const hallPage = await readFile(new URL("src/pages/HallPage.tsx", root), "utf8");
+  const polish = await readFile(new URL("src/polish.css", root), "utf8");
   const result = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 }, fileName: "HallFilters.ts" });
   const output = join(tmp, "HallFilters.js");
   await writeFile(output, result.outputText, "utf8");
@@ -29,6 +31,12 @@ try {
     assert.equal(hall.matchesHallFilters({ city: null }, { city: "上海" }), false);
     assert.equal(hall.matchesHallFilters({ city: "北京" }, { city: "上海" }), false);
     assert.equal(hall.matchesHallFilters({ city: " 上海 " }, { city: "上海" }), true);
+  });
+  test("hall filter uses compact dedicated mobile sheet layout", () => {
+    assert.ok(hallPage.includes('className="hall-filter-form"'));
+    assert.ok(hallPage.includes('className="hall-filter-actions"'));
+    assert.ok(polish.includes(".hall-filter-fields input[type=\"date\"]"));
+    assert.ok(polish.includes("height:46px"));
   });
   test("city composes deterministically with match type level and date", () => {
     const event = { city: "上海", match_type: "singles", level: "3.0", event_date: "2026-09-04" };

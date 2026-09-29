@@ -17,3 +17,15 @@
 
 .photo-upload-inline{margin-top:16px;display:inline-flex;width:auto;min-width:132px;justify-content:center}.photo-section-toolbar{display:flex;justify-content:flex-end;align-items:center;margin:4px 0 10px}.photo-upload-compact{padding:6px 4px;margin:0}.photo-upload-stage .photo-upload-inline{align-self:center}
 @media(max-width:390px){.photo-section-toolbar{justify-content:flex-start}}
+
+
+/* Hall filter: compact mobile bottom sheet. */
+.hall-filter-form{display:flex;flex-direction:column;gap:14px;padding-bottom:2px}
+.hall-filter-hint{margin:0;line-height:1.65}
+.hall-filter-fields{display:grid;gap:12px}
+.hall-filter-fields label{margin:0;font-size:13px;font-weight:600}
+.hall-filter-fields label input,.hall-filter-fields label select{margin-top:7px;min-height:46px;height:46px;padding:10px 12px;border-radius:12px;background:#fffefa}
+.hall-filter-fields input[type="date"]{-webkit-appearance:none;appearance:none;line-height:24px}
+.hall-filter-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:2px}
+.hall-filter-actions button{min-height:46px;margin:0;padding:10px 14px}
+@media(max-width:390px){.hall-filter-form{gap:12px}.hall-filter-fields{gap:10px}.hall-filter-actions{gap:8px}}
