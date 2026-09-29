@@ -1,13 +1,13 @@
 {
-  "schema_version": 1,
-  "updated_at": "2026-09-29",
+  "schema_version": 2,
+  "updated_at": "2026-09-30",
   "project": "球搭子 V7",
   "pr": 24,
   "branch": "feature/20260902-next-version-scoring-quick-photo",
   "verification": {
     "authoritative_source": "PR #24 comment marker <!-- v7-verification-ledger -->",
-    "workboard_role": "implementation_and_queue_mirror",
-    "rule": "If Workboard verification wording conflicts with a newer independent ledger verdict, consume the ledger verdict. Reconcile Workboard when product/canonical state changes."
+    "workboard_role": "implementation_only",
+    "rule": "Verification verdict never lives in Workboard State. Ledger owns NEEDS_VERIFY / VERIFIED / REOPENED / SUPERSEDED; Workboard owns TODO / IN_PROGRESS / IMPLEMENTED / BLOCKED."
   },
   "topic_owners": {
     "venue": {
@@ -62,7 +62,6 @@
     {
       "change_id": "V7-20260929-VENUE-MAP-PICKER",
       "topic": "venue",
-      "status": "implemented_pending_verification",
       "supersedes": "Baidu/POI keyword search as the current Standard Event venue UX",
       "current_rule": "Manual venue name/address plus optional current-location or map-center-pin confirmation of static coordinates; no continuous tracking; Quick has no map/geolocation step.",
       "invalidates_verification": [
@@ -93,12 +92,14 @@
       "marker_scope": [
         "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
         "docs/V7_WORKBOARD.md"
-      ]
+      ],
+      "implementation_state": "IMPLEMENTED",
+      "verification_impact": "SUPERSEDED_OLD_POI_VERDICT__NEW_EVIDENCE_REQUIRED",
+      "migrated_from_legacy_status": "implemented_pending_verification"
     },
     {
       "change_id": "V7-20260929-HALL-FILTER-SCOPE",
       "topic": "hall",
-      "status": "implemented_pending_browser",
       "current_rule": "Hall match-type/city/level/date filters apply only to the public Hall and must not filter My Events.",
       "invalidates_verification": [
         "V7-HALL-01"
@@ -120,12 +121,14 @@
       ],
       "marker_scope": [
         "docs/PRODUCT_BASELINE.md"
-      ]
+      ],
+      "implementation_state": "IMPLEMENTED",
+      "verification_impact": "AFFECTED_SCOPE_REVERIFY_REQUIRED",
+      "migrated_from_legacy_status": "implemented_pending_browser"
     },
     {
       "change_id": "V7-20260929-PHOTO-SHARE-SAVE",
       "topic": "photo",
-      "status": "partially_verified_real_device",
       "current_rule": "UI says Share / Save; native Share Sheet is the preferred path, then download, then short-lived signed-photo open fallback.",
       "invalidates_verification": [],
       "affected_docs": [
@@ -148,7 +151,10 @@
       "marker_scope": [
         "docs/DOCUMENT_GOVERNANCE.md",
         "README.md"
-      ]
+      ],
+      "implementation_state": "IMPLEMENTED",
+      "verification_impact": "EXISTING_SAFARI_REAL_DEVICE_EVIDENCE_PRESERVED__WECHAT_FALLBACK_SCOPE_REMAINS",
+      "migrated_from_legacy_status": "partially_verified_real_device"
     }
   ],
   "precedence": {
@@ -161,13 +167,52 @@
     ],
     "verification": [
       "verification_ledger",
-      "docs/V7_WORKBOARD.md_verification_mirror",
       "historical_evidence"
     ],
     "runtime": [
       "runtime_exact_head",
       "live_service_state",
       "static_runtime_summary"
+    ],
+    "implementation": [
+      "docs/V7_WORKBOARD.md"
     ]
+  },
+  "implementation_states": [
+    "TODO",
+    "IN_PROGRESS",
+    "IMPLEMENTED",
+    "BLOCKED"
+  ],
+  "verification_states": [
+    "NEEDS_VERIFY",
+    "VERIFIED",
+    "REOPENED",
+    "SUPERSEDED"
+  ],
+  "automation_read_chain": [
+    "docs/DOCUMENT_GOVERNANCE.md",
+    "docs/CURRENT_STATE.json",
+    "topic_owner_canonical",
+    "supporting_canonical_if_needed",
+    "docs/V7_WORKBOARD.md",
+    "PR_24_verification_ledger",
+    "runtime_exact_head_and_live_evidence"
+  ],
+  "automation_prompt_policy": "Prompts encode the read-chain, role boundaries and prohibitions only. Do not hard-code current product details, current SHA, or copied verification verdicts.",
+  "drift_detection": {
+    "workboard_allowed_states": [
+      "TODO",
+      "IN_PROGRESS",
+      "IMPLEMENTED",
+      "BLOCKED"
+    ],
+    "fail_on_duplicate_topic_owner": true,
+    "fail_on_missing_change_id": true,
+    "check_required_markers": true,
+    "check_forbidden_markers": true,
+    "check_changelog_for_observable_behavior_changes": true,
+    "flag_hardcoded_automation_product_facts": true,
+    "flag_hardcoded_current_sha": true
   }
 }
