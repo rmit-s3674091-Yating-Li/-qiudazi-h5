@@ -22,5 +22,10 @@ try{
   assert.equal(photo.safePhotoFilename("   "),"qiudazi-photo.jpg");
   assert.ok(!photo.safePhotoFilename("../../secret").includes("/"),"generated filename cannot contain path separators");
 
-  console.log("✓ photo save mode fallback and safe local filename contract");
+  const eventPhoto=await readFile(new URL("src/components/ProtectedEventPhoto.tsx",root),"utf8");
+  const personalAlbum=await readFile(new URL("src/pages/MyPastAlbumsPage.tsx",root),"utf8");
+  assert.match(eventPhoto,/Share \/ Save/);assert.match(eventPhoto,/分享 \/ 保存/);
+  assert.match(personalAlbum,/Share \/ Save/);assert.match(personalAlbum,/分享 \/ 保存/);
+
+  console.log("✓ photo save mode fallback, accurate action copy and safe local filename contract");
 }finally{await rm(tmp,{recursive:true,force:true})}
