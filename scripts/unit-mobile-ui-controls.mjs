@@ -21,3 +21,9 @@ expect(eventPage.includes('canImportPersonal={own?.status==="confirmed"}'),"conf
 expect(panel.includes('{canImportPersonal&&<button className="secondary photo-album-action"'),"participants must see personal event-album import action even when also owner");
 expect(!panel.includes('<div className="photo-frame-preview" aria-hidden="true"><ImagePlus'),"empty event-photo state must not reserve a decorative icon placeholder below the hint");
 console.log("Mobile UI control regression tests passed");
+
+const eventFormSource=fs.readFileSync("src/pages/EventFormPage.tsx","utf8");
+expect(eventFormSource.includes('className="page has-action event-form-page"'),"event form must use compact mobile page styling");
+expect(eventFormSource.includes('venue-location-card'),"venue location block must use compact dedicated styling");
+expect(css.includes(".event-form-page .section-toggle"),"event form accordion must have compact mobile styling");
+expect(css.includes(".event-form-page .section-body label input"),"event form controls must use compact mobile sizing");

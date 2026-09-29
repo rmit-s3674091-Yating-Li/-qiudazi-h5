@@ -29,3 +29,42 @@
 .hall-filter-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:2px}
 .hall-filter-actions button{min-height:46px;margin:0;padding:10px 14px}
 @media(max-width:390px){.hall-filter-form{gap:12px}.hall-filter-fields{gap:10px}.hall-filter-actions{gap:8px}}
+
+
+/* Event form: compact mobile editing density without changing the accordion information architecture. */
+.event-form-page{padding-top:18px}
+.event-form-page>h1{margin-bottom:10px}
+.event-form-page>.muted{margin-top:0;margin-bottom:16px}
+.event-form-page .form-section{margin:10px 0;border-radius:16px}
+.event-form-page .section-toggle{min-height:58px;padding:13px 15px}
+.event-form-page .section-toggle strong{font-size:15px}
+.event-form-page .section-number{font-size:11px;min-width:28px}
+.event-form-page .section-body{padding:2px 16px 16px}
+.event-form-page .section-body label{margin:14px 0 8px;font-size:13px}
+.event-form-page .section-body label input,
+.event-form-page .section-body label select,
+.event-form-page .section-body label textarea{min-height:46px;height:46px;margin-top:7px;padding:10px 12px;border-radius:12px}
+.event-form-page .section-body p.muted.small{margin:8px 0 12px;line-height:1.65}
+.event-form-page .form-pair{gap:10px}
+.event-form-page .form-pair>label{margin-top:12px}
+.event-form-page .section-body>.secondary.full{min-height:46px;margin-top:8px}
+.event-form-page .venue-location-card{padding:14px;margin:12px 0;border-radius:14px;gap:8px}
+.event-form-page .venue-location-card>.row.between{align-items:flex-start}
+.event-form-page .venue-location-card>.row.between>div{min-width:0;flex:1}
+.event-form-page .venue-location-card>.row.between p{margin:4px 0 0;line-height:1.55}
+.event-form-page .venue-location-card>.row.between>button{min-height:40px;padding:8px 11px;font-size:12px;flex:none}
+.event-form-page .venue-location-card label{margin-top:10px}
+.event-form-page .venue-location-card label>.row{gap:8px}
+.event-form-page .venue-location-card label>.row>button{min-width:72px;min-height:46px;padding:9px 12px}
+.event-form-page .venue-location-card>.secondary.full{min-height:44px}
+.event-form-page+.sheet{}
+.event-form-page .notice{margin:10px 0;padding:12px 14px}
+.event-form-page .action-bar{padding:10px 22px max(12px,env(safe-area-inset-bottom))}
+.event-form-page .action-bar button{min-height:48px}
+@media(max-width:390px){
+  .event-form-page{padding-left:18px;padding-right:18px}
+  .event-form-page .section-body{padding-left:14px;padding-right:14px}
+  .event-form-page .form-pair{display:grid;grid-template-columns:1fr 1fr}
+  .event-form-page .form-pair>label{margin-bottom:0}
+  .event-form-page .venue-location-card>.row.between{gap:8px}
+}
