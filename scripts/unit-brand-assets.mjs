@@ -17,10 +17,10 @@ assert.equal(png.readUInt32BE(16), 220, "share cover PNG width must be 220");
 assert.equal(png.readUInt32BE(20), 220, "share cover PNG height must be 220");
 assert.ok(png.length > 10000, "share cover PNG must contain non-trivial raster content");
 
-const shareUrl = "https://raw.githubusercontent.com/rmit-s3674091-Yating-Li/-qiudazi-h5/refs/heads/feature/20260902-next-version-scoring-quick-photo/public/share-cover.png";
-assert.ok(index.includes(`property="og:image" content="${shareUrl}"`), "Open Graph must use crawler-accessible absolute raster URL");
+const shareUrl = "https://raw.githubusercontent.com/rmit-s3674091-Yating-Li/-qiudazi-h5/b3fdef922e9f7fb37764d6771296a0a7fde73a10/public/share-cover.png";
+assert.ok(index.includes(`property="og:image" content="${shareUrl}"`), "Open Graph must use crawler-accessible immutable raster URL");
 assert.ok(index.includes(`property="og:image:secure_url" content="${shareUrl}"`), "Open Graph must provide secure image URL");
-assert.ok(index.includes(`name="twitter:image" content="${shareUrl}"`), "Twitter card must use the same absolute raster URL");
+assert.ok(index.includes(`name="twitter:image" content="${shareUrl}"`), "Twitter card must use the same immutable raster URL");
 assert.ok(index.includes('property="og:image:type" content="image/png"'), "Open Graph must declare image/png");
 assert.ok(!index.includes('property="og:image" content="/share-cover.png"'), "Open Graph must not regress to relative image URL");
 
