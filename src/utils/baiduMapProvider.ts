@@ -43,6 +43,7 @@ export function createConfiguredBaiduMapProvider():MapProvider{
     const response=await fetch(`/api/venue-search?query=${encodeURIComponent(query)}&region=${encodeURIComponent(region)}`,{
       headers:{Authorization:`Bearer ${session.access_token}`}
     });
+    if(response.status===401)throw new Error("AUTH_REQUIRED");
     return {ok:response.ok,json:()=>response.json()};
   };
   return createBaiduMapProvider({ak:"server-proxy",fetchImpl:proxyFetch});

@@ -1,5 +1,5 @@
 const SUPABASE_URL=process.env.VITE_SUPABASE_URL||"https://rtmjzmgrhifjzxaliltm.supabase.co";
-const SUPABASE_ANON_KEY=process.env.VITE_SUPABASE_ANON_KEY||"";
+const SUPABASE_ANON_KEY=process.env.VITE_SUPABASE_ANON_KEY||"sb_publishable_vM47k7tVER77x3bpGSkDdw_dowVImzn";
 
 function value(v){return Array.isArray(v)?v[0]:typeof v==="string"?v:"";}
 
