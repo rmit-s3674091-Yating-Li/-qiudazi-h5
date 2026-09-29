@@ -35,5 +35,15 @@ export function createBaiduMapProvider(options:BaiduMapProviderOptions={}):MapPr
 }
 
 export function createConfiguredBaiduMapProvider():MapProvider{
-  return createBaiduMapProvider({ak:import.meta.env.VITE_BAIDU_MAP_AK});
+  const proxyFetch:FetchLike=async input=>{
+    const url=new URL(input),query=url.searchParams.get("query")||"",region=url.searchParams.get("region")||"全国";
+    const {supabase}=await import("../repositories/supabase.ts");
+    const session=(await supabase?.auth.getSession())?.data.session;
+    if(!session)throw new Error("AUTH_REQUIRED");
+    const response=await fetch(`/api/venue-search?query=${encodeURIComponent(query)}&region=${encodeURIComponent(region)}`,{
+      headers:{Authorization:`Bearer ${session.access_token}`}
+    });
+    return {ok:response.ok,json:()=>response.json()};
+  };
+  return createBaiduMapProvider({ak:"server-proxy",fetchImpl:proxyFetch});
 }
