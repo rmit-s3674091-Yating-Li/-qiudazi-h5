@@ -73,7 +73,7 @@
 - 赛事源相册可多图，只有 organizer 上传/删除；actual participant 可查看/导入；viewer/invited/anon 不可读。
 - 参赛者主动“加入我的参与赛事相册”后形成独立 private original + protected preview；赛事源后续删除不级联删除个人副本。
 - 个人参与赛事相册默认仅自己可见，可切换搭子可见；accepted Connection 只获得受保护预览，无高清/修改/删除权。
-- V7 另要求赛事相册与个人参赛相册均提供合理的“保存到手机”入口，并与“加入我的参赛相册”明确区分；iOS Safari / 微信 WebView 不支持批量能力时必须有可理解的降级方案。
+- V7 另要求赛事相册与个人参赛相册均提供合理的“分享 / 保存”入口，并与“加入我的参赛相册”明确区分；优先使用设备原生 Share Sheet，不支持时降级为下载或打开短时授权图片。
 
 详细规则见 `docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md`、`docs/PHOTO_ALBUM_BASELINE.md`。
 

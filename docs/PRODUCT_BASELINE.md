@@ -40,6 +40,8 @@
 
 V7 Hall 筛选维度统一为 **match type + city + level + date**，四个维度可组合生效。city 只有在用户明确填写/选择非空城市时才参与过滤；未筛 city 时，赛事自身 city 为空不得成为不可发现理由。城市比较统一执行 Unicode NFKC、trim 与大小写归一化，避免全半角、首尾空格或大小写差异造成同城赛事误漏。
 
+Hall 的 match type + city + level + date 筛选**只属于公共赛事大厅发现视图**，不得携带、继承或反向过滤“我的赛事（我创建的 / 我参与的）”。从赛事大厅切换到“我的赛事”时，大厅筛选状态不得影响 My Events 数据集合。
+
 Hall 的筛选 Sheet / Bottom Sheet / Modal 以及其中 `input[type=date]`、`input[type=datetime-local]`、`select`、city 输入必须适配移动端窄屏：控件和容器允许 flex/grid 收缩，等价满足 `max-width:100%`、`min-width:0`、`box-sizing:border-box` 等 containment 要求，不得在 iPhone Safari / 微信 WebView 形成横向溢出。CSS/Unit 自检只能证明实现存在；真实 iPhone Safari / 微信 WebView 行为留给后续 Browser/真机独立验证。
 
 ## 6. 比赛时间、报名截止与名单锁定
