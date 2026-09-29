@@ -32,6 +32,11 @@ try {
     assert.equal(hall.matchesHallFilters({ city: "北京" }, { city: "上海" }), false);
     assert.equal(hall.matchesHallFilters({ city: " 上海 " }, { city: "上海" }), true);
   });
+  test("hall filters never bleed into My Events", () => {
+    assert.match(hallPage,/const visibleEvents=mine\?q\.data:q\.data\?\.filter/);
+    assert.match(hallPage,/if\(mine\)\{setType\(""\);setCity\(""\);setLevel\(""\);setDate\(""\);setFilter\(false\);\}/);
+    assert.match(hallPage,/const queryFilters=mine\?\{mine:true,scope,status\}/);
+  });
   test("hall filter uses compact dedicated mobile sheet layout", () => {
     assert.ok(hallPage.includes('className="hall-filter-form"'));
     assert.ok(hallPage.includes('className="hall-filter-actions"'));

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus, RefreshCw, SlidersHorizontal, UserPlus } from "lucide-react";
 import { repository } from "../repositories/supabase";
@@ -11,8 +11,10 @@ import { matchesHallFilters } from "../domain/HallFilters";
 export function Hall({mine=false}:{mine?:boolean}){
   const{t,language}=useLanguage();const en=language==="en";
   const[scope,setScope]=useState("created");const[type,setType]=useState(""),[city,setCity]=useState(""),[level,setLevel]=useState(""),[date,setDate]=useState(""),[status,setStatus]=useState(""),[filter,setFilter]=useState(false);
-  const q=useQuery("events"+JSON.stringify({mine,scope,type,level,date,status}),()=>repository.events({mine,scope,match_type:type,level,event_date:date,status}));
-  const visibleEvents=q.data?.filter(event=>matchesHallFilters(event,{city}));
+  useEffect(()=>{if(mine){setType("");setCity("");setLevel("");setDate("");setFilter(false);}},[mine]);
+  const queryFilters=mine?{mine:true,scope,status}:{mine:false,scope:"created",match_type:type,level,event_date:date,status:""};
+  const q=useQuery("events"+JSON.stringify(queryFilters),()=>repository.events(queryFilters));
+  const visibleEvents=mine?q.data:q.data?.filter(event=>matchesHallFilters(event,{city}));
   const statusFilters=[["",t("all")],["signup",t("signup")],["locked",t("locked")],["ongoing",t("ongoing")],["finished",t("finished")]];
   const typeFilters=[["",t("all")],["singles",t("singles")],["doubles",t("doubles")]];
   const levelFilters=[["",t("all")],["≤2.0",levelLabel("≤2.0",language)],["2.5","2.5"],["3.0","3.0"],["3.5","3.5"],["4.0","4.0"],["≥4.5",levelLabel("≥4.5",language)]];
