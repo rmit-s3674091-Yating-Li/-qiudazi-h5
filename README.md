@@ -6,7 +6,8 @@
 较大功能开发、AI/Codex 生成代码、审计和 Release Gate 必须先读：
 
 1. `docs/DOCUMENT_GOVERNANCE.md`
-2. `docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md` — 当前 V7 已批准变更总基线；其明确变更项优先于旧专项描述
+2. `docs/CURRENT_STATE.json` — 当前 topic owner、supersede、change-impact 与 verification invalidation 的机器可读索引
+3. `docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md` — 当前 V7 已批准变更总基线；其明确变更项优先于旧专项描述
 3. `docs/PRODUCT_BASELINE.md`
 4. `docs/PRD_V6_EVENT_LIFECYCLE_PRIVACY_I18N.md`
 5. `docs/INTERACTION_BASELINE.md`

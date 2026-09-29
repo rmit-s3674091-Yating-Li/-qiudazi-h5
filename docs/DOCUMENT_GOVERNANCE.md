@@ -38,6 +38,21 @@ Git commit/PR、CHANGELOG、CI/Browser evidence 用于证明某时点发生了�
 ### D. Historical snapshot
 旧 PRD、旧交付包、旧 audit snapshot 只作为历史参考，不得反向覆盖当前产品规则。
 
+## 1.1 Topic Owner + Current State 索引（试运行）
+
+为减少同一规则在多份文档和 automation prompt 中重复抄写造成的漂移，新增 `docs/CURRENT_STATE.json` 作为机器可读当前变更索引。它不替代 canonical 产品规则正文，只负责：
+- 指明每个 topic 的唯一 owner canonical；
+- 记录新变更 supersede 了什么旧方案、哪些 verification 因产品范围变化失效；
+- 指明自动化应该消费的 owner / Workboard ID / verification ledger。
+
+规则：
+- 一个 topic 只能有一个 owner canonical；supporting docs 只补充本层 AC/交互/视觉，不复制完整规则。
+- 产品正文以 topic owner 为准；`CURRENT_STATE.json` 只存索引、change impact 和 supersede 关系。
+- 旧实现曾 VERIFIED、但产品方案被替换时，标记 SUPERSEDED / invalidates_verification；新方案重新建立证据，不把旧 verifier 结论改写成“错误”。
+- verification verdict 权威来源为 PR #24 唯一 ledger marker `<!-- v7-verification-ledger -->`；Workboard 主要负责实现/排队状态和人类可读镜像。
+- 自动任务不得长期硬编码当前产品细节；当前产品事实按 `CURRENT_STATE.json` → topic owner 实时读取。
+- 可观察行为变化必须同步：topic owner canonical + `CURRENT_STATE.json` change impact + 必要 supporting docs + CHANGELOG。缺一项即 governance drift。
+
 ## 2. 冲突解释顺序
 
 1. 先判断是规范冲突还是运行时事实冲突。
@@ -81,6 +96,6 @@ Git commit/PR、CHANGELOG、CI/Browser evidence 用于证明某时点发生了�
 
 ## 6. 自动化读取规则
 
-开发整改任务每轮必须先读本文件和 `NEXT_VERSION_PRODUCT_BASELINE_20260902.md`，再按主题读取专项 baseline 与 current exact-head runtime truth。测试/审计任务恢复后也必须先读取当前阶段 baseline，禁止旧 selector、旧文案、旧 PRD 或聊天记忆成为事实源。
+开发整改任务每轮必须先读本文件与 `docs/CURRENT_STATE.json`，根据 `topic_owners` 找到对应 owner canonical，再读取必要 supporting baseline 与 current exact-head runtime truth。测试/审计任务恢复后也必须先读取当前阶段 baseline，禁止旧 selector、旧文案、旧 PRD 或聊天记忆成为事实源。
 
 谁实现谁不独立 VERIFIED。新高风险纯逻辑下沉 Unit；RPC/RLS/Storage/事务/identity/幂等下沉 Integration；真实移动端、弱网、快速连续记分、相册导入/保存、Quick 生命周期由后续 User Story Browser 验证。

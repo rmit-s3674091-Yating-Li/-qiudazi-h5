@@ -1,6 +1,6 @@
 # V7 Workboard
 
-> V7 开发阶段的机器可消费工作状态真源。产品规则仍以各 canonical baseline 为准；本文件只记录“当前要做什么 / 做到哪一步 / 为什么被阻塞”。
+> V7 开发阶段的机器可消费实施/排队状态表。产品规则以 topic owner canonical 为准，当前 supersede/change-impact 索引见 `docs/CURRENT_STATE.json`；独立验证 verdict 以 PR #24 唯一 verification ledger 为准。本文件记录“当前要做什么 / 实现到哪 / 为什么被阻塞”，验证文字仅作为人类可读镜像，不得覆盖更新的 ledger verdict。
 
 ## 状态机
 
@@ -12,6 +12,16 @@
 - `EXTERNAL_BLOCKED`：依赖外部凭据/服务；不得占住 Builder 队列。
 - `BROWSER_PENDING`：低层证据已足够，必须留到 Browser/真机阶段。
 - `VERIFIED`：开发阶段独立验证已完成。
+
+## 真源边界
+
+- Product rule：topic owner canonical。
+- Current change / supersede / invalidation：`docs/CURRENT_STATE.json`。
+- Implementation / queue：本 Workboard。
+- Independent verification verdict：PR #24 verification ledger。
+- Runtime：PR exact head / CI / Supabase / Vercel live facts。
+
+发生冲突时先按 `docs/DOCUMENT_GOVERNANCE.md` 判定冲突类型，automation 不得自行把旧 Workboard 状态升级为当前产品真源。
 
 ## 证据规则
 

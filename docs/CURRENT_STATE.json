@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-09-29",
+  "project": "球搭子 V7",
+  "pr": 24,
+  "branch": "feature/20260902-next-version-scoring-quick-photo",
+  "truth_precedence": [
+    "runtime_exact_head",
+    "docs/CURRENT_STATE.json",
+    "topic_owner_canonical",
+    "verification_ledger",
+    "docs/V7_WORKBOARD.md",
+    "evidence_changelog",
+    "historical_snapshot"
+  ],
+  "verification": {
+    "authoritative_source": "PR #24 comment marker <!-- v7-verification-ledger -->",
+    "workboard_role": "implementation_and_queue_mirror",
+    "rule": "If Workboard verification wording conflicts with a newer independent ledger verdict, consume the ledger verdict. Reconcile Workboard when product/canonical state changes."
+  },
+  "topic_owners": {
+    "venue": {
+      "owner": "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
+      "supporting": [
+        "docs/PRODUCT_BASELINE.md",
+        "docs/INTERACTION_BASELINE.md",
+        "docs/USER_STORY_ACCEPTANCE_BASELINE.md"
+      ],
+      "workboard_ids": [
+        "V7-VENUE-01A",
+        "V7-VENUE-01B",
+        "V7-VENUE-01C"
+      ]
+    },
+    "hall": {
+      "owner": "docs/PRODUCT_BASELINE.md",
+      "supporting": [
+        "docs/INTERACTION_BASELINE.md",
+        "docs/VISUAL_DESIGN_BASELINE.md",
+        "docs/USER_STORY_ACCEPTANCE_BASELINE.md"
+      ],
+      "workboard_ids": [
+        "V7-HALL-01"
+      ]
+    },
+    "photo": {
+      "owner": "docs/PHOTO_ALBUM_BASELINE.md",
+      "supporting": [
+        "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
+        "docs/INTERACTION_BASELINE.md",
+        "docs/USER_STORY_ACCEPTANCE_BASELINE.md"
+      ],
+      "workboard_ids": [
+        "V7-PHOTO-01",
+        "V7-PHOTO-02",
+        "V7-PHOTO-03"
+      ]
+    },
+    "security": {
+      "owner": "docs/SECURITY_TEST_BASELINE.md",
+      "supporting": [
+        "docs/INTEGRATION_TEST_BASELINE.md"
+      ],
+      "workboard_ids": [
+        "V7-SEC-01",
+        "V7-SEC-02"
+      ]
+    }
+  },
+  "active_changes": [
+    {
+      "change_id": "V7-20260929-VENUE-MAP-PICKER",
+      "topic": "venue",
+      "status": "implemented_pending_verification",
+      "supersedes": "Baidu/POI keyword search as the current Standard Event venue UX",
+      "current_rule": "Manual venue name/address plus optional current-location or map-center-pin confirmation of static coordinates; no continuous tracking; Quick has no map/geolocation step.",
+      "invalidates_verification": [
+        "V7-VENUE-01C"
+      ],
+      "affected_docs": [
+        "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
+        "docs/V7_WORKBOARD.md",
+        "docs/PRODUCT_BASELINE.md",
+        "docs/INTERACTION_BASELINE.md",
+        "docs/VISUAL_DESIGN_BASELINE.md",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "affected_automations": [
+        "全功能黑盒",
+        "Browser收口",
+        "白盒巡检"
+      ]
+    },
+    {
+      "change_id": "V7-20260929-HALL-FILTER-SCOPE",
+      "topic": "hall",
+      "status": "implemented_pending_browser",
+      "current_rule": "Hall match-type/city/level/date filters apply only to the public Hall and must not filter My Events.",
+      "invalidates_verification": [
+        "V7-HALL-01"
+      ],
+      "affected_docs": [
+        "docs/PRODUCT_BASELINE.md",
+        "docs/INTERACTION_BASELINE.md",
+        "docs/VISUAL_DESIGN_BASELINE.md",
+        "docs/V7_WORKBOARD.md",
+        "CHANGELOG.md"
+      ],
+      "affected_automations": [
+        "全功能黑盒",
+        "Browser收口",
+        "白盒巡检"
+      ]
+    },
+    {
+      "change_id": "V7-20260929-PHOTO-SHARE-SAVE",
+      "topic": "photo",
+      "status": "partially_verified_real_device",
+      "current_rule": "UI says Share / Save; native Share Sheet is the preferred path, then download, then short-lived signed-photo open fallback.",
+      "invalidates_verification": [],
+      "affected_docs": [
+        "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
+        "docs/V7_WORKBOARD.md",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "affected_automations": [
+        "全功能黑盒",
+        "Browser收口",
+        "白盒巡检"
+      ]
+    }
+  ]
+}
