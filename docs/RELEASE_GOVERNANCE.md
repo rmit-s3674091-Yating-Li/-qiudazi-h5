@@ -1,3 +1,17 @@
+
+## V7 Change Manifest / Verification Ledger integration
+
+Before Candidate Freeze, release coordination must read `docs/DOCUMENT_GOVERNANCE.md` and `docs/CURRENT_STATE.json` before interpreting Workboard or Browser status.
+
+- Workboard is implementation-only. `IMPLEMENTED` means no current implementation work is queued; it never means verified or release-ready.
+- Every `active_changes` entry must be `VERIFYING` (or moved to `CLOSED`) before Candidate Browser is used to close that change. `ACTIVE` means implementation is still changing and Candidate Freeze is premature for that scope.
+- Candidate Freeze may legitimately contain ledger `NEEDS_VERIFY` scopes when the missing evidence itself requires the exact Candidate Preview / real device. Those scopes must be explicitly listed as Candidate verification targets.
+- Before any Gate-ready claim, every release-relevant active change must either be moved to `CLOSED` after ledger coverage, or have an explicit non-blocking rationale accepted by the release canonical. A stale ledger cannot establish Gate readiness.
+- The unique PR #24 ledger must have `reviewed_exact_head=current PR head`. Older evidence can be inherited only with `basis=UNAFFECTED_SCOPE`; a head mismatch without such reconciliation is `STALE_LEDGER`.
+- Release coordination must never infer verification from Workboard prose, CHANGELOG, automation prompt text, workflow-green status alone, or an old ledger head.
+
+This integration does not authorize merge main, Production deploy, or Release Gate; those boundaries remain unchanged.
+
 # 球搭子发布与候选部署治理基线
 
 > 本文是「球搭子」发布分支、Candidate Freeze、Vercel Preview、真实浏览器黑盒、Release Gate 与 main/CloudBase 发布顺序的 canonical source。真实浏览器执行能力的专项规则见 `docs/BROWSER_BLACKBOX_BASELINE.md`；环境身份见 `docs/ENVIRONMENT_BASELINE.md`；repository visibility 变更前置条件见 `docs/PUBLIC_READINESS.md`。本文定义工程发布治理，不改变产品业务规则。

@@ -1,3 +1,10 @@
+## 2026-09-30 — V7 governance control-plane hardening (unreleased)
+
+- `V7-20260929-VENUE-MAP-PICKER`: current Standard Venue path is the manual/current-location/map-pin scheme; old POI-search verification is superseded and the change remains VERIFYING until ledger coverage closes the new flow.
+- `V7-20260929-HALL-FILTER-SCOPE`: Hall filters are public-Hall-only and My Events isolation remains a VERIFYING affected scope.
+- `V7-20260929-PHOTO-SHARE-SAVE`: Share / Save semantics preserve existing Safari evidence while the remaining platform-specific scope stays ledger-owned.
+- Governance now separates implementation rows from current verification verdicts, defines a versioned ledger freshness contract, gives manifest changes ACTIVE/VERIFYING/CLOSED lifecycle, records the allowed automation topology, and makes repository drift checks executable rather than declarative only.
+
 ## 2026-09-22 — V7 stabilization bundle (unreleased)
 
 - Synchronized Browser, security and user-story baselines with the latest UX contracts: single post-login Privacy Policy entry, finished-event View Results CTA, contextual event-photo upload, personal-album thumbnail gallery, and cancelled+expired inactive-invite cleanup.

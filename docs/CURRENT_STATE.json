@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "updated_at": "2026-09-30",
   "project": "球搭子 V7",
   "pr": 24,
@@ -7,9 +7,77 @@
   "verification": {
     "authoritative_source": "PR #24 comment marker <!-- v7-verification-ledger -->",
     "workboard_role": "implementation_only",
-    "rule": "Verification verdict never lives in Workboard State. Ledger owns NEEDS_VERIFY / VERIFIED / REOPENED / SUPERSEDED; Workboard owns TODO / IN_PROGRESS / IMPLEMENTED / BLOCKED."
+    "ledger_schema_version": 2,
+    "verdict_states": [
+      "NEEDS_VERIFY",
+      "VERIFIED",
+      "REOPENED",
+      "SUPERSEDED"
+    ],
+    "required_fields": [
+      "reviewed_exact_head",
+      "reviewed_at",
+      "checked_scope",
+      "scope_verdicts"
+    ],
+    "per_scope_required_fields": [
+      "scope",
+      "verdict",
+      "evidence_head",
+      "basis"
+    ],
+    "freshness_rule": "Every active verifier run must refresh reviewed_exact_head/reviewed_at even when no verdict changes. Old-head evidence is valid only with basis=UNAFFECTED_SCOPE and an explicit affected-scope explanation.",
+    "stale_rule": "STALE_LEDGER does not erase inherited unaffected evidence, but it blocks claims that current-head verification/Candidate/Gate has fully closed."
   },
   "topic_owners": {
+    "scoring": {
+      "owner": "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
+      "supporting": [
+        "docs/PRODUCT_BASELINE.md",
+        "docs/TOURNAMENT_PRESENTATION_BASELINE.md",
+        "docs/USER_STORY_ACCEPTANCE_BASELINE.md"
+      ],
+      "workboard_ids": [
+        "V7-SCORE-01"
+      ]
+    },
+    "quick": {
+      "owner": "docs/QUICK_START_BASELINE.md",
+      "supporting": [
+        "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
+        "docs/EVENT_LIFECYCLE_BASELINE.md",
+        "docs/USER_STORY_ACCEPTANCE_BASELINE.md"
+      ],
+      "workboard_ids": [
+        "V7-QUICK-01",
+        "V7-QUICK-02",
+        "V7-QUICK-03"
+      ]
+    },
+    "identity": {
+      "owner": "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
+      "supporting": [
+        "docs/SECURITY_TEST_BASELINE.md",
+        "docs/PRODUCT_BASELINE.md",
+        "docs/USER_STORY_ACCEPTANCE_BASELINE.md"
+      ],
+      "workboard_ids": [
+        "V7-ID-01A",
+        "V7-ID-01B",
+        "V7-ID-01C",
+        "V7-ID-01D"
+      ]
+    },
+    "lifecycle": {
+      "owner": "docs/EVENT_LIFECYCLE_BASELINE.md",
+      "supporting": [
+        "docs/PRODUCT_BASELINE.md",
+        "docs/USER_STORY_ACCEPTANCE_BASELINE.md"
+      ],
+      "workboard_ids": [
+        "V7-EVENT-CTA-01"
+      ]
+    },
     "venue": {
       "owner": "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
       "supporting": [
@@ -47,6 +115,26 @@
         "V7-PHOTO-03"
       ]
     },
+    "invite": {
+      "owner": "docs/PRODUCT_BASELINE.md",
+      "supporting": [
+        "docs/INTERACTION_BASELINE.md",
+        "docs/USER_STORY_ACCEPTANCE_BASELINE.md"
+      ],
+      "workboard_ids": [
+        "V7-INVITE-01"
+      ]
+    },
+    "brand": {
+      "owner": "docs/BRAND_ASSET_BASELINE.md",
+      "supporting": [
+        "docs/VISUAL_DESIGN_BASELINE.md"
+      ],
+      "workboard_ids": [
+        "V7-BRAND-01A",
+        "V7-BRAND-01B"
+      ]
+    },
     "security": {
       "owner": "docs/SECURITY_TEST_BASELINE.md",
       "supporting": [
@@ -55,6 +143,68 @@
       "workboard_ids": [
         "V7-SEC-01",
         "V7-SEC-02"
+      ]
+    },
+    "environment": {
+      "owner": "docs/ENVIRONMENT_BASELINE.md",
+      "supporting": [
+        "docs/INTEGRATION_TEST_BASELINE.md"
+      ],
+      "workboard_ids": [
+        "V7-INFRA-EDGE-01"
+      ]
+    },
+    "release": {
+      "owner": "docs/RELEASE_GOVERNANCE.md",
+      "supporting": [
+        "docs/BROWSER_BLACKBOX_BASELINE.md",
+        "docs/ENVIRONMENT_BASELINE.md"
+      ],
+      "workboard_ids": [
+        "V7-STAB-01"
+      ]
+    },
+    "test_data": {
+      "owner": "docs/TEST_DATA_GOVERNANCE.md",
+      "supporting": [
+        "docs/AUDIT_AUTOMATION_GOVERNANCE.md"
+      ],
+      "workboard_ids": []
+    },
+    "tournament": {
+      "owner": "docs/TOURNAMENT_PRESENTATION_BASELINE.md",
+      "supporting": [
+        "docs/PRODUCT_BASELINE.md",
+        "docs/USER_STORY_ACCEPTANCE_BASELINE.md"
+      ],
+      "workboard_ids": []
+    },
+    "interaction": {
+      "owner": "docs/INTERACTION_BASELINE.md",
+      "supporting": [
+        "docs/USER_STORY_ACCEPTANCE_BASELINE.md"
+      ],
+      "workboard_ids": []
+    },
+    "visual": {
+      "owner": "docs/VISUAL_DESIGN_BASELINE.md",
+      "supporting": [
+        "docs/INTERACTION_BASELINE.md"
+      ],
+      "workboard_ids": []
+    },
+    "user_story": {
+      "owner": "docs/USER_STORY_ACCEPTANCE_BASELINE.md",
+      "supporting": [],
+      "workboard_ids": []
+    },
+    "repository_governance": {
+      "owner": "docs/DOCUMENT_GOVERNANCE.md",
+      "supporting": [
+        "docs/AUDIT_AUTOMATION_GOVERNANCE.md"
+      ],
+      "workboard_ids": [
+        "V7-DOC-01"
       ]
     }
   },
@@ -94,7 +244,9 @@
       ],
       "implementation_state": "IMPLEMENTED",
       "verification_impact": "SUPERSEDED_OLD_POI_VERDICT__NEW_EVIDENCE_REQUIRED",
-      "migrated_from_legacy_status": "implemented_pending_verification"
+      "migrated_from_legacy_status": "implemented_pending_verification",
+      "lifecycle_state": "VERIFYING",
+      "close_rule": "Move to CLOSED only after the verification ledger explicitly covers this change's verification impact and there is no implementation remediation pending."
     },
     {
       "change_id": "V7-20260929-HALL-FILTER-SCOPE",
@@ -123,7 +275,9 @@
       ],
       "implementation_state": "IMPLEMENTED",
       "verification_impact": "AFFECTED_SCOPE_REVERIFY_REQUIRED",
-      "migrated_from_legacy_status": "implemented_pending_browser"
+      "migrated_from_legacy_status": "implemented_pending_browser",
+      "lifecycle_state": "VERIFYING",
+      "close_rule": "Move to CLOSED only after the verification ledger explicitly covers this change's verification impact and there is no implementation remediation pending."
     },
     {
       "change_id": "V7-20260929-PHOTO-SHARE-SAVE",
@@ -152,7 +306,9 @@
       ],
       "implementation_state": "IMPLEMENTED",
       "verification_impact": "EXISTING_SAFARI_REAL_DEVICE_EVIDENCE_PRESERVED__WECHAT_FALLBACK_SCOPE_REMAINS",
-      "migrated_from_legacy_status": "partially_verified_real_device"
+      "migrated_from_legacy_status": "partially_verified_real_device",
+      "lifecycle_state": "VERIFYING",
+      "close_rule": "Move to CLOSED only after the verification ledger explicitly covers this change's verification impact and there is no implementation remediation pending."
     }
   ],
   "precedence": {
@@ -199,29 +355,74 @@
   ],
   "automation_prompt_policy": "Prompts encode the read-chain, role boundaries and prohibitions only. Do not hard-code current product details, current SHA, or copied verification verdicts.",
   "drift_detection": {
-    "workboard_allowed_states": [
-      "TODO",
-      "IN_PROGRESS",
-      "IMPLEMENTED",
-      "BLOCKED"
+    "repository_checks": [
+      "workboard_allowed_states",
+      "workboard_no_current_verification_verdict_in_rows",
+      "required_topic_owner_registry",
+      "active_change_id_topic_lifecycle",
+      "active_change_affected_automation_subset",
+      "required_markers",
+      "forbidden_markers",
+      "changelog_change_id"
     ],
-    "fail_on_duplicate_topic_owner": true,
-    "fail_on_missing_change_id": true,
-    "check_required_markers": true,
-    "check_forbidden_markers": true,
-    "check_changelog_for_observable_behavior_changes": true,
-    "flag_hardcoded_automation_product_facts": true,
-    "flag_hardcoded_current_sha": true
+    "runtime_checks": [
+      "single_verification_ledger_marker",
+      "ledger_reviewed_exact_head_freshness",
+      "old_head_evidence_inheritance_basis",
+      "actual_automation_topology",
+      "automation_prompt_no_hardcoded_current_sha_or_product_facts",
+      "current_exact_head_and_live_evidence"
+    ]
   },
   "automation_topology": {
     "active": [
-      "Browser收口",
-      "白盒巡检"
+      {
+        "title": "球搭子 V7 Browser收口",
+        "short_name": "Browser收口"
+      },
+      {
+        "title": "球搭子 V7 白盒巡检",
+        "short_name": "白盒巡检"
+      }
     ],
-    "disabled_redundant": [
-      "全功能黑盒",
-      "安全测试"
+    "legacy_must_remain_disabled": [
+      "球搭子 V7 全功能黑盒",
+      "球搭子 V7 安全测试",
+      "球搭子 V7 冻结巡检",
+      "球搭子 V7 持续整改",
+      "球搭子 V7 整改核验",
+      "V7 Builder 保活",
+      "球搭子部署前审计 V2",
+      "球搭子发布接力",
+      "球搭子部署前审计",
+      "球搭子周安全审计"
     ],
-    "rule": "Manifest automation impact should name active consumers only; disabled historical automations are not current impact targets."
-  }
+    "runtime_rule": "Only active titles may be enabled for current V7 governance. Any enabled legacy title is GOVERNANCE_DRIFT; active verifiers report it and never revive legacy Builder/Gate/Production tasks."
+  },
+  "required_topics": [
+    "scoring",
+    "quick",
+    "identity",
+    "lifecycle",
+    "venue",
+    "hall",
+    "photo",
+    "invite",
+    "brand",
+    "security",
+    "environment",
+    "release",
+    "test_data",
+    "tournament",
+    "interaction",
+    "visual",
+    "user_story",
+    "repository_governance"
+  ],
+  "change_lifecycle_states": [
+    "ACTIVE",
+    "VERIFYING",
+    "CLOSED"
+  ],
+  "closed_changes": []
 }

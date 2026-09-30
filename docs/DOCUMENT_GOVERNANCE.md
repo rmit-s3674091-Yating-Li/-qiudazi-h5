@@ -43,11 +43,11 @@ Git commit/PR、CHANGELOG、CI/Browser evidence 用于证明某时点发生了�
 为减少同一规则在多份文档、Workboard 与 automation prompt 中重复抄写造成的漂移，`docs/CURRENT_STATE.json` 是**机器可读索引/Change Impact Manifest**，不是第二份产品规范。
 
 治理约束：
-- 每个 topic 只能有一个 `owner canonical`。完整产品规则只写在 owner；supporting docs 只写本层必须补充的 AC / 交互 / 视觉 / 测试边界，并引用 owner，不复制完整定义。
+- `topic_owners` 是当前 V7 受治理主题的完整 registry；每个受治理 topic 只能有一个 `owner canonical`。完整产品规则只写在 owner；supporting docs 只写本层必须补充的 AC / 交互 / 视觉 / 测试边界，并引用 owner，不复制完整定义。新增受治理主题时必须先登记 owner，禁止形成“有 canonical 文件但无 owner registry”的灰区。
 - `CURRENT_STATE.json` 只记录 topic owner、受影响文档、supersede/invalidation 关系、automation impact 与 drift markers；不得承载一份可与 owner 竞争的完整 PRD。
 - 可观察产品语义发生变化时，必须产生一个 `change_id`，并记录 topic、owner、implementation state、supersedes、verification impact、affected docs、affected automations、required/forbidden markers。
 - 旧实现曾通过验证，但产品方案被替换时，用 `SUPERSEDED` / `invalidates_verification` 表达“旧证据对新方案不再适用”；不得把旧 verifier 结论改写成“当时验证错误”。
-- 同一 change 只保留一个活跃 manifest 记录；完成后可移入历史 changelog，而不是复制出第二套 CURRENT_STATE 文件。
+- 同一 change 只保留一个 manifest 记录，并使用 `ACTIVE / VERIFYING / CLOSED` 生命周期。实现未完成时为 `ACTIVE`；实现完成但受影响 verification 尚未闭环时为 `VERIFYING`；只有 ledger 已覆盖该 change 的 verification impact 且无待实现整改时才能 `CLOSED`。`CLOSED` 后从 `active_changes` 移入 `closed_changes`/CHANGELOG，不得永久留在 active 列表继续触发自动任务。
 
 ## 1.2 Product truth / Implementation truth / Verification truth / Runtime truth
 
@@ -62,6 +62,18 @@ Git commit/PR、CHANGELOG、CI/Browser evidence 用于证明某时点发生了�
 - ledger 反过来充当产品规范；
 - runtime 新旧 SHA 变化自动抹掉 unaffected scope 的既有验证；
 - automation 使用聊天记忆或硬编码旧产品事实覆盖 owner canonical。
+
+
+### Verification ledger contract
+
+PR #24 唯一 verification ledger 不只是自由文本评论，而是受治理的 current-state ledger：
+
+- marker 固定为 `<!-- v7-verification-ledger -->`，同一 PR 只允许一个；
+- 每次活跃 verifier 完成一轮检查后，即使没有新 finding，也必须更新 `reviewed_exact_head`、`reviewed_at` 与本轮 `checked_scope`；
+- 每个 current verdict 必须包含 `scope/id`、`verdict`、`evidence_head` 和 evidence/basis。若证据来自旧 head，必须明确记录 `inheritance_basis=UNAFFECTED_SCOPE` 及为何后续 delta 不影响该 scope；
+- ledger 顶部 `reviewed_exact_head` 落后于 current PR head 时，称为 **STALE_LEDGER**。STALE_LEDGER 不自动抹掉 unaffected-scope 既有证据，但禁止据此宣称“current head 已完成验证 / Candidate 或 Gate 已收口”；
+- ledger 只记录 verification truth 与 evidence linkage，不复制产品规则，不维护 implementation queue；
+- Workboard 不得保存 current verification verdict。Workboard 中历史验证证据仅可作为 provenance，不得出现可被读取为 current verdict 的状态词或 next-action 结论。
 
 ## 2. 冲突解释顺序
 
@@ -118,19 +130,26 @@ Git commit/PR、CHANGELOG、CI/Browser evidence 用于证明某时点发生了�
 
 Automation prompt 只应硬编码**读取顺序、角色边界和禁止事项**，不得长期硬编码 Venue/Photo/Hall 等当前产品细节、旧 SHA 或旧 verdict。产品变化后应通过 manifest + owner 自动被消费。
 
+当前 automation topology 同样属于 runtime truth：只有 `CURRENT_STATE.json > automation_topology.active` 中列出的球搭子任务允许启用；`legacy_must_remain_disabled` 中任一旧任务被重新启用均记 `GOVERNANCE_DRIFT`。活跃任务只报告该漂移，不自行启用 Builder/Release Gate/Production 类旧任务。
+
 谁实现谁不独立 VERIFIED。高风险纯逻辑下沉 Unit；RPC/RLS/Storage/事务/identity/幂等下沉 Integration；真实移动端、弱网、快速连续记分、相册导入/分享保存、Quick 生命周期由独立 Browser/真机验证。
 
 ## 7. Document Drift Detection 规则
 
-机器检查至少覆盖：
+治理检查分两层：仓库内 CI 只检查可由 repository content 确定的静态 contract；automation enable/disable、PR ledger freshness、current exact-head/live 状态属于 runtime checks，由活跃 verifier 每轮检查，禁止在 unit test 中伪装成已检查。
+
+仓库内机器检查至少覆盖：
 - Workboard State 列出现非 `TODO / IN_PROGRESS / IMPLEMENTED / BLOCKED` 值；
 - Workboard 将 verification verdict 当作当前状态；
 - `CURRENT_STATE.json` 中 topic 缺 owner、同 topic 多 owner、active change 缺 change_id；
 - change manifest 宣告 owner 已更新，但 affected docs 仍命中 forbidden markers；
 - required markers 在指定 marker scope 中缺失；
 - `invalidates_verification` 指向的旧 verdict 仍被 automation/browser baseline 当作新方案当前证据；
-- automation prompt 出现旧产品实现关键词、固定 current SHA 或复制完整产品规则；
-- 可观察行为变化缺 CHANGELOG；
+- active change 的 `affected_automations` 出现未列入 active topology 的任务；
+- Workboard row 的 implementation next-action/evidence 出现 current verification verdict 状态词；
+- 可观察行为 change 缺 CHANGELOG change-id 记录；
 - supporting docs 与 owner 存在实质冲突。
+
+Runtime checks 至少覆盖：唯一 ledger marker 数量、ledger `reviewed_exact_head` freshness、旧-head evidence 的 inheritance basis、实际 automation topology 是否与 manifest 一致、prompt 是否重新硬编码 current SHA/产品事实，以及 current exact-head / live evidence。
 
 Drift check 只报告治理问题，不得自行修改产品规则、verification verdict、`release-candidate`、main 或 Production。
