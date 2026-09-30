@@ -1,4 +1,4 @@
-## 2026-09-30 — V7 governance control-plane hardening (unreleased)
+## 2026-09-30 — V7 governance control-plane hardening (unreleased)\n\n- `V7-20260930-PHOTO-WATERMARK-EXPORT`: changed default event/personal album Share / Save to export the protected watermarked preview currently shown to the user; HD viewing remains separate, and V7 does not expose an original-photo export action. Prior real-device Share/Save evidence is superseded only for the export-source behavior and requires re-verification.\n
 
 - `V7-20260929-VENUE-MAP-PICKER`: current Standard Venue path is the manual/current-location/map-pin scheme; old POI-search verification is superseded and the change remains VERIFYING until ledger coverage closes the new flow.
 - `V7-20260929-HALL-FILTER-SCOPE`: Hall filters are public-Hall-only and My Events isolation remains a VERIFYING affected scope.

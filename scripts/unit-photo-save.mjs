@@ -26,6 +26,8 @@ try{
   const personalAlbum=await readFile(new URL("src/pages/MyPastAlbumsPage.tsx",root),"utf8");
   assert.match(eventPhoto,/Share \/ Save/);assert.match(eventPhoto,/分享 \/ 保存/);
   assert.match(personalAlbum,/Share \/ Save/);assert.match(personalAlbum,/分享 \/ 保存/);
+  assert.match(eventPhoto,/async function savePreview\(\)[\s\S]*savePhotoToDevice\(previewUrl,/,"event-album Share / Save must export the displayed watermarked preview");
+  assert.match(personalAlbum,/async function save\(photo:AlbumPhoto\)[\s\S]*const url=urls\[photo\.asset_id\][\s\S]*savePhotoToDevice\(url,/,"personal-album Share / Save must export its protected preview instead of the HD original");
 
-  console.log("✓ photo save mode fallback, accurate action copy and safe local filename contract");
+  console.log("✓ photo Share / Save exports protected previews with fallback, accurate copy and safe filenames");
 }finally{await rm(tmp,{recursive:true,force:true})}

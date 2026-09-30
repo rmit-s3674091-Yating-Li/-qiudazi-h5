@@ -280,14 +280,17 @@
       "close_rule": "Move to CLOSED only after the verification ledger explicitly covers this change's verification impact and there is no implementation remediation pending."
     },
     {
-      "change_id": "V7-20260929-PHOTO-SHARE-SAVE",
+      "change_id": "V7-20260930-PHOTO-WATERMARK-EXPORT",
       "topic": "photo",
-      "current_rule": "UI says Share / Save; native Share Sheet is the preferred path, then download, then short-lived signed-photo open fallback.",
-      "invalidates_verification": [],
+      "supersedes": "Default Share / Save exporting the HD/original photo while the UI shows a protected watermarked preview.",
+      "current_rule": "What-you-see-is-what-you-export: when the UI displays a protected watermarked preview, Share / Save / download exports that same watermarked preview; HD viewing remains separate and V7 has no original-export action.",
+      "invalidates_verification": [
+        "V7-PHOTO-01"
+      ],
       "affected_docs": [
+        "docs/PHOTO_ALBUM_BASELINE.md",
         "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
         "docs/V7_WORKBOARD.md",
-        "README.md",
         "CHANGELOG.md"
       ],
       "affected_automations": [
@@ -295,20 +298,17 @@
         "白盒巡检"
       ],
       "required_markers": [
-        "分享 / 保存"
+        "所见即所得",
+        "不另设“保存原图 / 分享原图”入口"
       ],
-      "forbidden_markers": [
-        "另提供保存到手机"
-      ],
+      "forbidden_markers": [],
       "marker_scope": [
-        "docs/DOCUMENT_GOVERNANCE.md",
-        "README.md"
+        "docs/PHOTO_ALBUM_BASELINE.md"
       ],
       "implementation_state": "IMPLEMENTED",
-      "verification_impact": "EXISTING_SAFARI_REAL_DEVICE_EVIDENCE_PRESERVED__WECHAT_FALLBACK_SCOPE_REMAINS",
-      "migrated_from_legacy_status": "partially_verified_real_device",
+      "verification_impact": "PRIOR_SHARE_SAVE_REAL_DEVICE_EVIDENCE_SUPERSEDED_FOR_EXPORT_SOURCE__WATERMARKED_EXPORT_REVERIFY_REQUIRED",
       "lifecycle_state": "VERIFYING",
-      "close_rule": "Move to CLOSED only after the verification ledger explicitly covers this change's verification impact and there is no implementation remediation pending."
+      "close_rule": "Move to CLOSED only after real-device/browser evidence confirms Share / Save exports the watermarked preview in supported device paths without breaking HD viewing."
     }
   ],
   "precedence": {
@@ -424,5 +424,38 @@
     "VERIFYING",
     "CLOSED"
   ],
-  "closed_changes": []
+  "closed_changes": [
+    {
+      "change_id": "V7-20260929-PHOTO-SHARE-SAVE",
+      "topic": "photo",
+      "current_rule": "UI says Share / Save; native Share Sheet is the preferred path, then download, then short-lived signed-photo open fallback.",
+      "invalidates_verification": [],
+      "affected_docs": [
+        "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
+        "docs/V7_WORKBOARD.md",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "affected_automations": [
+        "Browser收口",
+        "白盒巡检"
+      ],
+      "required_markers": [
+        "分享 / 保存"
+      ],
+      "forbidden_markers": [
+        "另提供保存到手机"
+      ],
+      "marker_scope": [
+        "docs/DOCUMENT_GOVERNANCE.md",
+        "README.md"
+      ],
+      "implementation_state": "IMPLEMENTED",
+      "verification_impact": "EXISTING_SAFARI_REAL_DEVICE_EVIDENCE_PRESERVED__WECHAT_FALLBACK_SCOPE_REMAINS",
+      "migrated_from_legacy_status": "partially_verified_real_device",
+      "lifecycle_state": "CLOSED",
+      "close_rule": "Move to CLOSED only after the verification ledger explicitly covers this change's verification impact and there is no implementation remediation pending.",
+      "closed_reason": "Safari and WeChat real-device Share/Save behavior was verified before the later watermarked-export product decision superseded the export-source rule."
+    }
+  ]
 }
