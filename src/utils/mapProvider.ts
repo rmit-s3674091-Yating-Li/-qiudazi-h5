@@ -10,7 +10,23 @@ function valid(latitude:number,longitude:number){return Number.isFinite(latitude
 export function hasVenueCoordinates(value:{venue_latitude?:number|null;venue_longitude?:number|null}){return value.venue_latitude!==null&&value.venue_latitude!==undefined&&value.venue_longitude!==null&&value.venue_longitude!==undefined&&valid(value.venue_latitude,value.venue_longitude)}
 export const browserMapProvider:MapProvider={
   getCurrentPosition(){return new Promise((resolve,reject)=>{if(typeof navigator==="undefined"||!navigator.geolocation){reject(new Error("GEOLOCATION_UNAVAILABLE"));return;}navigator.geolocation.getCurrentPosition(position=>resolve({latitude:position.coords.latitude,longitude:position.coords.longitude,provider:"device_geolocation",placeId:null}),()=>reject(new Error("GEOLOCATION_DENIED")),{enableHighAccuracy:false,timeout:10000,maximumAge:60000});});},
-  async searchPlaces(){throw new Error("PLACE_SEARCH_PROVIDER_UNAVAILABLE");},
+  async searchPlaces(query){
+    const q=query.trim();if(!q)return [];
+    const url=new URL("https://nominatim.openstreetmap.org/search");
+    url.searchParams.set("format","jsonv2");
+    url.searchParams.set("q",q);
+    url.searchParams.set("limit","5");
+    url.searchParams.set("addressdetails","1");
+    const response=await fetch(url.toString(),{headers:{Accept:"application/json"}});
+    if(!response.ok)throw new Error("PLACE_SEARCH_PROVIDER_UNAVAILABLE");
+    const data=await response.json() as any[];
+    return data.map(item=>({
+      latitude:Number(item.lat),longitude:Number(item.lon),provider:"openstreetmap_nominatim",
+      placeId:item.place_id!=null?String(item.place_id):null,
+      name:(typeof item.name==="string"&&item.name.trim())?item.name.trim():String(item.display_name||"").split(",")[0].trim(),
+      address:String(item.display_name||"").trim()
+    })).filter(item=>valid(item.latitude,item.longitude)&&item.address);
+  },
   async reverseGeocode({latitude,longitude},language="zh-CN"){
     if(!valid(latitude,longitude))throw new Error("VENUE_COORDINATES");
     const url=new URL("https://nominatim.openstreetmap.org/reverse");

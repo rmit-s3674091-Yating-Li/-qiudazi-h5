@@ -15,7 +15,7 @@ function ensureLeaflet():Promise<any>{
 }
 
 type PickedPlace=Pick<VenuePlace,"name"|"address"|"provider"|"placeId">;
-export function VenueMapPicker({initialLatitude,initialLongitude,language,onClose,onConfirm}:{initialLatitude?:number|null;initialLongitude?:number|null;language:string;onClose:()=>void;onConfirm:(lat:number,lng:number,place?:PickedPlace|null)=>void}){
+export function VenueMapPicker({initialLatitude,initialLongitude,initialQuery,language,onClose,onConfirm}:{initialLatitude?:number|null;initialLongitude?:number|null;initialQuery?:string|null;language:string;onClose:()=>void;onConfirm:(lat:number,lng:number,place?:PickedPlace|null)=>void}){
   const en=language==="en",host=useRef<HTMLDivElement>(null),mapRef=useRef<any>(null),lookupTimer=useRef<number|null>(null),lookupSeq=useRef(0);
   const[position,setPosition]=useState<{lat:number;lng:number}|null>(initialLatitude!=null&&initialLongitude!=null?{lat:initialLatitude,lng:initialLongitude}:null);
   const[place,setPlace]=useState<PickedPlace|null>(null),[resolving,setResolving]=useState(false),[error,setError]=useState("");
@@ -34,7 +34,17 @@ export function VenueMapPicker({initialLatitude,initialLongitude,language,onClos
     const map=L.map(host.current,{zoomControl:true}).setView([start.lat,start.lng],position?16:4);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap contributors"}).addTo(map);
     map.on("moveend",()=>{const c=map.getCenter(),next={lat:c.lat,lng:c.lng};setPosition(next);resolveReadablePlace(next);});
-    mapRef.current=map;setTimeout(()=>map.invalidateSize(),0);if(position)resolveReadablePlace(position);
+    mapRef.current=map;setTimeout(()=>map.invalidateSize(),0);
+    if(position)resolveReadablePlace(position);
+    else if(initialQuery?.trim()){
+      setResolving(true);
+      void browserMapProvider.searchPlaces(initialQuery).then(results=>{
+        if(cancelled||!results[0])return;
+        const first=results[0],next={lat:first.latitude,lng:first.longitude};
+        setPosition(next);setPlace({name:first.name,address:first.address,provider:first.provider,placeId:first.placeId});
+        map.setView([next.lat,next.lng],16);
+      }).catch(()=>{}).finally(()=>{if(!cancelled)setResolving(false)});
+    }
   }).catch(()=>setError(en?"Map could not be loaded.":"地图暂时无法加载。"));
   return()=>{cancelled=true;if(lookupTimer.current!==null)window.clearTimeout(lookupTimer.current);lookupSeq.current++;mapRef.current?.remove();mapRef.current=null;};},[]);
 
