@@ -1,3 +1,9 @@
+
+## 2026-09-30 — Venue map picker usability refinement (unreleased)
+
+- 地图选点从“坐标确认”升级为“可读地点确认”：拖动地图或使用当前位置后尝试反向解析地点名称/地址，确认卡优先展示可读信息，经纬度降级为折叠技术详情。
+- “使用这个位置”会回填地址，并仅在用户未明确填写场地名称时补充解析到的地点名；反向解析失败仍允许确认坐标和手工填写场地信息。
+
 ## 2026-09-30 — V7 governance control-plane hardening (unreleased)\n\n- `V7-20260930-PHOTO-WATERMARK-EXPORT`: changed default event/personal album Share / Save to export the protected watermarked preview currently shown to the user; HD viewing remains separate, and V7 does not expose an original-photo export action. Prior real-device Share/Save evidence is superseded only for the export-source behavior and requires re-verification.\n
 
 - `V7-20260929-VENUE-MAP-PICKER`: current Standard Venue path is the manual/current-location/map-pin scheme; old POI-search verification is superseded and the change remains VERIFYING until ledger coverage closes the new flow.
