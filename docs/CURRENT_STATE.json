@@ -77,7 +77,6 @@
         "CHANGELOG.md"
       ],
       "affected_automations": [
-        "全功能黑盒",
         "Browser收口",
         "白盒巡检"
       ],
@@ -112,12 +111,12 @@
         "CHANGELOG.md"
       ],
       "affected_automations": [
-        "全功能黑盒",
         "Browser收口",
         "白盒巡检"
       ],
       "required_markers": [
-        "不得影响“我的赛事”"
+        "公共赛事大厅发现视图",
+        "My Events 数据集合"
       ],
       "marker_scope": [
         "docs/PRODUCT_BASELINE.md"
@@ -138,7 +137,6 @@
         "CHANGELOG.md"
       ],
       "affected_automations": [
-        "全功能黑盒",
         "Browser收口",
         "白盒巡检"
       ],
@@ -214,5 +212,16 @@
     "check_changelog_for_observable_behavior_changes": true,
     "flag_hardcoded_automation_product_facts": true,
     "flag_hardcoded_current_sha": true
+  },
+  "automation_topology": {
+    "active": [
+      "Browser收口",
+      "白盒巡检"
+    ],
+    "disabled_redundant": [
+      "全功能黑盒",
+      "安全测试"
+    ],
+    "rule": "Manifest automation impact should name active consumers only; disabled historical automations are not current impact targets."
   }
 }
