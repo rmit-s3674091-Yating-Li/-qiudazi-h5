@@ -26,6 +26,7 @@ export function createBaiduMapProvider(options:BaiduMapProviderOptions={}):MapPr
       if(body.status!==0)throw new Error(`BAIDU_PLACE_ERROR:${String(body.status??"UNKNOWN")}`);
       return Array.isArray(body.results)?body.results.map(item=>normalizePlace(item as BaiduPlace)).filter((item):item is VenuePlace=>item!==null):[];
     },
+  async reverseGeocode(){throw new Error("REVERSE_GEOCODE_PROVIDER_UNAVAILABLE");},
     externalMapUrl({latitude,longitude,name}){
       if(!Number.isFinite(latitude)||latitude < -90||latitude > 90||!Number.isFinite(longitude)||longitude < -180||longitude > 180)throw new Error("VENUE_COORDINATES");
       const destination=name?.trim()?`name:${name.trim()}|latlng:${latitude},${longitude}`:`latlng:${latitude},${longitude}`;
