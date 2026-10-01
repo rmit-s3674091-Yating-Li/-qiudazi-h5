@@ -217,47 +217,7 @@
       ]
     }
   },
-  "active_changes": [
-    {
-      "change_id": "V7-20260929-VENUE-MAP-PICKER",
-      "topic": "venue",
-      "supersedes": "Baidu/POI keyword search as the current Standard Event venue UX",
-      "current_rule": "Manual venue name/address plus optional current-location or map-center-pin confirmation of static coordinates; no continuous tracking; Quick has no map/geolocation step.",
-      "invalidates_verification": [
-        "V7-VENUE-01C"
-      ],
-      "affected_docs": [
-        "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
-        "docs/V7_WORKBOARD.md",
-        "docs/PRODUCT_BASELINE.md",
-        "docs/INTERACTION_BASELINE.md",
-        "docs/VISUAL_DESIGN_BASELINE.md",
-        "README.md",
-        "CHANGELOG.md"
-      ],
-      "affected_automations": [
-        "总控",
-        "独立核验"
-      ],
-      "required_markers": [
-        "地图选点",
-        "使用当前位置"
-      ],
-      "forbidden_markers": [
-        "轻量 POI 搜索",
-        "输入已知场地/地址关键词 → 地图服务返回 POI 候选"
-      ],
-      "marker_scope": [
-        "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
-        "docs/V7_WORKBOARD.md"
-      ],
-      "implementation_state": "IMPLEMENTED",
-      "verification_impact": "SUPERSEDED_OLD_POI_VERDICT__NEW_EVIDENCE_REQUIRED",
-      "migrated_from_legacy_status": "implemented_pending_verification",
-      "lifecycle_state": "VERIFYING",
-      "close_rule": "Move to CLOSED only after the verification ledger explicitly covers this change's verification impact and there is no implementation remediation pending."
-    }
-  ],
+  "active_changes": [],
   "precedence": {
     "product_rule": [
       "topic_owner_canonical",
@@ -467,6 +427,46 @@
       "lifecycle_state": "CLOSED",
       "close_rule": "Move to CLOSED only after real-device/browser evidence confirms Share / Save exports the watermarked preview in supported device paths without breaking HD viewing.",
       "closed_reason": "User real-device verification confirmed both local Save and WeChat Share export the watermarked image under the watermarked state; later commits are Venue-only and do not affect photo export."
+    },
+    {
+      "change_id": "V7-20260929-VENUE-MAP-PICKER",
+      "topic": "venue",
+      "supersedes": "Baidu/POI keyword search as the current Standard Event venue UX",
+      "current_rule": "Standard Event keeps venue_name (facility), venue (optional court/area) and venue_address separate. In the Chinese app flow, venue/address lookup and reverse geocoding use Baidu first; in the English app flow, lookup/reverse geocoding use an English-language provider path. Map confirmation remains optional, current-location is explicit user action only, Quick has no map/geolocation step, and the UI must not mix Chinese and English place labels.",
+      "invalidates_verification": [
+        "V7-VENUE-01C"
+      ],
+      "affected_docs": [
+        "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
+        "docs/V7_WORKBOARD.md",
+        "docs/PRODUCT_BASELINE.md",
+        "docs/INTERACTION_BASELINE.md",
+        "docs/VISUAL_DESIGN_BASELINE.md",
+        "README.md",
+        "CHANGELOG.md"
+      ],
+      "affected_automations": [
+        "总控",
+        "独立核验"
+      ],
+      "required_markers": [
+        "地图选点",
+        "使用当前位置"
+      ],
+      "forbidden_markers": [
+        "轻量 POI 搜索",
+        "输入已知场地/地址关键词 → 地图服务返回 POI 候选"
+      ],
+      "marker_scope": [
+        "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
+        "docs/V7_WORKBOARD.md"
+      ],
+      "implementation_state": "IMPLEMENTED",
+      "verification_impact": "CURRENT_EXACT_HEAD_REAL_DEVICE_VERIFIED__BILINGUAL_PROVIDER_ROUTING_AND_IN_APP_MAP",
+      "migrated_from_legacy_status": "implemented_pending_verification",
+      "lifecycle_state": "CLOSED",
+      "close_rule": "Move to CLOSED only after the verification ledger explicitly covers this change's verification impact and there is no implementation remediation pending.",
+      "closed_reason": "Exact-head ledger verifies VENUE-01B/01C; user real-device verification passed Chinese-only venue/address results, English-only provider flow, in-app View Map, and prior system navigation handoff remains unaffected."
     }
   ],
   "controller": {

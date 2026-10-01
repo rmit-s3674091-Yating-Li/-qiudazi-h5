@@ -10,13 +10,13 @@
 - Map seeding now ignores specific court detail, uses city-constrained facility/address lookup with generic-suffix fallback, and falls back to city rather than accepting weak cross-city matches.
 - Native date/time/datetime controls are left-aligned to match the rest of the form.
 - Event detail now renders facility, specific court/area and address on separate lines.
-
+- Added bilingual venue-provider routing: Chinese venue/address lookup and reverse geocoding are Baidu-first; English uses an English-language path. Chinese UI filters pure English/pinyin-only fallback results to avoid mixed-language venue cards.\n- Replaced external “View map” with an in-app read-only map; system “Directions” remains an external/native navigation handoff.\n
 
 ## 2026-10-01 — Verification lifecycle reconciliation (unreleased)
 
 - Closed `V7-20260929-HALL-FILTER-SCOPE` after user verification confirmed Hall filters no longer affect My Events; subsequent Venue-only commits do not invalidate that evidence.
 - Closed `V7-20260930-PHOTO-WATERMARK-EXPORT` after user real-device verification confirmed both local Save and WeChat Share export the watermarked image; subsequent Venue-only commits do not invalidate that evidence.
-- Venue map-picker changes remain VERIFYING and are the only currently affected product-verification tail among these scopes.
+- Closed `V7-20260929-VENUE-MAP-PICKER` after exact-head real-device verification passed Chinese-only venue/address lookup, English-only provider flow, in-app View Map, and the existing system navigation handoff remained unaffected.
 
 
 ## 2026-09-30 — Venue map picker usability refinement (unreleased)
@@ -26,7 +26,7 @@
 
 ## 2026-09-30 — V7 governance control-plane hardening (unreleased)\n\n- `V7-20260930-PHOTO-WATERMARK-EXPORT`: changed default event/personal album Share / Save to export the protected watermarked preview currently shown to the user; HD viewing remains separate, and V7 does not expose an original-photo export action. Prior real-device Share/Save evidence is superseded only for the export-source behavior and requires re-verification.\n
 
-- `V7-20260929-VENUE-MAP-PICKER`: current Standard Venue path is the manual/current-location/map-pin scheme; old POI-search verification is superseded and the change remains VERIFYING until ledger coverage closes the new flow.
+- `V7-20260929-VENUE-MAP-PICKER`: Standard Venue now uses language-specific lookup: Chinese is Baidu-first for POI/reverse geocoding, English uses an English-language provider path; map confirmation remains optional and Quick has no map/geolocation step. Exact-head ledger + real-device evidence close this change.
 - `V7-20260929-HALL-FILTER-SCOPE`: Hall filters are public-Hall-only and My Events isolation remains a VERIFYING affected scope.
 - `V7-20260929-PHOTO-SHARE-SAVE`: Share / Save semantics preserve existing Safari evidence while the remaining platform-specific scope stays ledger-owned.
 - Governance now separates implementation rows from current verification verdicts, defines a versioned ledger freshness contract, gives manifest changes ACTIVE/VERIFYING/CLOSED lifecycle, records the allowed automation topology, and makes repository drift checks executable rather than declarative only.
