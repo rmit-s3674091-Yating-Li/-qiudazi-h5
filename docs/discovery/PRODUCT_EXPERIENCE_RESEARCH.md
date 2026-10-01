@@ -211,3 +211,68 @@ C. B + `分享战报` 作为主 CTA。
 2. 哪些状态是真 blocker、哪些只是 suggestion，必须避免过度提醒。
 3. 临时记分员/协助组织者是否真实存在，决定是否值得引入 task-scoped permission。
 4. 若测试显示组织者总能立即找到下一步，则应拒绝该候选，而不是为了“专业管理感”继续扩张。
+
+
+## 2026-10-02｜留存：不要做“每天来打卡”，验证“关系驱动的下一次约球提示”
+
+- 状态：DECISION_CANDIDATE
+- 原始问题：球搭子是低频、多人协调的线下运动产品。若直接照搬日活产品的 streak、签到和积分，会把不可控的天气、场地、身体状态和伙伴时间变成用户的“失败”。V8 更值得验证的是：怎样利用已经发生的共同比赛，帮助用户在自然时间窗口完成下一次真实约球。
+- 证据状态：OBSERVED（Duolingo / Nintendo / Headspace / Peloton 官方资料）+ HYPOTHESIS（球搭子适用性待验证）。
+
+### Observed friction
+
+已有 Play Again、固定小组、Club、Match Memory 等 discovery 候选都指向复访，但若没有统一留存原则，很容易继续叠加“连续打球天数、每日签到、提醒、积分、徽章”。问题在于球搭子核心行为不是单人随时可完成：一次有效行为需要至少另一位真实参与者，并受场馆、时间和现实状态约束。用日 streak 衡量，会把产品希望促成的“真实复约”错换成“打开 App 保数字”。
+
+### Reference products / cross-industry evidence
+
+1. Duolingo Friend Streak：双方必须建立互相关系并接受邀请后才形成共同 streak；双方完成真实学习行为才能维持，并允许有限 nudge。官方披露有 Friend Streak 的学习者更可能完成每日课程。可借鉴的是“共同承诺 + 轻提醒”，不是 daily cadence。
+2. Duolingo Streak Freeze：即使在高度适合日 streak 的学习场景，产品仍专门提供中断保护，避免一次缺席抹掉长期投入。说明 loss aversion 必须配套容错。
+3. Nintendo Switch：用户可从“Users You Played With”回看曾经匹配过的人，并看到共同游戏/日期后再决定建立朋友关系；Friend List 又要求双方同意。可借鉴的是“共同经历 → 后续关系动作”，而不是自动把同场参与者变好友。
+4. Headspace：run streak 可以由用户在 Profile 中隐藏/关闭；其规则也明确受时区、飞行模式和技术问题影响。反向证明 streak 本身会制造边界和纠错成本。
+5. Peloton：同时存在 weekly/yearly streak、challenge 和 activity recognition；它适合高频个人运动，但对球搭子更值得借的是“周期性反馈”，不是强制每天完成。
+
+### Function pattern
+
+建议验证：**Shared event completed → Natural re-engagement window → Contextual reminder → Reuse people/place/setup → New commitment**。
+
+留存对象不是“连续登录”，而是“下一次真实共同活动”。系统只在有足够上下文时提供轻量复约入口，例如赛后、常见周期临近、最近一起打过的人重新活跃；点击后优先复用上一场的人/场馆/赛制，再由用户确认。提醒应围绕事件关系，而不是制造独立签到任务。
+
+### UI/UX pattern
+
+首页/我的赛事若存在复访提示，应是可消失的 contextual card，例如“上次和这 4 人打球是两周前 · 再约一场”，首屏一个 CTA；dismiss 后不要反复红点轰炸。赛后 Match Memory 可承载 Play Again；个人页可显示“本月打了 4 场”这类事实型反馈，但不要显示即将断掉的火焰倒计时。
+
+对共同关系，优先使用 Nintendo 式“最近一起打过”作为找回入口；只有用户主动确认后才升级 Connection/Club。若未来允许 nudge，应由真实关系中的人发起、频率受限，并清楚显示来源，而不是系统伪装成好友催促。
+
+### Why it matters
+
+这会把留存目标从 DAU/打开次数重新对齐到球搭子的真实价值：更容易再打一场。它还可以把已有候选串成同一闭环——Match Memory 提供情绪入口，recent players/固定小组提供人，常用场馆提供地点，Play Again 形成下一次 commitment；不需要额外发明一套 gamification 状态。
+
+### Hypothesis
+
+**高价值 / 外部证据中高 / 球搭子自身证据低到中 / 复杂度低到中。**
+
+值得验证：对于已有至少一次完赛记录的用户，“基于共同经历、在自然周期出现的再约入口”是否比通用提醒、streak 或积分更能触发下一次赛事创建/报名，同时更少产生通知反感。
+
+### Counterexample / Risk
+
+- Duolingo 的行为可独立、每天、几分钟完成；球赛不具备这些条件，因此 Friend Streak 的日频率和断 streak 压力不应照搬。
+- Peloton/Headspace 的个人运动可以由用户单独决定，球搭子复约牵涉他人时间；系统推断“该打了”可能变成社交压力。
+- “最近一起打过的人”若默认变好友、默认可联系或默认公开活动，会越过用户关系边界。
+- 过早提醒可能在用户受伤、旅行、天气差或赛季暂停时显得冒犯；必须允许 dismiss/snooze/关闭。
+- 若真实用户天然通过微信群固定复约，App 提醒可能没有增量价值，Play Again 的低摩擦复用本身可能已经足够。
+
+### Smallest validation
+
+不开发。选 5–8 位过去一个月实际重复约球的用户，用他们最近一场比赛做四个手机概念：A 无提醒；B “连续打球 3 周，保持 streak”；C “上次和这 4 人打球是两周前 · 再约一场”；D 赛后立即出现 Play Again。分别在赛后当天、7 天、14 天情境下询问“你现在会不会点、为什么”，并让其完成一次复约任务。记录 CTA 点击意愿、是否觉得被催、是否希望保留上一场人员/场馆，以及真实复约周期。必须加入“受伤/旅行一个月”的情境测试容错。
+
+### What not to do yet
+
+暂不做每日签到、连续登录天数、断 streak 惩罚、streak freeze 商品、通用积分币、徽章墙、强推通知、自动替好友催人，也不要以 DAU 作为该候选的首要成功定义。先验证“自然时间窗口 + 共同经历 + 一键复用”是否能产生真实下一场。
+
+### 未决问题
+
+1. 自然复约窗口是用户个人历史推断、Club 固定周期，还是由组织者显式设置，应先观察真实周期。
+2. Reminder 应属于赛事/Match Memory、首页，还是通知层，取决于无通知时是否已有足够发现性。
+3. “最近一起打过”是否需要独立 UI，还是仅作为 Play Again 的人员预填，不应预设。
+4. 若用户 dismiss，多久后可再次出现必须克制；优先验证不提醒也能否完成复约。
+5. 成功指标应优先是 repeat commitment / repeat event formation，而不是打开率或提醒点击率。
