@@ -5,7 +5,7 @@
   min-width: 0;
 }
 
-:where(input[type="date"], input[type="datetime-local"], select) {
+:where(input[type="date"], input[type="time"], input[type="datetime-local"], select) {
   display: block;
   width: 100%;
   max-width: 100%;
@@ -22,4 +22,11 @@
 :where(.sheet, .bottom-sheet, .modal, .filter-sheet) > * {
   min-width: 0;
   max-width: 100%;
+}
+
+:where(input[type="date"], input[type="time"], input[type="datetime-local"]) {
+  text-align: left;
+}
+:where(input[type="date"], input[type="time"], input[type="datetime-local"])::-webkit-date-and-time-value {
+  text-align: left;
 }

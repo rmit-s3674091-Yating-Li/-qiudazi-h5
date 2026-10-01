@@ -1088,3 +1088,9 @@ p {
 .venue-location-confirmed{display:flex;flex-direction:column;gap:4px}
 .venue-location-confirmed>span{font-size:13px;line-height:1.4}
 @media(max-width:520px){.venue-map-panel{height:min(92dvh,760px)}.venue-map-wrap,.venue-map-canvas{min-height:300px}.venue-map-canvas{height:43dvh}.venue-map-header p{margin-bottom:0}.venue-map-buttons button{min-height:48px}}
+
+/* V7 venue facts and native date/time alignment */
+.event-venue-fact{min-width:0}
+.event-venue-detail{display:block;margin-top:4px;font-size:12px;color:var(--ink)}
+.event-venue-address{display:block;margin-top:5px;line-height:1.55}
+.event-venue-fact .text-button{display:block;width:max-content;margin-top:5px}
