@@ -16,6 +16,7 @@ function ensureLeaflet():Promise<any>{
 }
 
 type PickedPlace=Pick<VenuePlace,"name"|"address"|"provider"|"placeId">;
+function hasHan(value:string){return /[\u3400-\u9fff]/.test(value)}
 export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,initialVenueName,initialAddress,language,onClose,onConfirm}:{initialLatitude?:number|null;initialLongitude?:number|null;initialCity?:string|null;initialVenueName?:string|null;initialAddress?:string|null;language:string;onClose:()=>void;onConfirm:(lat:number,lng:number,place?:PickedPlace|null)=>void}){
   const en=language==="en",host=useRef<HTMLDivElement>(null),mapRef=useRef<any>(null),lookupTimer=useRef<number|null>(null),lookupSeq=useRef(0),skipNextMoveReverse=useRef(false);
   const[position,setPosition]=useState<{lat:number;lng:number}|null>(initialLatitude!=null&&initialLongitude!=null?{lat:initialLatitude,lng:initialLongitude}:null);
@@ -60,24 +61,27 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
           try{
             let cityResult:VenuePlace|null=null;
             if(city){
-              const cityResults=await browserMapProvider.searchPlaces(city);
+              const cityResults=await browserMapProvider.searchPlaces(city,{language:en?"en":"zh-CN"});
               if(cancelled)return;
               cityResult=cityResults[0]||null;
             }
             const bounds=cityResult?.boundingBox||undefined;
             const searchBounded=async(query:string)=>{
-              const results=await browserMapProvider.searchPlaces(query,bounds?{viewbox:bounds,bounded:true}:undefined);
+              const options=bounds?{viewbox:bounds,bounded:true,language:en?"en":"zh-CN"}:{language:en?"en":"zh-CN"};
+              const results=await browserMapProvider.searchPlaces(query,options);
               if(cancelled)return [] as VenuePlace[];
-              return results;
+              return en?results:results.filter(result=>hasHan(result.name)||hasHan(result.address));
             };
+            const baiduProvider=!en&&city?createConfiguredBaiduMapProvider(city):null;
             if(address){
-              const results=await searchBounded(address);
+              let results:VenuePlace[]=[];
+              if(baiduProvider){try{results=await baiduProvider.searchPlaces(address);}catch{}}
+              if(!results.length)results=await searchBounded(address);
               if(results[0]){
                 const first=results[0],next={lat:first.latitude,lng:first.longitude};
                 setPosition(next);skipNextMoveReverse.current=true;setPlace({name:first.name,address:first.address,provider:first.provider,placeId:first.placeId});setCityFallback(false);map.setView([next.lat,next.lng],16);return;
               }
             }
-            const baiduProvider=city?createConfiguredBaiduMapProvider(city):null;
             for(const query of venueQueries){
               let results:VenuePlace[]=[];
               if(baiduProvider){

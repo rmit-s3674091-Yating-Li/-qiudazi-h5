@@ -2,7 +2,7 @@ export interface VenueCoordinates{latitude:number;longitude:number;provider:stri
 export interface VenuePlace extends VenueCoordinates{name:string;address:string;boundingBox?:[number,number,number,number]|null}
 export interface MapProvider{
   getCurrentPosition():Promise<VenueCoordinates>;
-  searchPlaces(query:string,options?:{viewbox?:[number,number,number,number];bounded?:boolean}):Promise<VenuePlace[]>;
+  searchPlaces(query:string,options?:{viewbox?:[number,number,number,number];bounded?:boolean;language?:string}):Promise<VenuePlace[]>;
   reverseGeocode(location:{latitude:number;longitude:number},language?:string):Promise<VenuePlace|null>;
   externalMapUrl(location:{latitude:number;longitude:number;name?:string|null}):string;
   externalDirectionsUrl(location:{latitude:number;longitude:number;name?:string|null}):string
@@ -18,6 +18,7 @@ export const browserMapProvider:MapProvider={
     url.searchParams.set("q",q);
     url.searchParams.set("limit","5");
     url.searchParams.set("addressdetails","1");
+    if(options?.language)url.searchParams.set("accept-language",options.language);
     if(options?.viewbox){const[south,north,west,east]=options.viewbox;url.searchParams.set("viewbox",`${west},${north},${east},${south}`);if(options.bounded)url.searchParams.set("bounded","1");}
     const response=await fetch(url.toString(),{headers:{Accept:"application/json"}});
     if(!response.ok)throw new Error("PLACE_SEARCH_PROVIDER_UNAVAILABLE");
