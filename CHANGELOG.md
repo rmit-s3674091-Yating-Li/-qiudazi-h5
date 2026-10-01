@@ -1,3 +1,81 @@
+## 2026-10-01 — Controller / Verifier governance split (unreleased)
+
+- Reframed the two active V7 automations as Controller and Independent Verifier without increasing automation count.
+- Added a single PR controller-status ledger, mandatory end-of-cycle Workboard/runtime reconciliation, explicit evidence layers, Candidate Freeze discipline, and a two-failure Candidate Preview circuit breaker.
+- Preserved verification independence: Controller never self-VERIFIED; Verifier never implements product code or moves release-candidate.
+
+## 2026-10-01 — Venue field semantics and form layout (unreleased)
+
+- Split Standard Event venue semantics: `venue_name` is the facility, `venue` is an optional court/area detail, and `venue_address` is the confirmed geographic address.
+- Map seeding now ignores specific court detail, uses city-constrained facility/address lookup with generic-suffix fallback, and falls back to city rather than accepting weak cross-city matches.
+- Native date/time/datetime controls are left-aligned to match the rest of the form.
+- Event detail now renders facility, specific court/area and address on separate lines.
+- Added bilingual venue-provider routing: Chinese venue/address lookup and reverse geocoding are Baidu-first; English uses an English-language path. Chinese UI filters pure English/pinyin-only fallback results to avoid mixed-language venue cards.\n- Replaced external “View map” with an in-app read-only map; system “Directions” remains an external/native navigation handoff.\n
+
+## 2026-10-01 — Verification lifecycle reconciliation (unreleased)
+
+- Closed `V7-20260929-HALL-FILTER-SCOPE` after user verification confirmed Hall filters no longer affect My Events; subsequent Venue-only commits do not invalidate that evidence.
+- Closed `V7-20260930-PHOTO-WATERMARK-EXPORT` after user real-device verification confirmed both local Save and WeChat Share export the watermarked image; subsequent Venue-only commits do not invalidate that evidence.
+- Closed `V7-20260929-VENUE-MAP-PICKER` after exact-head real-device verification passed Chinese-only venue/address lookup, English-only provider flow, in-app View Map, and the existing system navigation handoff remained unaffected.
+
+
+## 2026-09-30 — Venue map picker usability refinement (unreleased)
+
+- 地图选点从“坐标确认”升级为“可读地点确认”：拖动地图或使用当前位置后尝试反向解析地点名称/地址，确认卡优先展示可读信息，经纬度降级为折叠技术详情。
+- “使用这个位置”会回填地址，并仅在用户未明确填写场地名称时补充解析到的地点名；反向解析失败仍允许确认坐标和手工填写场地信息。
+
+## 2026-09-30 — V7 governance control-plane hardening (unreleased)\n\n- `V7-20260930-PHOTO-WATERMARK-EXPORT`: changed default event/personal album Share / Save to export the protected watermarked preview currently shown to the user; HD viewing remains separate, and V7 does not expose an original-photo export action. Prior real-device Share/Save evidence is superseded only for the export-source behavior and requires re-verification.\n
+
+- `V7-20260929-VENUE-MAP-PICKER`: Standard Venue now uses language-specific lookup: Chinese is Baidu-first for POI/reverse geocoding, English uses an English-language provider path; map confirmation remains optional and Quick has no map/geolocation step. Exact-head ledger + real-device evidence close this change.
+- `V7-20260929-HALL-FILTER-SCOPE`: Hall filters are public-Hall-only and My Events isolation remains a VERIFYING affected scope.
+- `V7-20260929-PHOTO-SHARE-SAVE`: Share / Save semantics preserve existing Safari evidence while the remaining platform-specific scope stays ledger-owned.
+- Governance now separates implementation rows from current verification verdicts, defines a versioned ledger freshness contract, gives manifest changes ACTIVE/VERIFYING/CLOSED lifecycle, records the allowed automation topology, and makes repository drift checks executable rather than declarative only.
+
+## 2026-09-22 — V7 stabilization bundle (unreleased)
+
+- Synchronized Browser, security and user-story baselines with the latest UX contracts: single post-login Privacy Policy entry, finished-event View Results CTA, contextual event-photo upload, personal-album thumbnail gallery, and cancelled+expired inactive-invite cleanup.
+
+- Changed finished-event primary task from “View roster” to “View results”; participant status now reflects that the event is finished rather than continuing to say Registered.
+- Moved event-photo upload into the album context: empty albums show Upload photos inside the empty-state card, while non-empty albums use a compact section action instead of a floating bottom-right button.
+
+- Consolidated post-login Privacy Policy discoverability under Me → Settings & Privacy, removing the duplicate Me-menu row while keeping the same `/privacy-notice` publicly accessible before login.
+
+- Redesigned the personal event album as a compact thumbnail grid instead of full-screen photo cards; HD now opens in a dedicated lightbox, HD/save actions have explicit spacing, and personal removal is visually downgraded.
+
+- Renamed partner-invite history cleanup to “清理失效邀请 / Clear inactive invitations”, moved it into a dedicated list-management toolbar, and aligned behavior to remove cancelled + expired records only while preserving pending/accepted invites.
+
+- Recovered the live `guest-session` and retired `qiudazi-auth-check` Edge Function sources into the repository, added a traceability security contract, and redeployed both from repo as shared-test version 3.
+- Repaired shared-test database drift: the canonical 2026-09-03 through 2026-09-05 migrations were missing live, causing current Standard Event `save_event` payloads to fail with `INVALID_FIELDS`; applied the missing migrations, restored exact repo migration versions in the ledger, and re-applied alias/security hardening.
+
+- Expanded the public pre-login test privacy policy for an individual operator and separated it from authenticated Settings & Privacy.
+- Added deterministic secondary-page navigation: authenticated detail pages expose a Home/Events escape route; Settings & Privacy returns to Me.
+- Polished mobile Hall filter focus, profile sign-out visibility and photo controls.
+- Split event-photo permissions: organizer source-photo management and actual-participant personal-album import are independent; a user may hold both.
+- Removed the decorative empty photo placeholder below the empty-state hint.
+- Added cancelled partner-invite cleanup and removed redundant “invitation cancelled” global success feedback.
+- Fixed Quick optional city end to end, including shared-test DB behavior without weakening Standard Event city constraints.
+- Fixed tournament-command actor/viewer context across begin/score/point/retry paths, including auth-alias identities.
+- Tightened direct-score form version handling so only true concurrent edits become stale conflicts.
+- Normalized user-facing errors: background refresh failures with usable data do not block the page; network copy is factual; retry/loading labels are generic; raw backend details remain hidden.
+- Implemented the approved Quick true one-tap start: create → draw → start to ongoing, single real Match routes directly to Match, multi-Match routes to Draw, and start-phase recovery does not repeat draw/create. Quick Match no longer shows a redundant “mark match started” action.
+- Added `docs/SECURITY_TEST_BASELINE.md` as the canonical security-test scope for the stabilization/release cycle.
+- SECURITY DEFINER execute-grant hardening: removed anonymous execution of preference RPCs and restricted `lock_expired_event_registrations()` to service_role after white-box security review found it could be anonymously triggered.
+
+## 2026-09-22 — V7 login/privacy navigation remediation (unreleased)
+
+- Added a public pre-login `/privacy-notice` route and wired login/profile consent links to it.
+- Fixed the authenticated Settings & Privacy navigation trap by making `/privacy` return explicitly to `/me` rather than relying on browser history.
+- Standardized authenticated secondary-page headers with a Home/Events shortcut so pages without the bottom tab bar still have a deterministic route back to the app home; pre-login privacy/profile setup pages do not expose this authenticated shortcut.
+- Added a Unit regression contract for both navigation paths. This product-code change invalidates the previous Candidate Freeze SHA and requires a new exact-head CI / Preview / Browser chain.
+
+## 2026-09-21 — V7 development close-out (unreleased)
+
+- Repository visibility is now Public under explicit Owner authorization; this environment change does not authorize merge `main`, `release-candidate` movement, Release Gate, or Production deploy.
+- V7 scoring idempotency, nickname identity exchange/account switching, and Standard Event venue persistence foundation are independently VERIFIED.
+- Standard Event POI search/select host wiring is implemented behind the provider-neutral MapProvider boundary and is independently VERIFIED; Quick Start remains free of map/POI/geolocation steps.
+- Public GitHub-hosted Actions are executing normally again; current development uses affected-scope evidence, while Candidate/Release stages retain strict exact-SHA requirements.
+- Development-stage actionable work is closed: no TODO / CODE_REOPEN / NEEDS_VERIFY / IN_PROGRESS blockers remain. Remaining work is Browser/real-device verification before any Candidate/Release phase; documentation cleanup is closed for the current development scope.
+
 # 球搭子 H5 — CHANGELOG
 
 本文件记录影响产品行为、数据模型、权限、技术架构和发布状态的主要变化。更细的逐提交证据保留在 Git history、PR discussion、GitHub Actions artifacts 与 Issue #21 append-only 工作日志中。当前产品规则以 canonical baseline 为准，CHANGELOG 只记录发生过什么，不覆盖当前规范。

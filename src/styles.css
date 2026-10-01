@@ -1069,3 +1069,34 @@ p {
     center,
     center bottom;
 }
+
+
+/* V7 venue map picker: consumer-style readable location confirmation */
+.venue-map-panel{display:flex;flex-direction:column;gap:12px;max-height:min(92vh,760px);overflow:hidden}
+.venue-map-header{align-items:flex-start;gap:12px}
+.venue-map-wrap{position:relative;border-radius:18px;overflow:hidden;min-height:320px;background:#eef1ec}
+.venue-map-canvas{height:min(48vh,430px);min-height:320px}
+.venue-map-crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:500;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-size:30px;font-weight:700;line-height:1;background:rgba(255,255,255,.94);box-shadow:0 4px 18px rgba(0,0,0,.18);pointer-events:none}
+.venue-map-locate{position:absolute;right:12px;bottom:12px;z-index:550;width:auto!important;min-height:40px;padding:8px 12px;box-shadow:0 3px 12px rgba(0,0,0,.14)}
+.venue-map-selection{border:1px solid var(--line,#dfe4dc);border-radius:16px;padding:14px 16px;background:var(--surface,#fff);display:flex;flex-direction:column;gap:5px}
+.venue-map-selection>strong{font-size:16px;line-height:1.35}
+.venue-map-selection p{margin:0;line-height:1.45}
+.venue-map-technical,.venue-location-confirmed details{font-size:12px;color:var(--muted,#667067)}
+.venue-map-technical summary,.venue-location-confirmed summary{cursor:pointer;list-style:none}
+.venue-map-technical summary::-webkit-details-marker,.venue-location-confirmed summary::-webkit-details-marker{display:none}
+.venue-map-buttons{display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr);gap:10px;position:sticky;bottom:0;background:var(--bg,#fff);padding-top:2px}
+.venue-location-confirmed{display:flex;flex-direction:column;gap:4px}
+.venue-location-confirmed>span{font-size:13px;line-height:1.4}
+@media(max-width:520px){.venue-map-panel{height:min(92dvh,760px)}.venue-map-wrap,.venue-map-canvas{min-height:300px}.venue-map-canvas{height:43dvh}.venue-map-header p{margin-bottom:0}.venue-map-buttons button{min-height:48px}}
+
+/* V7 venue facts and native date/time alignment */
+.event-venue-fact{min-width:0}
+.event-venue-detail{display:block;margin-top:4px;font-size:12px;color:var(--ink)}
+.event-venue-address{display:block;margin-top:5px;line-height:1.55}
+.event-venue-fact .text-button{display:block;width:max-content;margin-top:5px}
+
+/* V7 read-only event venue map */
+.venue-readonly-panel{width:min(100% - 24px,456px);margin:auto}
+.venue-readonly-panel .venue-map-wrap{min-height:360px}
+.venue-readonly-panel .venue-map-canvas{height:min(56dvh,460px);min-height:360px}
+@media(max-width:520px){.venue-readonly-panel .venue-map-canvas{height:50dvh;min-height:340px}}

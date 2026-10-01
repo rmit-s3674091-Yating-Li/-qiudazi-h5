@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Header, ErrorNotice, Loading } from "../components/UI";
 import { explainError, rpc } from "../repositories/supabase";
 import { useLanguage } from "../i18n";
@@ -23,7 +24,7 @@ export function PrivacyPage(){
   function toggle(k:keyof Prefs){setPrefs(p=>p?{...p,[k]:!p[k]} as Prefs:p);setSaved(false);}
   function setAlbumVisibility(value:"private"|"partners"){setPrefs(p=>p?{...p,participant_album_visibility:value}:p);setSaved(false);}
   async function save(){if(!prefs)return;setBusy(true);setError("");try{const payload=normalizePrefs(prefs);const p=await rpc<Partial<Prefs>>("save_my_preferences",{p_settings:payload});setPrefs(normalizePrefs(p));setSaved(true);}catch(e){setError(explainError(e));}finally{setBusy(false);}}
-  return <><Header title={t("settings")}/><main className="page">
+  return <><Header title={t("settings")} backTo="/me"/><main className="page">
     <span className="eyebrow">{t("privacy")}</span><h1>{t("settings")}</h1>
     <section className="settings-section"><h2>{t("language")}</h2><div className="segmented"><button className={language==="zh-CN"?"active":""} onClick={()=>setLanguage("zh-CN")}>简体中文</button><button className={language==="en"?"active":""} onClick={()=>setLanguage("en")}>English</button></div></section>
     {!prefs&&!error&&<Loading/>}<ErrorNotice message={error}/>
@@ -33,6 +34,6 @@ export function PrivacyPage(){
       <section className="settings-section"><h2>{en?"Event album visibility":"参与赛事相册可见范围"}</h2><p className="muted small">{en?"This controls your personal event album only. Event source photos are managed by each event organizer on the event page.":"这里只控制你自己的参与赛事相册。赛事源照片由各场赛事创建人在赛事页面中管理。"}</p><div className="segmented"><button className={prefs.participant_album_visibility==="private"?"active":""} onClick={()=>setAlbumVisibility("private")}>{en?"Only me":"仅自己可见"}</button><button className={prefs.participant_album_visibility==="partners"?"active":""} onClick={()=>setAlbumVisibility("partners")}>{en?"Partners":"搭子可见"}</button></div><p className="muted small">{prefs.participant_album_visibility==="partners"?(en?"Accepted tennis partners can see protected watermarked previews. HD originals stay private to you.":"已建立关系的球搭子可以看到受保护水印预览，但不会获得你的高清个人副本。"):(en?"Your personal event album is not shown to partners.":"你的参与赛事相册不会展示给球搭子。")}</p></section>
       <button className="full" disabled={busy} onClick={save}>{busy?"…":saved?t("saved"):t("save")}</button>
     </>}
-    <div className="notice">{t("testPrivacy")}</div>
+    <section className="settings-section"><h2>{en?"Privacy policy":"隐私政策"}</h2><p className="muted small">{en?"Read how the test build processes personal information, event photos, personal albums and your rights.":"查看测试版本如何处理个人信息、赛事照片、个人相册，以及你可以行使的个人信息权利。"}</p><Link className="card row between" to="/privacy-notice"><span>{en?"Read Privacy Policy":"查看隐私政策"}</span><span aria-hidden="true">→</span></Link></section><div className="notice">{t("testPrivacy")}</div>
   </main></>;
 }

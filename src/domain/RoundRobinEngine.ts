@@ -1,4 +1,4 @@
-import type { DomainContext, Entry, Event, Match } from "./types.js";
+import type { DomainContext, Entry, Event, Match } from "./types.ts";
 export function blankMatch(
   event: Event,
   context: DomainContext,

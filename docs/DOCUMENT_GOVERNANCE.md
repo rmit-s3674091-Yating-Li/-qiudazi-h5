@@ -6,122 +6,171 @@
 
 ### A. Canonical policy / product baseline
 用于定义“现在应该怎样工作”。包括：
+- `docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md` — 2026-09-02 起下一版本已批准变更总基线；其明确修改的 Quick/Scoring/Photo/Hall/Lifecycle/Presentation 规则优先于旧版本描述
 - `docs/PRD_V6_EVENT_LIFECYCLE_PRIVACY_I18N.md`
 - `docs/PRODUCT_BASELINE.md`
 - `docs/INTERACTION_BASELINE.md`
-- `docs/USER_STORY_ACCEPTANCE_BASELINE.md` — User Story、Acceptance Criteria 与黑盒场景派生专项真源
-- `docs/QUICK_START_BASELINE.md` — Quick Start / 快速赛事专项真源
-- `docs/EVENT_LIFECYCLE_BASELINE.md` — 赛事编辑、取消、删除与历史保留专项真源
-- `docs/TOURNAMENT_PRESENTATION_BASELINE.md` — 赛事对阵、轮次命名、Match 卡 PK 展示专项真源
-- `docs/TEST_DATA_GOVERNANCE.md` — 自动化测试身份、命名、Hall 隔离与 cleanup 专项真源
+- `docs/USER_STORY_ACCEPTANCE_BASELINE.md`
+- `docs/QUICK_START_BASELINE.md`
+- `docs/EVENT_LIFECYCLE_BASELINE.md`
+- `docs/TOURNAMENT_PRESENTATION_BASELINE.md`
+- `docs/TEST_DATA_GOVERNANCE.md`
 - `docs/VISUAL_DESIGN_BASELINE.md`
-- `docs/BRAND_ASSET_BASELINE.md` — Logo、品牌图标、Share Cover 与社交分享视觉专项真源
+- `docs/BRAND_ASSET_BASELINE.md`
 - `docs/PHOTO_ALBUM_BASELINE.md`
 - `docs/P0_ACCEPTANCE.md`
 - `docs/ENVIRONMENT_BASELINE.md`
 - `docs/RELEASE_GOVERNANCE.md`
 - `docs/BROWSER_BLACKBOX_BASELINE.md`
+- `docs/SECURITY_TEST_BASELINE.md` — 安全测试范围、方法、越权/RLS/RPC/Edge/Storage/身份/隐私边界真源
 - `docs/AUDIT_AUTOMATION_GOVERNANCE.md`
+- `docs/PUBLIC_READINESS.md` — repository visibility 变更的准备边界、full-history secret scan、公开范围确认、Owner 授权与 post-change revalidation 真源
 - 本文件 `docs/DOCUMENT_GOVERNANCE.md`
 
-这些文档可以互相引用，但不得在多个文件中独立维护同一条动态事实。专项规则优先放到专项基线，其它文档只做摘要和链接。User Story / AC 与黑盒场景派生以 `docs/USER_STORY_ACCEPTANCE_BASELINE.md` 为准；Quick Start 相关规则以 `docs/QUICK_START_BASELINE.md` 为准；赛事编辑/取消/删除以 `docs/EVENT_LIFECYCLE_BASELINE.md` 为准；赛事对阵/轮次展示以 `docs/TOURNAMENT_PRESENTATION_BASELINE.md` 为准；自动化测试数据命名与隔离以 `docs/TEST_DATA_GOVERNANCE.md` 为准；赛事照片权限与个人副本模型以 `docs/PHOTO_ALBUM_BASELINE.md` 为准；Logo、品牌图标与社交分享封面以 `docs/BRAND_ASSET_BASELINE.md` 为准。
+专项规则仍放在专项基线。处于下一版本开发期间，若 `NEXT_VERSION_PRODUCT_BASELINE_20260902.md` 明确写出“变更/新增”规则，则该变更是专项文件下一次同步更新的输入；未被明确修改的既有规则继续有效。禁止因为旧专项文件尚未完成逐段迁移而回退已批准产品决策。
 
 ### B. Runtime truth
-用于回答“现在实际上是什么状态”。运行时事实优先于任何静态文档中的旧状态描述：
-- GitHub PR exact head / commit / CI / branch ref；
-- Supabase live schema、migration、RPC、RLS、Storage、Edge Function；
-- `audit_ops.issue_registry`（正式 AUD backlog 唯一事实源）；
-- Vercel deployment metadata 与 `/build-meta.json`；
-- Candidate Browser Blackbox same-SHA workflow/artifact；
-- 自动化当前 enabled/status/schedule。
-
-静态文档不得伪装成这些动态事实的实时镜像。
+用于回答“现在实际上是什么状态”。GitHub 当前 main/开发 PR exact head、repository visibility、Supabase live schema/RPC/RLS/Storage、Vercel deployment、自动化状态等运行时事实优先于静态文档中的旧状态描述。Repository visibility 是 owner-controlled runtime fact，不是应用安全边界；visibility 变更前置条件与授权边界以 `docs/PUBLIC_READINESS.md` 为准。
 
 ### C. Evidence / changelog
-用于回答“为什么这样判断、发生过什么”。包括：
-- 根目录 `CHANGELOG.md`；
-- Git commit / PR discussion；
-- Issue #21 append-only 工作日志；
-- Browser Blackbox JSON / screenshot / trace；
-- CI logs、部署 metadata、审计 evidence。
+Git commit/PR、CHANGELOG、CI/Browser evidence 用于证明某时点发生了什么，但不能覆盖当前 canonical policy。
 
-Evidence 可以证明某一时点，但不能覆盖当前 canonical policy 或 runtime truth。
+### D. Historical snapshot
+旧 PRD、旧交付包、旧 audit snapshot 只作为历史参考，不得反向覆盖当前产品规则。
 
-### D. Historical snapshot / degraded cache
-包括历史 CHANGELOG 快照、旧交付包、旧 Demo、旧 PRD、`docs/AUDIT_BACKLOG_SNAPSHOT.json` 等。
+## 1.1 Rule Owner Registry + Change Impact Manifest
 
-规则：
-- 必须显式标识 snapshot / historical / generated_at / source_head（适用时）；
-- 不得用于判断当前 PR head、当前 AUD status/owner、当前 Gate、当前 live schema 或当前部署；
-- `AUDIT_BACKLOG_SNAPSHOT.json` 只在正式 backlog 不可达时按 `AUDIT_AUTOMATION_GOVERNANCE` 降级读取，绝不是第二事实源。
+为减少同一规则在多份文档、Workboard 与 automation prompt 中重复抄写造成的漂移，`docs/CURRENT_STATE.json` 是**机器可读索引/Change Impact Manifest**，不是第二份产品规范。
+
+治理约束：
+- `topic_owners` 是当前 V7 受治理主题的完整 registry；每个受治理 topic 只能有一个 `owner canonical`。完整产品规则只写在 owner；supporting docs 只写本层必须补充的 AC / 交互 / 视觉 / 测试边界，并引用 owner，不复制完整定义。新增受治理主题时必须先登记 owner，禁止形成“有 canonical 文件但无 owner registry”的灰区。
+- `CURRENT_STATE.json` 只记录 topic owner、受影响文档、supersede/invalidation 关系、automation impact 与 drift markers；不得承载一份可与 owner 竞争的完整 PRD。
+- 可观察产品语义发生变化时，必须产生一个 `change_id`，并记录 topic、owner、implementation state、supersedes、verification impact、affected docs、affected automations、required/forbidden markers。
+- 旧实现曾通过验证，但产品方案被替换时，用 `SUPERSEDED` / `invalidates_verification` 表达“旧证据对新方案不再适用”；不得把旧 verifier 结论改写成“当时验证错误”。
+- 同一 change 只保留一个 manifest 记录，并使用 `ACTIVE / VERIFYING / CLOSED` 生命周期。实现未完成时为 `ACTIVE`；实现完成但受影响 verification 尚未闭环时为 `VERIFYING`；只有 ledger 已覆盖该 change 的 verification impact 且无待实现整改时才能 `CLOSED`。`CLOSED` 后从 `active_changes` 移入 `closed_changes`/CHANGELOG，不得永久留在 active 列表继续触发自动任务。
+
+## 1.2 Product truth / Implementation truth / Verification truth / Runtime truth
+
+四类事实严格拆分：
+- **Product truth**：topic owner canonical → supporting canonical → README 摘要。
+- **Implementation truth**：`docs/V7_WORKBOARD.md`，且只允许 `TODO / IN_PROGRESS / IMPLEMENTED / BLOCKED`。
+- **Verification truth**：PR #24 唯一 ledger marker `<!-- v7-verification-ledger -->`；允许 `NEEDS_VERIFY / VERIFIED / REOPENED / SUPERSEDED` 等验证 verdict。
+- **Runtime truth**：PR exact head / CI / Supabase / Vercel / live service state。
+
+禁止：
+- Workboard 使用 `VERIFIED / NEEDS_VERIFY / BROWSER_PENDING` 作为实施状态；
+- ledger 反过来充当产品规范；
+- runtime 新旧 SHA 变化自动抹掉 unaffected scope 的既有验证；
+- automation 使用聊天记忆或硬编码旧产品事实覆盖 owner canonical。
+
+
+### Verification ledger contract
+
+PR #24 唯一 verification ledger 不只是自由文本评论，而是受治理的 current-state ledger：
+
+- marker 固定为 `<!-- v7-verification-ledger -->`，同一 PR 只允许一个；
+- 每次活跃 verifier 完成一轮检查后，即使没有新 finding，也必须更新 `reviewed_exact_head`、`reviewed_at` 与本轮 `checked_scope`；
+- 每个 current verdict 必须包含 `scope/id`、`verdict`、`evidence_head` 和 evidence/basis。若证据来自旧 head，必须明确记录 `inheritance_basis=UNAFFECTED_SCOPE` 及为何后续 delta 不影响该 scope；
+- ledger 顶部 `reviewed_exact_head` 落后于 current PR head 时，称为 **STALE_LEDGER**。STALE_LEDGER 不自动抹掉 unaffected-scope 既有证据，但禁止据此宣称“current head 已完成验证 / Candidate 或 Gate 已收口”；
+- ledger 只记录 verification truth 与 evidence linkage，不复制产品规则，不维护 implementation queue；
+- Workboard 不得保存 current verification verdict。Workboard 中历史验证证据仅可作为 provenance，不得出现可被读取为 current verdict 的状态词或 next-action 结论。
+
+## 1.3 Controller truth / Verification truth 双账
+
+除 Product / Implementation / Verification / Runtime 四类事实外，自动化执行过程采用两本单一账本，避免把“做了什么”和“证明了什么”混在同一 ledger：
+
+- **Controller status**：PR #24 唯一 marker `<!-- v7-controller-status -->`。只记录本轮观察到的 exact head、主动推进动作、Workboard reconciliation、当前 blocker、Candidate/Preview 运行态与下一步。Controller 不写独立 VERIFIED verdict。
+- **Verification ledger**：PR #24 唯一 marker `<!-- v7-verification-ledger -->`。只记录 scope verdict、evidence head、evidence layer、继承依据与独立验证结论。Verifier 不实现产品代码，不移动 release-candidate。
+
+每轮总控结束前必须完成一次 mandatory reconciliation，至少核对：
+1. Workboard implementation state；
+2. evidence / blocker 文本是否仍然成立；
+3. MR / branch / SHA 上下文；
+4. next action 是否已经完成或过时；
+5. dependency 是否变化；
+6. 是否产生新的 verification handoff；
+7. Browser / Preview dependency 是否仍然必要；
+8. canonical / Workboard / runtime 是否发生 cross-document drift。
+
+若仓库持久状态已经一致，不得为了“证明本轮跑过”制造 docs-only SHA；只更新 Controller status note。
+
+Verifier 每个 verdict 必须显式标记 evidence layer。层级至少区分 `UNIT / INTEGRATION_DATA / BUILD / PREVIEW_BROWSER / REAL_DEVICE / SECURITY_RUNTIME`。低层 evidence 不能替代高层 evidence，例如 Unit PASS 不能冒充 Browser VERIFIED，Browser PASS 不能替代真实设备特有行为。
 
 ## 2. 冲突解释顺序
 
-同一主题出现冲突时，按以下顺序处理：
-1. 先确定该冲突属于“规范”还是“运行时事实”；
-2. 规范问题：对应专项 canonical baseline > 通用 baseline > README 摘要 > CHANGELOG/evidence > historical snapshot；
-3. 运行时事实：受控 live source / exact-head evidence > 文档中的状态摘要；
-4. 若两个 canonical baseline 对同一规则互相冲突，不允许自动化自行择一；记录冲突并停止受影响的写操作/Gate，交由总控/用户裁决后一次性同步所有相关文档。
+1. 先判断是规范冲突还是运行时事实冲突。
+2. 规范：当前阶段已批准的 next-version baseline → 对应专项 canonical → 通用 baseline → README 摘要 → changelog/evidence → historical snapshot。
+3. 运行时：受控 live source / current exact-head evidence → 静态文档状态摘要。
+4. 两个当前 canonical 对同一未裁决规则冲突时停止受影响写操作；但 `NEXT_VERSION_PRODUCT_BASELINE_20260902.md` 中已经明确批准的变更不属于“未裁决冲突”，应同步到专项文档和实现。
 
-README 是入口和摘要，不承担所有详细规则的第二份维护。
+## 3. 下一版本文档联动矩阵
 
-## 3. 变更联动矩阵
+本轮开发至少同步以下主题：
+- Scoring：PRODUCT / INTERACTION / USER_STORY / UNIT / INTEGRATION / TOURNAMENT_PRESENTATION。
+- Quick Start：QUICK_START / PRODUCT / INTERACTION / EVENT_LIFECYCLE / USER_STORY。
+- Photo：PHOTO_ALBUM / PRODUCT / INTERACTION / USER_STORY；涉及 Storage/RLS 时同步 Integration。
+- Hall/mobile filter：PRODUCT / INTERACTION / VISUAL / USER_STORY。
+- 生命周期：EVENT_LIFECYCLE / PRODUCT / INTERACTION / USER_STORY。
+- 对阵/轮次：TOURNAMENT_PRESENTATION / PRODUCT / INTERACTION / USER_STORY。
+- 安全边界/RLS/RPC/Edge/Storage/alias/隐私变化：SECURITY_TEST_BASELINE / Integration / 必要 Browser security smoke。
+- 所有行为变更写 CHANGELOG。
 
-发生以下变更时，提交前必须同步对应文档：
-- 产品行为/状态机/权限：PRD + PRODUCT；有页面行为则同步 INTERACTION；影响 P0/Gate 则同步 P0；同时检查对应 User Story / AC 是否需要新增或修改；写 CHANGELOG。
-- User Story / AC / 黑盒测试模型：USER_STORY_ACCEPTANCE；影响 Browser runner/失败分类则同步 BROWSER_BLACKBOX；影响 Gate 覆盖要求则同步 RELEASE/P0；并同步正式“全功能测试”自动化 prompt；写 CHANGELOG。
-- 赛事编辑、取消、删除、历史保留、cancelled Hall/My Events 语义：EVENT_LIFECYCLE + PRODUCT/INTERACTION/P0 必要摘要；同步对应 User Story / AC；涉及 DB 状态/RPC 时必须同步 migration/live parity；写 CHANGELOG。
-- Quick Start 参赛者来源、双打组队、自动 draw、Hall 可见性、恢复语义：QUICK_START + PRD/PRODUCT/INTERACTION/P0 必要摘要；同步对应 User Story / AC；写 CHANGELOG。
-- 淘汰赛轮次命名、循环赛轮次话术、Match 卡 A-vs-B 关系、单场对决展示：TOURNAMENT_PRESENTATION + PRODUCT/INTERACTION/P0 必要摘要；同步对应 User Story / AC；若影响 Quick Start 同步 QUICK_START；写 CHANGELOG。
-- 自动化测试命名、test identity、Hall 隔离、cleanup/test marker：TEST_DATA_GOVERNANCE；影响 Browser runner 时同步 BROWSER_BLACKBOX / EXPLORATORY；影响 Hall 产品查询时同步 PRODUCT/INTERACTION/P0 必要摘要；写 CHANGELOG。
-- 视觉/移动端信息架构：VISUAL；影响交互则同步 INTERACTION；影响用户故事验收结果时同步相关 AC；写 CHANGELOG。
-- Logo、品牌图标、Share Cover、社交分享元数据或品牌视觉决策：BRAND_ASSET_BASELINE；影响页面视觉则同步 VISUAL；影响链接分享/Browser Visual 验收则同步 USER_STORY_ACCEPTANCE/BROWSER_BLACKBOX 必要 AC；写 CHANGELOG。AI 生成图中的新符号不得在未更新 BRAND_ASSET_BASELINE 的情况下升级为 Logo。
-- 赛事/个人照片模型或 viewer/participant/owner 入口权限：PHOTO_ALBUM + PRD/PRODUCT/INTERACTION/P0 必要摘要；同步对应 User Story / AC；写 CHANGELOG。
-- 环境身份、Supabase/Vercel/GitHub 配置：ENVIRONMENT；影响发布链则同步 RELEASE；写 CHANGELOG。
-- 发布分支、freeze、exact-head、Gate：RELEASE；影响浏览器证据则同步 BROWSER_BLACKBOX；写 CHANGELOG。
-- Browser runner/覆盖范围/失败分类：BROWSER_BLACKBOX + USER_STORY_ACCEPTANCE；影响 Gate 则同步 RELEASE/P0；写 CHANGELOG。
-- AUD/backlog/owner/snapshot/自动化协作：AUDIT_AUTOMATION_GOVERNANCE；影响本文件的文档层级时同步 DOCUMENT_GOVERNANCE；写 CHANGELOG。
-- 文档治理本身：DOCUMENT_GOVERNANCE，并同步所有正式自动化 prompt 的读取要求；不得只在聊天中约定。
+纯实现优化若不改变已批准行为，不机械改 PRD；一旦可观察行为/AC 改变，必须同步对应专项与 User Story。
 
-纯实现修复若没有改变产品已批准规则，不需要机械重写 PRD；但必须通过 migration/source/CI/evidence 与 CHANGELOG/AUD 证据留痕。若实现修复改变了某条 User Story 的可观察行为或 AC，必须同步 USER_STORY_ACCEPTANCE。
+## 4. 当前阶段
 
-## 4. Candidate Freeze 与文档
+2026-09-02 起进入下一版本开发迭代阶段。上一版本已经合并 main；开发工作从 main 建立独立 feature 分支/PR。开发阶段不把 Release Gate 当作开发前置，也不围绕上一版本历史 FVP 反复移动 head。
 
-canonical 文档属于 release candidate 的一部分。Candidate Freeze 后：
-- 任何 canonical 文档提交都会改变 exact head；
-- 旧 Preview、Browser artifact 和 Gate 证据自动失去 exact-head 资格；
-- 必须重新执行 CI → release-candidate → exact-head Preview → Browser Blackbox → Gate；
-- historical snapshot 的纯归档整理若不进入候选不影响 candidate；一旦提交到候选分支，同样改变 head。
+阶段建议：产品规则 → 实现 + Unit/Integration → 稳定后 whitebox → remediation → 功能收口后 blackbox → candidate → Gate → 人工决定是否 merge/release。
 
-不得为了节省 Vercel Hobby 配额而继续复用旧 SHA 证据。
+任何自动化均不得自行 merge main 或触发 Production。Repository visibility 同样不得由自动化自行改变；Public-prep 可以继续推进，但只有 `docs/PUBLIC_READINESS.md` 的前置条件完成且 Owner 明确授权后才允许切换。Public 授权不等于 `release-candidate`、Release Gate、merge main 或 Production 授权。
 
-## 5. 自动化统一读取规则
+## 5. 当前关键产品决策索引
 
-五个正式任务——`球搭子代码变更巡检`、`球搭子全功能测试`、`球搭子问题整改`、`球搭子部署前审计 V2`、`球搭子周安全审计 V2`——每轮都必须：
-1. 先读取本文件与 `docs/AUDIT_AUTOMATION_GOVERNANCE.md`；
-2. 根据任务主题读取对应专项 canonical baseline；所有全功能/Browser/Gate 测试必须读取 `docs/USER_STORY_ACCEPTANCE_BASELINE.md` 并以 User Story → AC → 场景矩阵组织覆盖；Quick Start 相关任务必须读取 `docs/QUICK_START_BASELINE.md`；赛事编辑/取消/删除相关任务必须读取 `docs/EVENT_LIFECYCLE_BASELINE.md`；对阵/签表/轮次/Match 卡相关任务必须读取 `docs/TOURNAMENT_PRESENTATION_BASELINE.md`；赛事照片与角色入口必须读取 `docs/PHOTO_ALBUM_BASELINE.md`；Logo/Share Cover/社交分享视觉相关任务必须读取 `docs/BRAND_ASSET_BASELINE.md`；任何会创建测试 Profile/Event 的任务必须读取 `docs/TEST_DATA_GOVERNANCE.md`；
-3. 再读取 PR exact head 与相关 runtime truth；
-4. 不得从聊天记忆、历史 CHANGELOG、旧 artifact 或 snapshot 反推当前状态；
-5. 写 repo canonical 文件时使用最新 blob SHA + optimistic concurrency；
-6. 发现 canonical 文档冲突时停止受影响写操作，不得自行“多数表决”。
+本节仅作人类可读摘要，不是规则 Owner；若与 `docs/CURRENT_STATE.json` 指向的 topic owner 冲突，以 topic owner 为准。当前包括：
+- Match → Set → Game → Point；Point Log 单一真源；Advantage/No-Ad/Tiebreak；规则参数化；局/盘进度明确。
+- 记分 UI optimistic near-instant，后台可靠持久化且保持幂等/版本/失败恢复。
+- Quick city/venue optional，禁止默认北京；最低前置为参赛者 + 赛制/计分规则。
+- 两人单打唯一对阵不显示重新生成；仅多合法方案时允许重新生成。
+- Quick 开赛前创建人取消、参赛者退出；开赛后进入退赛/弃权结果语义。
+- 实际参赛者从赛事相册主动导入个人参赛相册；personal copy 与 source 解耦；另提供“分享 / 保存”。
+- Hall 支持 match type + city + level + date 联合筛选，且筛选只作用于赛事大厅，不得影响“我的赛事”；移动端原生日期/选择控件不得溢出。
+- Standard Venue 采用手填场地名称/地址 + 可选“使用当前位置 / 地图选点”，中心准星确认静态坐标；当前不以 POI 关键词搜索作为 V7 主链路。
+- 单循环按轮次组织；Match 状态及 Result/Draw/Ranking 跨页面一致。
 
-全功能黑盒测试不得只维护静态按钮/页面 checklist。每次候选前应由当前 exact-head User Story / AC 派生 `User Story × Role × State × Locale × Viewport × Network/Concurrency` 场景，并把每个 FAIL 回溯到具体 US/AC。自动化 prompt 若与仓库 canonical governance 冲突，以当前 exact head 的仓库 governance 为准，并应在可写阶段同步修正 prompt，避免长期漂移。
+## 6. Automation 读取链与禁止硬编码
 
-## 6. AUD 编号与审计记录
+所有 Builder / 黑盒 / Browser / 白盒 / 安全 automation 每轮按以下顺序读取：
+1. `docs/DOCUMENT_GOVERNANCE.md`
+2. `docs/CURRENT_STATE.json`
+3. 本轮 topic 的 owner canonical
+4. 必要 supporting canonical
+5. `docs/V7_WORKBOARD.md`（只读实施/阻塞状态）
+6. PR #24 verification ledger（只读独立验证 verdict）
+7. current exact-head runtime / CI / Supabase / Vercel evidence
 
-- 新 AUD 只能通过 `audit_ops.create_issue(...)` 创建和语义去重，禁止手工编号。
-- issue counter 只是分配器状态，不是事实源；分配器必须以 registry 已存在最大 sequence 为下界自愈，不能因 counter 落后而撞号。
-- 创建器异常时保留完整 `UNFILED_PENDING_DB_ACCESS` / allocator failure 证据，修复创建器后再正式登记；不得绕过 registry 直接伪造 AUD。
-- Issue #21 只做镜像和 append-only evidence，不替代 registry。
+Automation prompt 只应硬编码**读取顺序、角色边界和禁止事项**，不得长期硬编码 Venue/Photo/Hall 等当前产品细节、旧 SHA 或旧 verdict。产品变化后应通过 manifest + owner 自动被消费。
 
-## 7. 当前 Quick Start / Hall / 测试数据治理说明
+当前 automation topology 同样属于 runtime truth：只有 `CURRENT_STATE.json > automation_topology.active` 中列出的球搭子任务允许启用；`legacy_must_remain_disabled` 中任一旧任务被重新启用均记 `GOVERNANCE_DRIFT`。活跃任务只报告该漂移，不自行启用 Builder/Release Gate/Production 类旧任务。
 
-自 2026-08-31 post-deploy remediation 起，Quick Start 规则以 `docs/QUICK_START_BASELINE.md` 为专项真源。正常 Quick Event 默认 public 并进入 Hall，但不开放报名；双打必须显式确认队友；创建后系统自动 draw；只有首次 draw 异常时进入“恢复开赛”并只重试同一 Event。`locked` 是 Quick Event 名单已经固定的底层状态，不代表 draw 已完成。
+谁实现谁不独立 VERIFIED。高风险纯逻辑下沉 Unit；RPC/RLS/Storage/事务/identity/幂等下沉 Integration；真实移动端、弱网、快速连续记分、相册导入/分享保存、Quick 生命周期由独立 Browser/真机验证。
 
-Quick Start 生成签表后不使用独立赛事阶段词汇。标准/quick、单打/双打共用 `docs/TOURNAMENT_PRESENTATION_BASELINE.md`：只有两个 Entry、全赛事仅一场淘汰赛时显示“单场对决”，不显示“决赛”；多轮淘汰赛按网球通行的 1/4 决赛、半决赛、决赛等表达；Match 卡必须明确 Entry A — VS — Entry B。
+## 7. Document Drift Detection 规则
 
-**标准 private event 的产品规则没有改变：** `event_mode=standard + visibility=private` 仍进入赛事大厅发现流，但只返回脱敏卡。未授权用户不得看到 owner、精确日期时间、场地、费用、参赛人数、报名截止等敏感信息。大厅可发现、完整详情权限、报名资格必须分开判断。
+治理检查分两层：仓库内 CI 只检查可由 repository content 确定的静态 contract；automation enable/disable、PR ledger freshness、current exact-head/live 状态属于 runtime checks，由活跃 verifier 每轮检查，禁止在 unit test 中伪装成已检查。
 
-自动化测试隔离是独立治理规则，不能通过“只返回 public event”实现。新自动化 Profile 统一 `TST-<SUITE>-<ROLE>-<SHA6>-<RUN>`；历史 `QA-* / QA15-* / EXP-*` 仅作兼容过滤。详细规则见 `docs/TEST_DATA_GOVERNANCE.md`。
+仓库内机器检查至少覆盖：
+- Workboard State 列出现非 `TODO / IN_PROGRESS / IMPLEMENTED / BLOCKED` 值；
+- Workboard 将 verification verdict 当作当前状态；
+- `CURRENT_STATE.json` 中 topic 缺 owner、同 topic 多 owner、active change 缺 change_id；
+- change manifest 宣告 owner 已更新，但 affected docs 仍命中 forbidden markers；
+- required markers 在指定 marker scope 中缺失；
+- `invalidates_verification` 指向的旧 verdict 仍被 automation/browser baseline 当作新方案当前证据；
+- active change 的 `affected_automations` 出现未列入 active topology 的任务；
+- Workboard row 的 implementation next-action/evidence 出现 current verification verdict 状态词；
+- 可观察行为 change 缺 CHANGELOG change-id 记录；
+- supporting docs 与 owner 存在实质冲突。
 
-身份方面，Quick Start 的 RPC、Edge Function 与 tournament commit 必须统一支持 current canonical profile + 受控 auth alias，且不得为方便 Edge 读取而扩大 `private.profile_auth_aliases` 对客户端角色的权限。
+Runtime checks 至少覆盖：唯一 ledger marker 数量、ledger `reviewed_exact_head` freshness、旧-head evidence 的 inheritance basis、实际 automation topology 是否与 manifest 一致、prompt 是否重新硬编码 current SHA/产品事实，以及 current exact-head / live evidence。
+
+Drift check 只报告治理问题，不得自行修改产品规则、verification verdict、`release-candidate`、main 或 Production。

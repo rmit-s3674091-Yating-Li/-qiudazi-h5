@@ -62,13 +62,16 @@
 - cancelled 不进入公共 Hall；finished 可按产品规则继续展示历史状态。
 - 自动化测试用户/赛事按 TEST_DATA_GOVERNANCE 隔离，不污染正常 Hall。
 
-## US-B02 按水平筛选赛事
-**作为**用户，**我希望**按单项水平级别筛选，**以便**找到建议区间包含我的赛事。
+## US-B02 按赛事条件筛选
+**作为**用户，**我希望**按比赛类型、城市、水平级别和日期组合筛选，**以便**找到符合当前约球条件的赛事。
 
 ### AC
-- 筛选 2.5 时，2.0–3.0、2.5–4.0、≤2.5、无限制均匹配；3.0–4.0 不匹配。
-- 筛选只影响发现，不变成硬报名资格。
-- 清除筛选后恢复完整可见集合。
+- 筛选 2.5 时，2.0–3.0、2.5–4.0、≤2.5、无限制均匹配；3.0–4.0 不匹配；水平筛选只影响发现，不变成硬报名资格。
+- city filter 仅在用户明确输入/选择非空城市时生效；城市比较采用 Unicode NFKC + trim + case normalization。
+- 未筛 city 时，城市为空的赛事与有城市赛事都保持可发现；显式筛 city 后，空城市赛事和其他城市赛事不命中。
+- match type + city + level + date 必须可联合生效；清除筛选后恢复完整可见集合。
+- 在 375 / 390 / 430px 下，city、`date`、`datetime-local`、`select` 控件以及承载它们的 Sheet / Bottom Sheet / Modal 不得造成页面或容器横向溢出；原生控件必须允许 flex/grid 收缩并保持在容器宽度内。
+- CSS / deterministic Unit 只能作为 Implemented / SELF-CHECKED 证据；真实 iPhone Safari / 微信 WebView 仍需后续 Browser/真机验证后才能标 Verified。
 
 ## US-B03 查看私有赛事预览
 **作为**普通 viewer，**我希望**知道某场私有赛事存在，**但不应**看到未授权敏感详情。
@@ -98,7 +101,7 @@
 ### AC
 - 有名额时形成 confirmed Entry；满额时按规则进入 waitlist。
 - 报名后“已报名/候补中”是状态，不是按钮。
-- Primary action 为“查看名单/查看候补名单”。
+- 在报名/候补阶段，Primary action 为“查看名单/查看候补名单”；赛事进入 `finished` 后该主任务终止，改为“查看赛果”。
 - 退出报名/退出候补是次级/危险管理动作，不与查看名单同层级。
 - 截止后深链和直接 RPC 也不能继续报名。
 
@@ -130,7 +133,7 @@
 ### AC
 - 可选本人、accepted Partner 的 self Player、本人临时 Player，并可现场新增临时 Player。
 - 单打至少 2 人。
-- 创建后 Event 为 quick，名单 locked，自动生成首次 draw。
+- 创建后 Event 为 quick，名单先 locked，自动生成首次 draw，并自动进入 ongoing；唯一真实 Match 直接进入 Match，多 Match 进入 Draw。
 - create 成功但 draw 失败时刷新后仍能恢复同一 Event，不得重复创建赛事。
 - quick event 默认 public 可进 Hall，但不开放标准报名/候补。
 
@@ -155,6 +158,10 @@
 - 仅两个 Entry 且唯一一场 knockout 时显示“单场对决”，不显示“决赛”。
 - 多轮淘汰赛按 1/4 决赛、半决赛、决赛等合理命名。
 - 双打两名队友保持在同一侧。
+
+## US-D Quick 一键开赛补充 AC
+- Quick 正常路径不再要求第二次“开始赛事”；Quick Match 不要求“标记本场已开始”。
+- draw/start 任一失败都恢复同一 Event；draw 已完成而 start 失败时不得重新生成签表。
 
 ## US-E02 Organizer 开始赛事/比赛
 **作为** Organizer，**我希望**在对阵确认后开始赛事和比赛，**以便**进入可记分状态。
@@ -215,6 +222,15 @@
 - Hall、详情、结果、我的赛事、相册状态一致。
 - 完赛后 organizer 立即可以上传赛事照片。
 
+## US-F04 赛后主任务切换
+**作为**已参赛用户，**我希望**赛事结束后直接查看最终赛果，**而不是**继续被引导查看报名名单。
+
+### AC
+- Event `finished` 后，“已报名”状态改为“赛事已结束 / 你参加了本场赛事”。
+- 底部 Primary action 为“查看赛果 / View results”，进入排名/赛果 Tab。
+- 名单继续可从 Roster Tab 查看历史，但不再作为赛后底部主 CTA。
+- 赛事相册上传/查看属于 Photo 区域自己的操作，不与赛后主 CTA 竞争。
+
 ## US-F03 Organizer 编辑/取消/删除未开赛赛事
 **作为** Organizer，**我希望**管理尚未开赛赛事，**同时**不抹掉已经影响他人的历史。
 
@@ -239,6 +255,7 @@
 - 上传成功生成 private original + protected watermarked preview。
 - 新水印预览在照片主体上使用低透明度斜向重复“球搭子 · 赛事相册”，密度按已确认视觉基线；底部保留赛事名称/结果/日期等 provenance 信息。
 - 空相册装饰只是状态，不得长得像可点击 dropzone；真正操作必须是明确按钮。
+- 空相册时“上传照片”位于空状态卡内部；已有照片时改为相册区域顶部的紧凑次级操作，不得孤立悬在卡片右下角。
 
 ## US-G02 Participant 查看并加入个人参与赛事相册
 **作为**实际参赛者，**我希望**查看赛事照片并逐张加入自己的参与赛事相册，**以便**长期保存自己的比赛照片。
@@ -249,6 +266,7 @@
 - 加入成功形成独立 private personal asset，不只是源引用。
 - organizer 后续删除源照片，不影响已导入个人副本。
 - participant 可移出自己的个人相册，只影响本人副本。
+- 个人参与赛事相册采用紧凑缩略图网格；高清进入独立查看层，高清/保存为分离的次级操作，移出相册为弱危险操作。
 
 ## US-G03 Viewer 不应看到合影入口
 **作为**非 owner、非 actual participant 的 viewer/invited 用户，**我不应该**进入必然报权限错误的相册功能。

@@ -1,0 +1,16 @@
+import fs from "node:fs";
+const page=fs.readFileSync("src/pages/PartnerInvitesPage.tsx","utf8");
+const mig=fs.readFileSync("supabase/migrations/20260923092500_clear_invalid_partner_invite_history.sql","utf8");
+const css=fs.readFileSync("src/polish.css","utf8");
+const connections=fs.readFileSync("src/pages/ConnectionsPage.tsx","utf8");
+const expect=(v,m)=>{if(!v)throw new Error(m);};
+expect(page.includes('x.status==="cancelled"||x.status==="expired"'),"inactive invite count must include cancelled and expired");
+expect(page.includes('rpc("clear_invalid_partner_invites")'),"UI must call inactive-invite cleanup RPC");
+expect(page.includes('清理失效邀请'),"Chinese action copy must describe inactive invitations");
+expect(page.includes('invite-history-tools'),"cleanup action must live in a dedicated history toolbar");
+expect(mig.includes("status in ('cancelled','expired')"),"cleanup RPC must delete only cancelled/expired rows");
+expect(mig.includes("inviter_user_id=v_me"),"cleanup RPC must be scoped to the current inviter");
+expect(css.includes(".invite-history-tools"),"history cleanup toolbar must have dedicated layout");
+expect(connections.includes("navigator.share({url})"),"partner invite native share must share the URL object only so iOS/WeChat can build link preview metadata");
+expect(!connections.includes("navigator.share({title,text,url})"),"partner invite native share must not regress to text-plus-link payload");
+console.log("Partner invite inactive-cleanup UX contract passed");

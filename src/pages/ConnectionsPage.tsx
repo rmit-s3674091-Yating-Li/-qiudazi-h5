@@ -11,7 +11,7 @@ type Connection={connection_id:string;id:string;nickname:string|null;avatar_url:
 type Invite={id?:string;invite_id?:string;inviter_id?:string;nickname:string|null;avatar_url:string|null;invite_status?:"pending"|"accepted"|"cancelled"|"expired";relationship_status:"self"|"accepted"|"pending"|"rejected"|"none";via_token?:boolean};
 type ClaimInvite={token:string;player_name:string;inviter_nickname:string|null;inviter_avatar_url:string|null;invite_status:"pending"|"accepted"|"cancelled"|"expired";is_self_inviter:boolean};
 type CreatedConnectionInvite={id:string;token:string;status:string;created_at:string};
-async function shareUrl(title:string,text:string,url:string,copied:string){if(navigator.share){await navigator.share({title,text,url});return "";}await navigator.clipboard.writeText(url);return copied;}
+async function shareUrl(_title:string,_text:string,url:string,copied:string){if(navigator.share){await navigator.share({url});return "";}await navigator.clipboard.writeText(url);return copied;}
 
 export function ConnectionsPage(){
   const{profile}=useAuth();const{language,t}=useLanguage();const[tab,setTab]=useState<"connections"|"temporary">("connections"),[feedback,setFeedback]=useState(""),[sharingConnection,setSharingConnection]=useState(false);

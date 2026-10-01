@@ -1,5 +1,5 @@
-import type { Match, Snapshot } from "./types.js";
-import { ensure } from "./types.js";
+import type { Match, Snapshot } from "./types.ts";
+import { ensure } from "./types.ts";
 export function downstream(matches: Match[], source: Match): Match[] {
   const path: Match[] = [];
   let next = source.next_match_id;

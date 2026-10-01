@@ -7,3 +7,4 @@ test-results/
 coverage/
 .server-build/
 playwright-report/
+public/share-cover.png

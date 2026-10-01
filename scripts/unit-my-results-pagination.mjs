@@ -1,0 +1,11 @@
+import fs from "node:fs";
+const page=fs.readFileSync("src/pages/MyResultsPage.tsx","utf8");
+const css=fs.readFileSync("src/results.css","utf8");
+const expect=(value,message)=>{if(!value)throw new Error(message);};
+expect(page.includes("const RESULTS_PER_PAGE = 10"),"my results must paginate at ten matches per page");
+expect(page.includes("h?.matches.slice((page-1)*RESULTS_PER_PAGE,page*RESULTS_PER_PAGE)"),"my results must render only the current page slice");
+expect(page.includes('aria-label={en?"Match history pages":"比赛记录分页"}'),"my results pagination must be explicitly labelled");
+expect(page.includes('en?"Previous":"上一页"')&&page.includes('en?"Next":"下一页"'),"my results pagination must expose previous/next controls");
+expect(page.includes("Math.ceil((h?.matches.length||0)/RESULTS_PER_PAGE)"),"page count must be derived from the complete match history");
+expect(css.includes(".results-pagination"),"my results pagination must have mobile layout styling");
+console.log("My results pagination contract passed");

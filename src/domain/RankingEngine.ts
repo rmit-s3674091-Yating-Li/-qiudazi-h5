@@ -1,5 +1,5 @@
-import type { Snapshot, Ranking, Entry, Match } from "./types.js";
-import { isPointSet } from "./ScoringEngine.js";
+import type { Snapshot, Ranking, Entry, Match } from "./types.ts";
+import { isPointSet } from "./ScoringEngine.ts";
 export function ranking(s: Snapshot, groupNo: number | null = null): Ranking[] {
   const entries = s.entries.filter(
     (e) =>

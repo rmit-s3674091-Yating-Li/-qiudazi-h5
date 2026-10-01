@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Header, Loading, Empty, ErrorNotice, labelFor } from "../components/UI";
 import { rpc } from "../repositories/supabase";
@@ -19,10 +20,16 @@ function scoreText(scores: Score[], mySide: "a"|"b") {
   }).join("  ");
 }
 
+const RESULTS_PER_PAGE = 10;
+
 export function MyResultsPage() {
   const {language,t}=useLanguage();const en=language==="en";
+  const [page,setPage]=useState(1);
   const q = useQuery("my-match-history", () => rpc<History>("get_my_match_history"));
   const h = q.data;
+  const pageCount=Math.max(1,Math.ceil((h?.matches.length||0)/RESULTS_PER_PAGE));
+  useEffect(()=>setPage(current=>Math.min(current,pageCount)),[pageCount]);
+  const visibleMatches=h?.matches.slice((page-1)*RESULTS_PER_PAGE,page*RESULTS_PER_PAGE)||[];
   return <>
     <Header title={t("myResults")} />
     <main className="page">
@@ -37,11 +44,11 @@ export function MyResultsPage() {
           <div className="stat-card"><strong>{h.summary.losses}</strong><span>{en?"Losses":"负场"}</span></div>
         </div>
         <div className="section-heading"><h2>{en?"Match history":"比赛记录"}</h2></div>
-        {h.matches.length ? h.matches.map(m => <Link className="card result-card" to={`/events/${m.event_id}`} key={m.match_id}>
+        {h.matches.length ? <>{visibleMatches.map(m => <Link className="card result-card" to={`/events/${m.event_id}`} key={m.match_id}>
           <div className="row between"><strong>{m.event_name}</strong><span className={`badge ${m.won ? "success" : ""}`}>{m.won ? (en?"Win":"胜") : (en?"Loss":"负")}</span></div>
           <p className="muted small">{m.event_date || (en?"Date TBD":"日期待定")} · {labelFor(m.match_type,language)} · {en?"vs":"对阵"} {m.opponents.map(x=>x.name).join(" / ") || (en?"TBD":"待补充")}</p>
           <div className="result-score">{scoreText(m.scores, m.my_side) || (en?"Completed":"已完赛")}</div>
-        </Link>) : <Empty title={en?"No match results yet":"还没有比赛战绩"}><p>{en?"After you complete and submit a match, the result appears here automatically.":"完成并提交一场比赛后，结果会自动出现在这里。"}</p><Link className="button" to="/my-events">{en?"View My Events":"查看我的赛事"}</Link></Empty>}
+        </Link>)}{pageCount>1&&<nav className="results-pagination" aria-label={en?"Match history pages":"比赛记录分页"}><button className="secondary" type="button" disabled={page===1} onClick={()=>setPage(current=>Math.max(1,current-1))}>{en?"Previous":"上一页"}</button><span>{en?`Page ${page} of ${pageCount}`:`第 ${page} / ${pageCount} 页`}</span><button className="secondary" type="button" disabled={page===pageCount} onClick={()=>setPage(current=>Math.min(pageCount,current+1))}>{en?"Next":"下一页"}</button></nav>}</> : <Empty title={en?"No match results yet":"还没有比赛战绩"}><p>{en?"After you complete and submit a match, the result appears here automatically.":"完成并提交一场比赛后，结果会自动出现在这里。"}</p><Link className="button" to="/my-events">{en?"View My Events":"查看我的赛事"}</Link></Empty>}
       </> : null}
     </main>
   </>;

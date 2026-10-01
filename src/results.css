@@ -56,3 +56,28 @@
   background: #e3eadb;
   color: #63794f;
 }
+
+
+.results-pagination {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 4px;
+}
+
+.results-pagination button {
+  min-width: 0;
+}
+
+.results-pagination button:last-child {
+  justify-self: stretch;
+}
+
+.results-pagination span {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
