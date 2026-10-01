@@ -31,7 +31,8 @@ export function createBaiduMapProvider(options:BaiduMapProviderOptions={}):MapPr
       if(!Number.isFinite(latitude)||latitude < -90||latitude > 90||!Number.isFinite(longitude)||longitude < -180||longitude > 180)throw new Error("VENUE_COORDINATES");
       const destination=name?.trim()?`name:${name.trim()}|latlng:${latitude},${longitude}`:`latlng:${latitude},${longitude}`;
       return `https://api.map.baidu.com/marker?location=${encodeURIComponent(`${latitude},${longitude}`)}&title=${encodeURIComponent(name?.trim()||"场地")}&content=${encodeURIComponent(destination)}&output=html`;
-    }
+    },
+  externalDirectionsUrl({latitude,longitude,name}){if(!Number.isFinite(latitude)||!Number.isFinite(longitude))throw new Error("VENUE_COORDINATES");return `https://maps.apple.com/?daddr=${encodeURIComponent(latitude)},${encodeURIComponent(longitude)}&q=${encodeURIComponent((name||"Destination").trim())}&dirflg=d`;}
   };
 }
 
