@@ -75,6 +75,27 @@ PR #24 唯一 verification ledger 不只是自由文本评论，而是受治理�
 - ledger 只记录 verification truth 与 evidence linkage，不复制产品规则，不维护 implementation queue；
 - Workboard 不得保存 current verification verdict。Workboard 中历史验证证据仅可作为 provenance，不得出现可被读取为 current verdict 的状态词或 next-action 结论。
 
+## 1.3 Controller truth / Verification truth 双账
+
+除 Product / Implementation / Verification / Runtime 四类事实外，自动化执行过程采用两本单一账本，避免把“做了什么”和“证明了什么”混在同一 ledger：
+
+- **Controller status**：PR #24 唯一 marker `<!-- v7-controller-status -->`。只记录本轮观察到的 exact head、主动推进动作、Workboard reconciliation、当前 blocker、Candidate/Preview 运行态与下一步。Controller 不写独立 VERIFIED verdict。
+- **Verification ledger**：PR #24 唯一 marker `<!-- v7-verification-ledger -->`。只记录 scope verdict、evidence head、evidence layer、继承依据与独立验证结论。Verifier 不实现产品代码，不移动 release-candidate。
+
+每轮总控结束前必须完成一次 mandatory reconciliation，至少核对：
+1. Workboard implementation state；
+2. evidence / blocker 文本是否仍然成立；
+3. MR / branch / SHA 上下文；
+4. next action 是否已经完成或过时；
+5. dependency 是否变化；
+6. 是否产生新的 verification handoff；
+7. Browser / Preview dependency 是否仍然必要；
+8. canonical / Workboard / runtime 是否发生 cross-document drift。
+
+若仓库持久状态已经一致，不得为了“证明本轮跑过”制造 docs-only SHA；只更新 Controller status note。
+
+Verifier 每个 verdict 必须显式标记 evidence layer。层级至少区分 `UNIT / INTEGRATION_DATA / BUILD / PREVIEW_BROWSER / REAL_DEVICE / SECURITY_RUNTIME`。低层 evidence 不能替代高层 evidence，例如 Unit PASS 不能冒充 Browser VERIFIED，Browser PASS 不能替代真实设备特有行为。
+
 ## 2. 冲突解释顺序
 
 1. 先判断是规范冲突还是运行时事实冲突。

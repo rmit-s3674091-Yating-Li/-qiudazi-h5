@@ -196,3 +196,37 @@ GitHub Actions quota/billing/runner 条件导致 job 在 workflow steps 前无�
 10. 相关自动化 prompt。
 
 禁止只更新 workflow、只更新 `vercel.json` 或只在聊天中约定。Public Readiness 文档准备不等于实际 visibility change；真正改变 repository visibility 仍必须由 Owner 明确授权。
+
+## Candidate Freeze 强化
+
+进入 Candidate 前，Controller 必须明确“冻结 exact head”，而不是把 release-candidate 当滚动开发分支。冻结前至少满足：
+- current exact-head lower-layer CI 已满足当前 canonical 要求；
+- Workboard 对本轮受影响 implementation 已收敛到 IMPLEMENTED 或有被明确接受的 BLOCKED；
+- verification ledger 没有要求代码整改的 current-scope REOPENED；
+- canonical / Workboard / CHANGELOG 与 current implementation 已对齐；
+- 剩余证据确实需要 Candidate Preview、Browser 或真实设备，而不是还能在开发层完成。
+
+Freeze 后原则上只生成一个 Candidate Preview，集中完成 Browser / mobile / real-device 验证。若 Candidate 中发现 PRODUCT/CODE defect，回开发分支修复，形成新 exact head 后重新 Freeze；不得直接在 release-candidate 上修。
+
+## Candidate Preview 失败熔断
+
+同一 Candidate / scope 连续两次 Preview 或 Browser 启动失败，且尚未确认 PRODUCT/CODE 根因时，停止继续部署/重跑。先分类：
+- PRODUCT/CODE
+- QA_HARNESS
+- BROWSER_INFRA
+- EXTERNAL/PRECONDITION
+- GOVERNANCE_DRIFT
+
+只有分类完成并有明确修复动作后，才允许下一次 Candidate 尝试。禁止通过 speculative commit、空 commit 或 docs-only commit 单纯刺激 Vercel。
+
+## Evidence layer discipline
+
+Release readiness 必须逐层判断，不得跨层替代：
+- Unit：纯逻辑 / contract；
+- Integration/Data：RPC / RLS / schema / migration / persistence；
+- Build：编译与产物生成；
+- Preview/Browser：路由、交互、移动端、真实 runtime；
+- Real-device：iOS / WeChat / 系统分享 / 定位 / 外部导航等平台行为；
+- Security runtime：live privilege / ACL / storage / edge 等运行态边界。
+
+只有 scope 所需 evidence layer 均完成，ledger 才能把该 scope 写为 VERIFIED。

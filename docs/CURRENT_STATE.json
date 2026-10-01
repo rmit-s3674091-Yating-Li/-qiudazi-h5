@@ -1,5 +1,5 @@
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "updated_at": "2026-10-01",
   "project": "球搭子 V7",
   "pr": 24,
@@ -27,7 +27,16 @@
       "basis"
     ],
     "freshness_rule": "Every active verifier run must refresh reviewed_exact_head/reviewed_at even when no verdict changes. Old-head evidence is valid only with basis=UNAFFECTED_SCOPE and an explicit affected-scope explanation.",
-    "stale_rule": "STALE_LEDGER does not erase inherited unaffected evidence, but it blocks claims that current-head verification/Candidate/Gate has fully closed."
+    "stale_rule": "STALE_LEDGER does not erase inherited unaffected evidence, but it blocks claims that current-head verification/Candidate/Gate has fully closed.",
+    "evidence_layers": [
+      "UNIT",
+      "INTEGRATION_DATA",
+      "BUILD",
+      "PREVIEW_BROWSER",
+      "REAL_DEVICE",
+      "SECURITY_RUNTIME"
+    ],
+    "layer_rule": "A lower evidence layer never substitutes for a higher layer. Each verdict must identify the evidence layer(s) actually completed."
   },
   "topic_owners": {
     "scoring": {
@@ -315,12 +324,12 @@
   "automation_topology": {
     "active": [
       {
-        "title": "球搭子 V7 Browser收口",
-        "short_name": "Browser收口"
+        "title": "球搭子 V7 总控",
+        "short_name": "总控"
       },
       {
-        "title": "球搭子 V7 白盒巡检",
-        "short_name": "白盒巡检"
+        "title": "球搭子 V7 独立核验",
+        "short_name": "独立核验"
       }
     ],
     "legacy_must_remain_disabled": [
@@ -335,7 +344,7 @@
       "球搭子部署前审计",
       "球搭子周安全审计"
     ],
-    "runtime_rule": "Only active titles may be enabled for current V7 governance. Any enabled legacy title is GOVERNANCE_DRIFT; active verifiers report it and never revive legacy Builder/Gate/Production tasks."
+    "runtime_rule": "Only active titles may be enabled for current V7 governance. Any enabled legacy title is GOVERNANCE_DRIFT. 总控 owns orchestration/reconciliation and may advance release-candidate only under release governance; 独立核验 owns verification verdicts and never implements product code or moves release-candidate."
   },
   "required_topics": [
     "scoring",
@@ -459,5 +468,29 @@
       "close_rule": "Move to CLOSED only after real-device/browser evidence confirms Share / Save exports the watermarked preview in supported device paths without breaking HD viewing.",
       "closed_reason": "User real-device verification confirmed both local Save and WeChat Share export the watermarked image under the watermarked state; later commits are Venue-only and do not affect photo export."
     }
-  ]
+  ],
+  "controller": {
+    "authoritative_source": "PR #24 comment marker <!-- v7-controller-status -->",
+    "role": "orchestration_and_reconciliation_only",
+    "required_fields": [
+      "observed_at",
+      "exact_head_before",
+      "exact_head_after",
+      "action_summary",
+      "workboard_reconciliation",
+      "current_blockers",
+      "next_action"
+    ],
+    "end_of_cycle_reconciliation": [
+      "implementation_state",
+      "evidence_and_blocker_text",
+      "mr_branch_sha_context",
+      "next_action",
+      "dependencies",
+      "verification_handoff",
+      "browser_preview_dependency",
+      "cross_document_drift"
+    ],
+    "no_churn_rule": "If durable repository truth is already aligned, do not create a docs-only commit merely to record an automation run; update the controller ledger instead."
+  }
 }

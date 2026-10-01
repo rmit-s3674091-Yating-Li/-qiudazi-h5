@@ -1,3 +1,9 @@
+## 2026-10-01 — Controller / Verifier governance split (unreleased)
+
+- Reframed the two active V7 automations as Controller and Independent Verifier without increasing automation count.
+- Added a single PR controller-status ledger, mandatory end-of-cycle Workboard/runtime reconciliation, explicit evidence layers, Candidate Freeze discipline, and a two-failure Candidate Preview circuit breaker.
+- Preserved verification independence: Controller never self-VERIFIED; Verifier never implements product code or moves release-candidate.
+
 ## 2026-10-01 — Venue field semantics and form layout (unreleased)
 
 - Split Standard Event venue semantics: `venue_name` is the facility, `venue` is an optional court/area detail, and `venue_address` is the confirmed geographic address.
