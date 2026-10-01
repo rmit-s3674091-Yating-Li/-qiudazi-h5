@@ -1,3 +1,10 @@
+## 2026-10-01 — Venue field semantics and form layout (unreleased)
+
+- Split Standard Event venue semantics: `venue_name` is the facility, `venue` is an optional court/area detail, and `venue_address` is the confirmed geographic address.
+- Map seeding now ignores specific court detail, uses city-constrained facility/address lookup with generic-suffix fallback, and falls back to city rather than accepting weak cross-city matches.
+- Native date/time/datetime controls are left-aligned to match the rest of the form.
+- Event detail now renders facility, specific court/area and address on separate lines.
+
 
 ## 2026-10-01 — Verification lifecycle reconciliation (unreleased)
 
