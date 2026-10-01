@@ -15,7 +15,7 @@ function ensureLeaflet():Promise<any>{
 }
 
 type PickedPlace=Pick<VenuePlace,"name"|"address"|"provider"|"placeId">;
-export function VenueMapPicker({initialLatitude,initialLongitude,initialQueries,language,onClose,onConfirm}:{initialLatitude?:number|null;initialLongitude?:number|null;initialQueries?:string[];language:string;onClose:()=>void;onConfirm:(lat:number,lng:number,place?:PickedPlace|null)=>void}){
+export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,initialVenueName,initialAddress,language,onClose,onConfirm}:{initialLatitude?:number|null;initialLongitude?:number|null;initialCity?:string|null;initialVenueName?:string|null;initialAddress?:string|null;language:string;onClose:()=>void;onConfirm:(lat:number,lng:number,place?:PickedPlace|null)=>void}){
   const en=language==="en",host=useRef<HTMLDivElement>(null),mapRef=useRef<any>(null),lookupTimer=useRef<number|null>(null),lookupSeq=useRef(0);
   const[position,setPosition]=useState<{lat:number;lng:number}|null>(initialLatitude!=null&&initialLongitude!=null?{lat:initialLatitude,lng:initialLongitude}:null);
   const[place,setPlace]=useState<PickedPlace|null>(null),[resolving,setResolving]=useState(false),[error,setError]=useState("");
@@ -36,22 +36,36 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialQueries,
     map.on("moveend",()=>{const c=map.getCenter(),next={lat:c.lat,lng:c.lng};setPosition(next);resolveReadablePlace(next);});
     mapRef.current=map;setTimeout(()=>map.invalidateSize(),0);
     if(position)resolveReadablePlace(position);
-    else if(initialQueries?.some(query=>query.trim())){
-      setResolving(true);
-      void (async()=>{
-        for(const query of initialQueries.map(value=>value.trim()).filter(Boolean)){
-          try{
-            const results=await browserMapProvider.searchPlaces(query);
-            if(cancelled)return;
-            if(results[0]){
-              const first=results[0],next={lat:first.latitude,lng:first.longitude};
-              setPosition(next);setPlace({name:first.name,address:first.address,provider:first.provider,placeId:first.placeId});
-              map.setView([next.lat,next.lng],query===initialQueries.at(-1)?12:16);
-              return;
-            }
-          }catch{}
-        }
-      })().finally(()=>{if(!cancelled)setResolving(false)});
+    else {
+      const city=(initialCity||"").trim(),venue=(initialVenueName||"").trim(),address=(initialAddress||"").trim();
+      const coreVenue=venue.replace(/(网球中心|网球场|体育中心|运动中心|体育馆|运动馆|场馆)$/,"").trim();
+      const queries=Array.from(new Set([
+        address&&city?`${address} ${city}`:"",
+        address,
+        coreVenue&&city?`${coreVenue} ${city}`:"",
+        venue&&city?`${venue} ${city}`:"",
+        city
+      ].filter(Boolean)));
+      if(queries.length){
+        setResolving(true);
+        void (async()=>{
+          const cityKey=city.toLocaleLowerCase();
+          for(const query of queries){
+            try{
+              const results=await browserMapProvider.searchPlaces(query);
+              if(cancelled)return;
+              const cityMatches=cityKey?results.filter(result=>result.address.toLocaleLowerCase().includes(cityKey)):results;
+              const first=(cityMatches.length?cityMatches:query===city?results:[])[0];
+              if(first){
+                const next={lat:first.latitude,lng:first.longitude};
+                setPosition(next);setPlace({name:first.name,address:first.address,provider:first.provider,placeId:first.placeId});
+                map.setView([next.lat,next.lng],query===city?12:16);
+                return;
+              }
+            }catch{}
+          }
+        })().finally(()=>{if(!cancelled)setResolving(false)});
+      }
     }
   }).catch(()=>setError(en?"Map could not be loaded.":"地图暂时无法加载。"));
   return()=>{cancelled=true;if(lookupTimer.current!==null)window.clearTimeout(lookupTimer.current);lookupSeq.current++;mapRef.current?.remove();mapRef.current=null;};},[]);

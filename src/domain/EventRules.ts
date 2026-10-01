@@ -3,8 +3,7 @@ import { ensure } from "./types.ts";
 const LEVELS=["≤2.0","2.5","3.0","3.5","4.0","≥4.5"];
 export function defaultRegistrationDeadline(date:string|null,time:string|null){if(!date||!time)return null;const normalizedTime=/^\d{2}:\d{2}(?::\d{2})?$/.test(time)?time.slice(0,5):time;const d=new Date(`${date}T${normalizedTime}:00`);if(Number.isNaN(d.getTime()))return null;d.setHours(d.getHours()-2);const pad=(n:number)=>String(n).padStart(2,"0");return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;}
 export function validateEvent(config: EventConfig): EventConfig {
-  const venueName=config.venue_name?.trim()||config.venue?.trim()||null;
-  const e = { ...config, name: config.name.trim(), city: config.city?.trim() || null, venue: venueName, venue_name: venueName, venue_address: config.venue_address?.trim() || null, venue_place_id: config.venue_place_id?.trim() || null, venue_provider: config.venue_provider?.trim() || null, tiebreak_target: config.tiebreak_target ?? 7, tiebreak_win_by_two: config.tiebreak_win_by_two ?? true, games_win_by_two: config.games_win_by_two ?? true };
+  const e = { ...config, name: config.name.trim(), city: config.city?.trim() || null, venue: config.venue?.trim() || null, venue_name: config.venue_name?.trim() || null, venue_address: config.venue_address?.trim() || null, venue_place_id: config.venue_place_id?.trim() || null, venue_provider: config.venue_provider?.trim() || null, tiebreak_target: config.tiebreak_target ?? 7, tiebreak_win_by_two: config.tiebreak_win_by_two ?? true, games_win_by_two: config.games_win_by_two ?? true };
   ensure(e.name.length > 0 && e.name.length <= 80,"NAME_REQUIRED","请填写赛事名称（80字以内）");
   ensure(["public", "private"].includes(e.visibility),"VISIBILITY","请选择公开赛事或私有赛事");
   ensure(["singles", "doubles"].includes(e.match_type),"MATCH_TYPE","请选择单打或双打");
@@ -23,7 +22,8 @@ export function validateEvent(config: EventConfig): EventConfig {
   if(e.suggested_level_min)ensure(LEVELS.includes(e.suggested_level_min),"INVALID_LEVEL","参赛建议级别不正确");
   if(e.suggested_level_max)ensure(LEVELS.includes(e.suggested_level_max),"INVALID_LEVEL","参赛建议级别不正确");
   if(e.suggested_level_min&&e.suggested_level_max)ensure(LEVELS.indexOf(e.suggested_level_min)<=LEVELS.indexOf(e.suggested_level_max),"INVALID_LEVEL_RANGE","最低建议级别不能高于最高建议级别");
-  if (e.venue_name) ensure(e.venue_name.length <= 120, "VENUE", "比赛场地请控制在120字以内");
+  if (e.venue_name) ensure(e.venue_name.length <= 120, "VENUE_NAME", "比赛场馆请控制在120字以内");
+  if (e.venue) ensure(e.venue.length <= 120, "VENUE_DETAIL", "具体场地请控制在120字以内");
   if (e.venue_address) ensure(e.venue_address.length <= 240, "VENUE_ADDRESS", "场地地址请控制在240字以内");
   const hasLat=e.venue_latitude!==null&&e.venue_latitude!==undefined,hasLng=e.venue_longitude!==null&&e.venue_longitude!==undefined;
   ensure(hasLat===hasLng,"VENUE_COORDINATES","场地经纬度需要同时提供");
