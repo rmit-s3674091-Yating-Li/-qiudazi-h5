@@ -6,10 +6,23 @@ type BaiduResponse={status?:unknown;message?:unknown;results?:unknown};
 
 export interface BaiduMapProviderOptions{ak?:string;fetchImpl?:FetchLike;region?:string}
 
+function outOfChina(lat:number,lng:number){return lng<72.004||lng>137.8347||lat<0.8293||lat>55.8271}
+function transformLat(x:number,y:number){let ret=-100+2*x+3*y+.2*y*y+.1*x*y+.2*Math.sqrt(Math.abs(x));ret+=(20*Math.sin(6*x*Math.PI)+20*Math.sin(2*x*Math.PI))*2/3;ret+=(20*Math.sin(y*Math.PI)+40*Math.sin(y/3*Math.PI))*2/3;ret+=(160*Math.sin(y/12*Math.PI)+320*Math.sin(y*Math.PI/30))*2/3;return ret}
+function transformLng(x:number,y:number){let ret=300+x+2*y+.1*x*x+.1*x*y+.1*Math.sqrt(Math.abs(x));ret+=(20*Math.sin(6*x*Math.PI)+20*Math.sin(2*x*Math.PI))*2/3;ret+=(20*Math.sin(x*Math.PI)+40*Math.sin(x/3*Math.PI))*2/3;ret+=(150*Math.sin(x/12*Math.PI)+300*Math.sin(x/30*Math.PI))*2/3;return ret}
+function gcj02ToWgs84(lat:number,lng:number){
+  if(outOfChina(lat,lng))return {lat,lng};
+  const a=6378245,ee=.00669342162296594323,dLat=transformLat(lng-105,lat-35),dLng=transformLng(lng-105,lat-35),radLat=lat/180*Math.PI;
+  let magic=Math.sin(radLat);magic=1-ee*magic*magic;const sqrtMagic=Math.sqrt(magic);
+  const mgLat=lat+(dLat*180)/((a*(1-ee))/(magic*sqrtMagic)*Math.PI);
+  const mgLng=lng+(dLng*180)/(a/sqrtMagic*Math.cos(radLat)*Math.PI);
+  return {lat:lat*2-mgLat,lng:lng*2-mgLng};
+}
+
 function normalizePlace(value:BaiduPlace):VenuePlace|null{
-  const latitude=Number(value.location?.lat),longitude=Number(value.location?.lng);
-  if(typeof value.name!=="string"||!value.name.trim()||typeof value.address!=="string"||!Number.isFinite(latitude)||latitude < -90||latitude > 90||!Number.isFinite(longitude)||longitude < -180||longitude > 180)return null;
-  return {name:value.name.trim(),address:value.address.trim(),latitude,longitude,provider:"baidu",placeId:typeof value.uid==="string"&&value.uid?value.uid:null};
+  const rawLat=Number(value.location?.lat),rawLng=Number(value.location?.lng);
+  if(typeof value.name!=="string"||!value.name.trim()||typeof value.address!=="string"||!Number.isFinite(rawLat)||rawLat < -90||rawLat > 90||!Number.isFinite(rawLng)||rawLng < -180||rawLng > 180)return null;
+  const converted=gcj02ToWgs84(rawLat,rawLng);
+  return {name:value.name.trim(),address:value.address.trim(),latitude:converted.lat,longitude:converted.lng,provider:"baidu",placeId:typeof value.uid==="string"&&value.uid?value.uid:null};
 }
 
 export function createBaiduMapProvider(options:BaiduMapProviderOptions={}):MapProvider{
@@ -36,7 +49,7 @@ export function createBaiduMapProvider(options:BaiduMapProviderOptions={}):MapPr
   };
 }
 
-export function createConfiguredBaiduMapProvider():MapProvider{
+export function createConfiguredBaiduMapProvider(region="全国"):MapProvider{
   const proxyFetch:FetchLike=async input=>{
     const url=new URL(input),query=url.searchParams.get("query")||"",region=url.searchParams.get("region")||"全国";
     const {supabase}=await import("../repositories/supabase.ts");
@@ -48,5 +61,5 @@ export function createConfiguredBaiduMapProvider():MapProvider{
     if(response.status===401)throw new Error("AUTH_REQUIRED");
     return {ok:response.ok,json:()=>response.json()};
   };
-  return createBaiduMapProvider({ak:"server-proxy",fetchImpl:proxyFetch});
+  return createBaiduMapProvider({ak:"server-proxy",fetchImpl:proxyFetch,region});
 }

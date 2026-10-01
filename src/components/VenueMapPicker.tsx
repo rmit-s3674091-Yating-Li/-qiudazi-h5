@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { browserMapProvider, type VenuePlace } from "../utils/mapProvider";
+import { createConfiguredBaiduMapProvider } from "../utils/baiduMapProvider";
 
 declare global { interface Window { L?: any } }
 
@@ -68,8 +69,13 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
                 setPosition(next);skipNextMoveReverse.current=true;setPlace({name:first.name,address:first.address,provider:first.provider,placeId:first.placeId});setCityFallback(false);map.setView([next.lat,next.lng],16);return;
               }
             }
+            const baiduProvider=city?createConfiguredBaiduMapProvider(city):null;
             for(const query of venueQueries){
-              const results=await searchBounded(query);
+              let results:VenuePlace[]=[];
+              if(baiduProvider){
+                try{results=await baiduProvider.searchPlaces(query);}catch{}
+              }
+              if(!results.length)results=await searchBounded(query);
               const first=results[0];
               if(first){
                 const next={lat:first.latitude,lng:first.longitude};

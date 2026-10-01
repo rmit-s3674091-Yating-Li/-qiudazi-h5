@@ -19,9 +19,9 @@ export default async function handler(req,res){
   if(!query||query.length>120||region.length>60){res.status(400).json({error:"INVALID_QUERY"});return;}
   const ak=(process.env.BAIDU_MAP_AK||"").trim();
   if(!ak){res.status(503).json({error:"BAIDU_MAP_AK_MISSING"});return;}
-  const params=new URLSearchParams({query,region,output:"json",ak});
+  const params=new URLSearchParams({query,region,region_limit:"true",ret_coordtype:"gcj02ll",page_size:"10",output:"json",ak});
   try{
-    const upstream=await fetch(`https://api.map.baidu.com/place/v2/search?${params.toString()}`,{headers:{"User-Agent":"qiudazi-h5/1.0"}});
+    const upstream=await fetch(`https://api.map.baidu.com/place/v3/region?${params.toString()}`,{headers:{"User-Agent":"qiudazi-h5/1.0"}});
     const body=await upstream.json();
     if(!upstream.ok){res.status(502).json({error:"BAIDU_PLACE_HTTP_ERROR"});return;}
     res.status(200).json(body);
