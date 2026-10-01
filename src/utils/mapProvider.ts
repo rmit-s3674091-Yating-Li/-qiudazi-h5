@@ -27,7 +27,7 @@ export const browserMapProvider:MapProvider={
       placeId:item.place_id!=null?String(item.place_id):null,
       name:(typeof item.name==="string"&&item.name.trim())?item.name.trim():String(item.display_name||"").split(",")[0].trim(),
       address:String(item.display_name||"").trim(),
-      boundingBox:Array.isArray(item.boundingbox)&&item.boundingbox.length===4?[Number(item.boundingbox[0]),Number(item.boundingbox[1]),Number(item.boundingbox[2]),Number(item.boundingbox[3])]:null
+      boundingBox:Array.isArray(item.boundingbox)&&item.boundingbox.length===4?([Number(item.boundingbox[0]),Number(item.boundingbox[1]),Number(item.boundingbox[2]),Number(item.boundingbox[3])] as [number,number,number,number]):null
     })).filter(item=>valid(item.latitude,item.longitude)&&item.address);
   },
   async reverseGeocode({latitude,longitude},language="zh-CN"){
