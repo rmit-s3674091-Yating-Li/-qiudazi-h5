@@ -11,12 +11,16 @@ const changelog=read("CHANGELOG.md");
 const release=read("docs/RELEASE_GOVERNANCE.md");
 const assert=(v,m)=>{if(!v)throw new Error(m);};
 
-assert(state.schema_version===3,"CURRENT_STATE schema_version must be 3");
+assert(state.schema_version===4,"CURRENT_STATE schema_version must be 4");
 assert(state.precedence?.product_rule?.[0]==="topic_owner_canonical","Product precedence must start with topic owner");
 assert(state.precedence?.implementation?.[0]==="docs/V7_WORKBOARD.md","Implementation precedence must point to Workboard");
 assert(state.precedence?.verification?.[0]==="verification_ledger","Verification precedence must start with ledger");
 assert(state.precedence?.runtime?.[0]==="runtime_exact_head","Runtime precedence must start with exact head");
 assert(governance.includes("Verification ledger contract"),"Governance must define ledger contract");
+assert(governance.includes("<!-- v7-controller-status -->"),"Controller marker contract must be documented");
+assert(state.controller?.authoritative_source?.includes("<!-- v7-controller-status -->"),"Controller authoritative source must be registered");
+assert(Array.isArray(state.controller?.end_of_cycle_reconciliation)&&state.controller.end_of_cycle_reconciliation.length>=8,"Controller reconciliation contract must be explicit");
+assert((state.verification?.evidence_layers||[]).includes("PREVIEW_BROWSER")&&(state.verification?.evidence_layers||[]).includes("REAL_DEVICE"),"Verification evidence layers must distinguish Browser and real device");
 assert(governance.includes("ACTIVE / VERIFYING / CLOSED"),"Governance must define change lifecycle");
 assert(release.includes("V7 Change Manifest / Verification Ledger integration"),"Release governance must consume manifest + ledger");
 

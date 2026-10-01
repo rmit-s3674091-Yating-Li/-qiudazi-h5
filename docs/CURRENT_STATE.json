@@ -236,8 +236,8 @@
         "CHANGELOG.md"
       ],
       "affected_automations": [
-        "Browser收口",
-        "白盒巡检"
+        "总控",
+        "独立核验"
       ],
       "required_markers": [
         "地图选点",
