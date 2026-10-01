@@ -471,7 +471,7 @@
   ],
   "controller": {
     "authoritative_source": "PR #24 comment marker <!-- v7-controller-status -->",
-    "role": "orchestration_and_reconciliation_only",
+    "role": "orchestration_reconciliation_and_product_discovery",
     "required_fields": [
       "observed_at",
       "exact_head_before",
@@ -491,6 +491,11 @@
       "browser_preview_dependency",
       "cross_document_drift"
     ],
-    "no_churn_rule": "If durable repository truth is already aligned, do not create a docs-only commit merely to record an automation run; update the controller ledger instead."
+    "no_churn_rule": "If durable repository truth is already aligned, do not create a docs-only commit merely to record an automation run; update the controller ledger instead.",
+    "tracks": {
+      "A": "engineering_governance_candidate_closure",
+      "B": "product_competitor_uiux_and_monetization_discovery"
+    },
+    "product_discovery_rule": "When no higher-priority engineering blocker exists, or when a current problem needs product judgment, research relevant competitors and cross-industry interaction patterns, record product/UX/monetization hypotheses and smallest validation experiments in controller-status, and do not auto-implement major scope expansion or monetization without explicit user approval."
   }
 }
