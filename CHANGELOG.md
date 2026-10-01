@@ -1,4 +1,11 @@
 
+## 2026-10-01 — Verification lifecycle reconciliation (unreleased)
+
+- Closed `V7-20260929-HALL-FILTER-SCOPE` after user verification confirmed Hall filters no longer affect My Events; subsequent Venue-only commits do not invalidate that evidence.
+- Closed `V7-20260930-PHOTO-WATERMARK-EXPORT` after user real-device verification confirmed both local Save and WeChat Share export the watermarked image; subsequent Venue-only commits do not invalidate that evidence.
+- Venue map-picker changes remain VERIFYING and are the only currently affected product-verification tail among these scopes.
+
+
 ## 2026-09-30 — Venue map picker usability refinement (unreleased)
 
 - 地图选点从“坐标确认”升级为“可读地点确认”：拖动地图或使用当前位置后尝试反向解析地点名称/地址，确认卡优先展示可读信息，经纬度降级为折叠技术详情。

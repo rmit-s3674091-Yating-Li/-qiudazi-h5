@@ -1,6 +1,6 @@
 {
   "schema_version": 3,
-  "updated_at": "2026-09-30",
+  "updated_at": "2026-10-01",
   "project": "球搭子 V7",
   "pr": 24,
   "branch": "feature/20260902-next-version-scoring-quick-photo",
@@ -247,68 +247,6 @@
       "migrated_from_legacy_status": "implemented_pending_verification",
       "lifecycle_state": "VERIFYING",
       "close_rule": "Move to CLOSED only after the verification ledger explicitly covers this change's verification impact and there is no implementation remediation pending."
-    },
-    {
-      "change_id": "V7-20260929-HALL-FILTER-SCOPE",
-      "topic": "hall",
-      "current_rule": "Hall match-type/city/level/date filters apply only to the public Hall and must not filter My Events.",
-      "invalidates_verification": [
-        "V7-HALL-01"
-      ],
-      "affected_docs": [
-        "docs/PRODUCT_BASELINE.md",
-        "docs/INTERACTION_BASELINE.md",
-        "docs/VISUAL_DESIGN_BASELINE.md",
-        "docs/V7_WORKBOARD.md",
-        "CHANGELOG.md"
-      ],
-      "affected_automations": [
-        "Browser收口",
-        "白盒巡检"
-      ],
-      "required_markers": [
-        "公共赛事大厅发现视图",
-        "My Events 数据集合"
-      ],
-      "marker_scope": [
-        "docs/PRODUCT_BASELINE.md"
-      ],
-      "implementation_state": "IMPLEMENTED",
-      "verification_impact": "AFFECTED_SCOPE_REVERIFY_REQUIRED",
-      "migrated_from_legacy_status": "implemented_pending_browser",
-      "lifecycle_state": "VERIFYING",
-      "close_rule": "Move to CLOSED only after the verification ledger explicitly covers this change's verification impact and there is no implementation remediation pending."
-    },
-    {
-      "change_id": "V7-20260930-PHOTO-WATERMARK-EXPORT",
-      "topic": "photo",
-      "supersedes": "Default Share / Save exporting the HD/original photo while the UI shows a protected watermarked preview.",
-      "current_rule": "What-you-see-is-what-you-export: when the UI displays a protected watermarked preview, Share / Save / download exports that same watermarked preview; HD viewing remains separate and V7 has no original-export action.",
-      "invalidates_verification": [
-        "V7-PHOTO-01"
-      ],
-      "affected_docs": [
-        "docs/PHOTO_ALBUM_BASELINE.md",
-        "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
-        "docs/V7_WORKBOARD.md",
-        "CHANGELOG.md"
-      ],
-      "affected_automations": [
-        "Browser收口",
-        "白盒巡检"
-      ],
-      "required_markers": [
-        "所见即所得",
-        "不另设“保存原图 / 分享原图”入口"
-      ],
-      "forbidden_markers": [],
-      "marker_scope": [
-        "docs/PHOTO_ALBUM_BASELINE.md"
-      ],
-      "implementation_state": "IMPLEMENTED",
-      "verification_impact": "PRIOR_SHARE_SAVE_REAL_DEVICE_EVIDENCE_SUPERSEDED_FOR_EXPORT_SOURCE__WATERMARKED_EXPORT_REVERIFY_REQUIRED",
-      "lifecycle_state": "VERIFYING",
-      "close_rule": "Move to CLOSED only after real-device/browser evidence confirms Share / Save exports the watermarked preview in supported device paths without breaking HD viewing."
     }
   ],
   "precedence": {
@@ -456,6 +394,70 @@
       "lifecycle_state": "CLOSED",
       "close_rule": "Move to CLOSED only after the verification ledger explicitly covers this change's verification impact and there is no implementation remediation pending.",
       "closed_reason": "Safari and WeChat real-device Share/Save behavior was verified before the later watermarked-export product decision superseded the export-source rule."
+    },
+    {
+      "change_id": "V7-20260929-HALL-FILTER-SCOPE",
+      "topic": "hall",
+      "current_rule": "Hall match-type/city/level/date filters apply only to the public Hall and must not filter My Events.",
+      "invalidates_verification": [
+        "V7-HALL-01"
+      ],
+      "affected_docs": [
+        "docs/PRODUCT_BASELINE.md",
+        "docs/INTERACTION_BASELINE.md",
+        "docs/VISUAL_DESIGN_BASELINE.md",
+        "docs/V7_WORKBOARD.md",
+        "CHANGELOG.md"
+      ],
+      "affected_automations": [
+        "Browser收口",
+        "白盒巡检"
+      ],
+      "required_markers": [
+        "公共赛事大厅发现视图",
+        "My Events 数据集合"
+      ],
+      "marker_scope": [
+        "docs/PRODUCT_BASELINE.md"
+      ],
+      "implementation_state": "IMPLEMENTED",
+      "verification_impact": "AFFECTED_SCOPE_REVERIFY_REQUIRED",
+      "migrated_from_legacy_status": "implemented_pending_browser",
+      "lifecycle_state": "CLOSED",
+      "close_rule": "Move to CLOSED only after the verification ledger explicitly covers this change's verification impact and there is no implementation remediation pending.",
+      "closed_reason": "User real-device/product verification confirmed Hall filters no longer affect My Events; later commits are Venue-only and do not affect Hall filtering."
+    },
+    {
+      "change_id": "V7-20260930-PHOTO-WATERMARK-EXPORT",
+      "topic": "photo",
+      "supersedes": "Default Share / Save exporting the HD/original photo while the UI shows a protected watermarked preview.",
+      "current_rule": "What-you-see-is-what-you-export: when the UI displays a protected watermarked preview, Share / Save / download exports that same watermarked preview; HD viewing remains separate and V7 has no original-export action.",
+      "invalidates_verification": [
+        "V7-PHOTO-01"
+      ],
+      "affected_docs": [
+        "docs/PHOTO_ALBUM_BASELINE.md",
+        "docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md",
+        "docs/V7_WORKBOARD.md",
+        "CHANGELOG.md"
+      ],
+      "affected_automations": [
+        "Browser收口",
+        "白盒巡检"
+      ],
+      "required_markers": [
+        "所见即所得",
+        "不另设“保存原图 / 分享原图”入口"
+      ],
+      "forbidden_markers": [],
+      "marker_scope": [
+        "docs/PHOTO_ALBUM_BASELINE.md"
+      ],
+      "implementation_state": "IMPLEMENTED",
+      "verification_impact": "PRIOR_SHARE_SAVE_REAL_DEVICE_EVIDENCE_SUPERSEDED_FOR_EXPORT_SOURCE__WATERMARKED_EXPORT_REVERIFY_REQUIRED",
+      "lifecycle_state": "CLOSED",
+      "close_rule": "Move to CLOSED only after real-device/browser evidence confirms Share / Save exports the watermarked preview in supported device paths without breaking HD viewing.",
+      "closed_reason": "User real-device verification confirmed both local Save and WeChat Share export the watermarked image under the watermarked state; later commits are Venue-only and do not affect photo export."
     }
   ]
 }
