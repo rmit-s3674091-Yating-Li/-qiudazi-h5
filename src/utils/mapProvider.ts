@@ -4,7 +4,8 @@ export interface MapProvider{
   getCurrentPosition():Promise<VenueCoordinates>;
   searchPlaces(query:string):Promise<VenuePlace[]>;
   reverseGeocode(location:{latitude:number;longitude:number},language?:string):Promise<VenuePlace|null>;
-  externalMapUrl(location:{latitude:number;longitude:number;name?:string|null}):string
+  externalMapUrl(location:{latitude:number;longitude:number;name?:string|null}):string;
+  externalDirectionsUrl(location:{latitude:number;longitude:number;name?:string|null}):string
 }
 function valid(latitude:number,longitude:number){return Number.isFinite(latitude)&&latitude>=-90&&latitude<=90&&Number.isFinite(longitude)&&longitude>=-180&&longitude<=180}
 export function hasVenueCoordinates(value:{venue_latitude?:number|null;venue_longitude?:number|null}){return value.venue_latitude!==null&&value.venue_latitude!==undefined&&value.venue_longitude!==null&&value.venue_longitude!==undefined&&valid(value.venue_latitude,value.venue_longitude)}
@@ -45,5 +46,6 @@ export const browserMapProvider:MapProvider={
     if(!address&&!name)return null;
     return {latitude,longitude,provider:"openstreetmap_nominatim",placeId:data?.place_id!=null?String(data.place_id):null,name:name||address,address:address||name};
   },
-  externalMapUrl({latitude,longitude}){if(!valid(latitude,longitude))throw new Error("VENUE_COORDINATES");return `https://www.openstreetmap.org/?mlat=${encodeURIComponent(latitude)}&mlon=${encodeURIComponent(longitude)}#map=17/${encodeURIComponent(latitude)}/${encodeURIComponent(longitude)}`;}
+  externalMapUrl({latitude,longitude}){if(!valid(latitude,longitude))throw new Error("VENUE_COORDINATES");return `https://www.openstreetmap.org/?mlat=${encodeURIComponent(latitude)}&mlon=${encodeURIComponent(longitude)}#map=17/${encodeURIComponent(latitude)}/${encodeURIComponent(longitude)}`;},
+  externalDirectionsUrl({latitude,longitude,name}){if(!valid(latitude,longitude))throw new Error("VENUE_COORDINATES");const label=(name||"Destination").trim();return `https://maps.apple.com/?daddr=${encodeURIComponent(latitude)},${encodeURIComponent(longitude)}&q=${encodeURIComponent(label)}&dirflg=d`;}
 };
