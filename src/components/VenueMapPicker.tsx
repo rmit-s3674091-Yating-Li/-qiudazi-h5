@@ -38,36 +38,54 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
     if(position)resolveReadablePlace(position);
     else {
       const city=(initialCity||"").trim(),venue=(initialVenueName||"").trim(),address=(initialAddress||"").trim();
-      const coreVenue=venue.replace(/(网球中心|网球场|体育中心|运动中心|体育馆|运动馆|场馆)$/,"").trim();
-      const queries=Array.from(new Set([
-        address&&city?`${address} ${city}`:"",
-        address,
-        coreVenue&&city?`${coreVenue} ${city}`:"",
-        venue&&city?`${venue} ${city}`:"",
-        city
+      const coreVenue=venue.replace(/(网球运动中心|网球中心|网球场|体育中心|运动中心|体育馆|运动馆|场馆)$/,"").trim();
+      const venueQueries=Array.from(new Set([
+        venue,
+        coreVenue,
+        coreVenue&&/奥森/.test(coreVenue)?"奥林匹克森林公园":"",
+        coreVenue&&/奥森/.test(coreVenue)?"国家网球中心":""
       ].filter(Boolean)));
-      if(queries.length){
+      if(city||address||venueQueries.length){
         setResolving(true);
         void (async()=>{
-          const cityKey=city.toLocaleLowerCase();
-          for(const query of queries){
-            try{
-              const results=await browserMapProvider.searchPlaces(query);
+          try{
+            let cityResult:VenuePlace|null=null;
+            if(city){
+              const cityResults=await browserMapProvider.searchPlaces(city);
               if(cancelled)return;
-              const cityMatches=cityKey?results.filter(result=>result.address.toLocaleLowerCase().includes(cityKey)):results;
-              const first=(cityMatches.length?cityMatches:query===city?results:[])[0];
+              cityResult=cityResults[0]||null;
+            }
+            const bounds=cityResult?.boundingBox||undefined;
+            const searchBounded=async(query:string)=>{
+              const results=await browserMapProvider.searchPlaces(query,bounds?{viewbox:bounds,bounded:true}:undefined);
+              if(cancelled)return [] as VenuePlace[];
+              return results;
+            };
+            if(address){
+              const results=await searchBounded(address);
+              if(results[0]){
+                const first=results[0],next={lat:first.latitude,lng:first.longitude};
+                setPosition(next);skipNextMoveReverse.current=true;setPlace({name:first.name,address:first.address,provider:first.provider,placeId:first.placeId});setCityFallback(false);map.setView([next.lat,next.lng],16);return;
+              }
+            }
+            for(const query of venueQueries){
+              const results=await searchBounded(query);
+              const first=results[0];
               if(first){
                 const next={lat:first.latitude,lng:first.longitude};
                 setPosition(next);skipNextMoveReverse.current=true;
-                if(query===city){
-                  setPlace(null);setCityFallback(true);map.setView([next.lat,next.lng],12);
-                }else{
-                  setPlace({name:first.name,address:first.address,provider:first.provider,placeId:first.placeId});setCityFallback(false);map.setView([next.lat,next.lng],16);
-                }
+                const exact=query===venue;
+                setPlace({name:first.name,address:first.address,provider:first.provider,placeId:first.placeId});
+                setCityFallback(!exact);
+                map.setView([next.lat,next.lng],exact?16:14);
                 return;
               }
-            }catch{}
-          }
+            }
+            if(cityResult){
+              const next={lat:cityResult.latitude,lng:cityResult.longitude};
+              setPosition(next);skipNextMoveReverse.current=true;setPlace(null);setCityFallback(true);map.setView([next.lat,next.lng],12);
+            }
+          }catch{}
         })().finally(()=>{if(!cancelled)setResolving(false)});
       }
     }
@@ -75,8 +93,8 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
   return()=>{cancelled=true;if(lookupTimer.current!==null)window.clearTimeout(lookupTimer.current);lookupSeq.current++;mapRef.current?.remove();mapRef.current=null;};},[]);
 
   function locate(){setError("");if(!navigator.geolocation){setError(en?"Location is unavailable.":"当前设备无法定位。");return;}navigator.geolocation.getCurrentPosition(p=>{const next={lat:p.coords.latitude,lng:p.coords.longitude};setPosition(next);skipNextMoveReverse.current=true;mapRef.current?.setView([next.lat,next.lng],16);setCityFallback(false);resolveReadablePlace(next);},()=>setError(en?"Location permission was not granted. You can still drag the map manually.":"未获得定位权限，你仍可以手动拖动地图选点。"),{enableHighAccuracy:false,timeout:10000,maximumAge:60000});}
-  const selectedName=cityFallback?(en?"Venue not found yet":"暂未找到场馆"):place?.name||(en?"Selected map location":"已选择地图位置");
-  const selectedAddress=cityFallback?(en?"The map is centered on the event city. Drag the map to the court, or use your current location, then confirm.":"已先定位到赛事城市范围。请拖动地图把准星对准球场，或使用当前位置后再确认。"):place?.address||(position?(en?"Address lookup is unavailable. You can still use this location and edit the venue text afterwards.":"暂时无法识别这里的地址，你仍可以使用这个位置，并在返回后手动修改场地信息。"):(en?"Move the map or use your current location.":"拖动地图，或定位到你的当前位置。"));
+  const selectedName=cityFallback?(place?.name?(en?"Approximate match — confirm on map":"已找到附近位置，请确认"):(en?"Venue not found yet":"暂未找到场馆")):place?.name||(en?"Selected map location":"已选择地图位置");
+  const selectedAddress=cityFallback?(place?.address?(en?"This is an approximate venue match. Drag the map to the exact court before confirming.":"这是根据场馆简称/核心词找到的附近位置，请拖动地图确认准确球场后再使用。"):(en?"The map is centered on the event city. Drag the map to the court, or use your current location, then confirm.":"已先定位到赛事城市范围。请拖动地图把准星对准球场，或使用当前位置后再确认。")):place?.address||(position?(en?"Address lookup is unavailable. You can still use this location and edit the venue text afterwards.":"暂时无法识别这里的地址，你仍可以使用这个位置，并在返回后手动修改场地信息。"):(en?"Move the map or use your current location.":"拖动地图，或定位到你的当前位置。"));
 
   return <div className="venue-map-overlay" role="dialog" aria-modal="true" aria-label={en?"Pick venue location":"选择场地位置"}><div className="venue-map-panel">
     <div className="venue-map-header row between"><div><strong>{en?"Pick venue location":"选择场地位置"}</strong><p className="muted small">{en?"Move the map until the crosshair is on the court. We'll identify the nearby place for you.":"拖动地图，让准星对准球场；系统会自动识别附近地点。"}</p></div><button type="button" className="text-button" onClick={onClose}>{en?"Close":"关闭"}</button></div>
