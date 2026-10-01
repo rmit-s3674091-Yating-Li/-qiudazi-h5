@@ -2,7 +2,7 @@ import type {MapProvider,VenueCoordinates,VenuePlace} from "./mapProvider.ts";
 
 type FetchLike=(input:string,init?:RequestInit)=>Promise<{ok:boolean;json():Promise<unknown>}>;
 type BaiduPlace={uid?:unknown;name?:unknown;address?:unknown;location?:{lat?:unknown;lng?:unknown}};
-type BaiduResponse={status?:unknown;message?:unknown;results?:unknown};
+type BaiduResponse={status?:unknown;message?:unknown;results?:unknown;result?:any};
 
 export interface BaiduMapProviderOptions{ak?:string;fetchImpl?:FetchLike;region?:string}
 
@@ -39,7 +39,23 @@ export function createBaiduMapProvider(options:BaiduMapProviderOptions={}):MapPr
       if(body.status!==0)throw new Error(`BAIDU_PLACE_ERROR:${String(body.status??"UNKNOWN")}`);
       return Array.isArray(body.results)?body.results.map(item=>normalizePlace(item as BaiduPlace)).filter((item):item is VenuePlace=>item!==null):[];
     },
-  async reverseGeocode(){throw new Error("REVERSE_GEOCODE_PROVIDER_UNAVAILABLE");},
+    async reverseGeocode({latitude,longitude}){
+      if(!Number.isFinite(latitude)||latitude < -90||latitude > 90||!Number.isFinite(longitude)||longitude < -180||longitude > 180)throw new Error("VENUE_COORDINATES");
+      if(!ak)throw new Error("BAIDU_MAP_AK_MISSING");if(!fetchImpl)throw new Error("REVERSE_GEOCODE_UNAVAILABLE");
+      const params=new URLSearchParams({location:`${latitude},${longitude}`,coordtype:"wgs84ll",output:"json",ak});
+      const response=await fetchImpl(`https://api.map.baidu.com/reverse_geocoding/v3/?${params.toString()}`);
+      if(!response.ok)throw new Error("BAIDU_REVERSE_HTTP_ERROR");
+      const body=await response.json() as BaiduResponse;
+      if(body.status!==0)throw new Error(`BAIDU_REVERSE_ERROR:${String(body.status??"UNKNOWN")}`);
+      const result=body.result||{};
+      const address=typeof result.formatted_address==="string"?result.formatted_address.trim():"";
+      const pois=Array.isArray(result.pois)?result.pois:[];
+      const poiName=pois.find((p:any)=>typeof p?.name==="string"&&p.name.trim())?.name?.trim()||"";
+      const semantic=typeof result.sematic_description==="string"?result.sematic_description.trim():"";
+      const name=poiName||semantic||address;
+      if(!name&&!address)return null;
+      return {name:name||address,address:address||name,latitude,longitude,provider:"baidu",placeId:typeof pois[0]?.uid==="string"?pois[0].uid:null};
+    },
     externalMapUrl({latitude,longitude,name}){
       if(!Number.isFinite(latitude)||latitude < -90||latitude > 90||!Number.isFinite(longitude)||longitude < -180||longitude > 180)throw new Error("VENUE_COORDINATES");
       const destination=name?.trim()?`name:${name.trim()}|latlng:${latitude},${longitude}`:`latlng:${latitude},${longitude}`;
@@ -51,13 +67,14 @@ export function createBaiduMapProvider(options:BaiduMapProviderOptions={}):MapPr
 
 export function createConfiguredBaiduMapProvider(region="全国"):MapProvider{
   const proxyFetch:FetchLike=async input=>{
-    const url=new URL(input),query=url.searchParams.get("query")||"",region=url.searchParams.get("region")||"全国";
+    const url=new URL(input),query=url.searchParams.get("query")||"",region=url.searchParams.get("region")||"全国",location=url.searchParams.get("location")||"";
     const {supabase}=await import("../repositories/supabase.ts");
     const session=(await supabase?.auth.getSession())?.data.session;
     if(!session)throw new Error("AUTH_REQUIRED");
-    const response=await fetch(`/api/venue-search?query=${encodeURIComponent(query)}&region=${encodeURIComponent(region)}`,{
-      headers:{Authorization:`Bearer ${session.access_token}`}
-    });
+    const endpoint=url.pathname.includes("reverse_geocoding")
+      ?`/api/venue-reverse?location=${encodeURIComponent(location)}`
+      :`/api/venue-search?query=${encodeURIComponent(query)}&region=${encodeURIComponent(region)}`;
+    const response=await fetch(endpoint,{headers:{Authorization:`Bearer ${session.access_token}`}});
     if(response.status===401)throw new Error("AUTH_REQUIRED");
     return {ok:response.ok,json:()=>response.json()};
   };

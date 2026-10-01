@@ -23,10 +23,18 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
 
   function resolveReadablePlace(next:{lat:number;lng:number}){
     if(lookupTimer.current!==null)window.clearTimeout(lookupTimer.current);
-    const seq=++lookupSeq.current;setResolving(true);setPlace(null);
-    lookupTimer.current=window.setTimeout(()=>{void browserMapProvider.reverseGeocode({latitude:next.lat,longitude:next.lng},language).then(found=>{
-      if(seq!==lookupSeq.current)return;setPlace(found?{name:found.name,address:found.address,provider:found.provider,placeId:found.placeId}:null);
-    }).catch(()=>{if(seq===lookupSeq.current)setPlace(null)}).finally(()=>{if(seq===lookupSeq.current)setResolving(false)});},450);
+    const seq=++lookupSeq.current;setResolving(true);
+    lookupTimer.current=window.setTimeout(()=>{void (async()=>{
+      let found:VenuePlace|null=null;
+      if(!en){
+        try{found=await createConfiguredBaiduMapProvider((initialCity||"").trim()||"全国").reverseGeocode({latitude:next.lat,longitude:next.lng},language);}catch{}
+      }
+      if(!found&&en){
+        try{found=await browserMapProvider.reverseGeocode({latitude:next.lat,longitude:next.lng},language);}catch{}
+      }
+      if(seq!==lookupSeq.current)return;
+      if(found)setPlace({name:found.name,address:found.address,provider:found.provider,placeId:found.placeId});
+    })().finally(()=>{if(seq===lookupSeq.current)setResolving(false)});},450);
   }
 
   useEffect(()=>{let cancelled=false;void ensureLeaflet().then(L=>{
