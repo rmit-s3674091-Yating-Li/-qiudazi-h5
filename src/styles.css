@@ -1094,3 +1094,9 @@ p {
 .event-venue-detail{display:block;margin-top:4px;font-size:12px;color:var(--ink)}
 .event-venue-address{display:block;margin-top:5px;line-height:1.55}
 .event-venue-fact .text-button{display:block;width:max-content;margin-top:5px}
+
+/* V7 read-only event venue map */
+.venue-readonly-panel{width:min(100% - 24px,456px);margin:auto}
+.venue-readonly-panel .venue-map-wrap{min-height:360px}
+.venue-readonly-panel .venue-map-canvas{height:min(56dvh,460px);min-height:360px}
+@media(max-width:520px){.venue-readonly-panel .venue-map-canvas{height:50dvh;min-height:340px}}
