@@ -1,17 +1,19 @@
 # V8 Discovery
 
-V8 discovery 的权威研究真源已迁移到内部 Supabase research store：
+V8 discovery 的权威研究真源是内部 Supabase research store：
 
 - project: `qiudazi-test`
+- project id: `rtmjzmgrhifjzxaliltm`
 - schema/table: `research_ops.v8_notes`
-- recurring automation 只读产品基线，并将实质研究结论写入该表
 - `main` / Production 仍是已发布 V7 基线，不承载 V8 discovery
 
-本目录仅保留阶段性、专题型可读研究快照。专题文件不是实时真源，不要求每小时同步；V8 framing / 立项时再从 research store 汇总成正式 scope / PRD / Workboard。
+## 当前研究结构
 
-已退役并完成数据库归档的旧结构包括：
-- `NEXT_VERSION_RESEARCH.md`
-- `PRODUCT_EXPERIENCE_RESEARCH.md`
-- `docs/discovery/runs/**`
+数据库中保留两层研究事实：
 
-迁移前的 28 个研究文件均已以完整 Markdown + 原路径 + blob SHA 归档到 `research_ops.v8_notes`，状态为 `MIGRATED_ARCHIVE`。
+1. 原始研究记录：包括 historical `MIGRATED_ARCHIVE` 与后续 V8 research notes，用于追溯来源、证据与完整正文。
+2. 阶段性整合：当前整合版本为 fingerprint `synthesis-v8-discovery-20261003-v1`，标题 `V8 Discovery Integrated Synthesis v1`，用于后续 V8 framing / scope / PRD / Workboard 讨论。
+
+GitHub `docs/discovery/` 不再保存重复专题研究快照；旧总账、旧 runs 目录和专题 research docs 均已在数据库确认归档/整合后退役删除。
+
+注意：scheduled automation 当前只负责研究并输出完整 `V8_RESEARCH_NOTE`，不承担可靠写入；正常对话环境负责把需要保留的研究写入 `research_ops.v8_notes`。未经用户明确确认，`DECISION_CANDIDATE` 不等于开发任务或版本授权。
