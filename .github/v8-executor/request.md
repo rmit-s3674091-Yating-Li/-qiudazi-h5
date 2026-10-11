@@ -13,3 +13,5 @@
 - targeted tests + changed-file format check + unit + integration + build 全部通过后才能提交。
 
 不得 merge main、不得 Production deploy、不得移动 release-candidate、不得开发任何研究候选功能。
+
+EXECUTOR_RETRY=2
