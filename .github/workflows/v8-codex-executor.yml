@@ -1,6 +1,11 @@
 name: V8 Codex Executor
 
 on:
+  push:
+    branches:
+      - feature/v8-confirmed-20261011
+    paths:
+      - '.github/v8-executor/request.md'
   workflow_dispatch:
     inputs:
       task:
@@ -32,26 +37,38 @@ jobs:
           ref: feature/v8-confirmed-20261011
           fetch-depth: 0
 
-      - name: Verify expected base SHA
+      - name: Resolve task and verify base
         shell: bash
+        env:
+          DISPATCH_TASK: ${{ inputs.task }}
+          EXPECTED_BASE_SHA: ${{ inputs.expected_base_sha }}
         run: |
           set -euo pipefail
           ACTUAL_SHA="$(git rev-parse HEAD)"
           echo "actual_sha=${ACTUAL_SHA}"
-          if [ "${ACTUAL_SHA}" != "${{ inputs.expected_base_sha }}" ]; then
-            echo "Expected ${{ inputs.expected_base_sha }} but branch is ${ACTUAL_SHA}. Refusing stale execution."
-            exit 1
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            if [ "${ACTUAL_SHA}" != "${EXPECTED_BASE_SHA}" ]; then
+              echo "Expected ${EXPECTED_BASE_SHA} but branch is ${ACTUAL_SHA}. Refusing stale execution."
+              exit 1
+            fi
+            printf '%s\n' "${DISPATCH_TASK}" > /tmp/v8-task.txt
+          else
+            test -f .github/v8-executor/request.md || { echo 'Missing request file'; exit 1; }
+            cp .github/v8-executor/request.md /tmp/v8-task.txt
           fi
+
+          test -s /tmp/v8-task.txt || { echo 'Resolved task is empty'; exit 1; }
+          echo 'Resolved task:'
+          cat /tmp/v8-task.txt
 
       - name: Guard approved V8 scope
         shell: bash
-        env:
-          TASK: ${{ inputs.task }}
         run: |
           set -euo pipefail
           python - <<'PY'
-          import os
-          task = os.environ['TASK'].lower()
+          from pathlib import Path
+          task = Path('/tmp/v8-task.txt').read_text(encoding='utf-8').lower()
           allowed = [
               '参赛者', 'participant', 'score', 'scoring',
               '导航', 'navigation', 'bottom nav',
@@ -80,7 +97,6 @@ jobs:
       - name: Run Codex against approved task
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          V8_TASK: ${{ inputs.task }}
         shell: bash
         run: |
           set -euo pipefail
@@ -105,7 +121,7 @@ jobs:
 
           Approved task:
           EOF
-          printf '%s\n' "${V8_TASK}" >> /tmp/v8-codex-task.txt
+          cat /tmp/v8-task.txt >> /tmp/v8-codex-task.txt
           codex exec --full-auto "$(cat /tmp/v8-codex-task.txt)"
 
       - name: Verify no forbidden workflow or release mutations
