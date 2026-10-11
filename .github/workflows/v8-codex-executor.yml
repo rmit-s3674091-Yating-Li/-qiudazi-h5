@@ -1,0 +1,160 @@
+name: V8 Codex Executor
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "Approved V8 confirmed-scope task for Codex"
+        required: true
+        type: string
+      expected_base_sha:
+        description: "Exact expected HEAD of feature/v8-confirmed-20261011"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: v8-codex-executor-feature-v8-confirmed
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    if: github.ref == 'refs/heads/feature/v8-confirmed-20261011'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout exact V8 branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v8-confirmed-20261011
+          fetch-depth: 0
+
+      - name: Verify expected base SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          echo "actual_sha=${ACTUAL_SHA}"
+          if [ "${ACTUAL_SHA}" != "${{ inputs.expected_base_sha }}" ]; then
+            echo "Expected ${{ inputs.expected_base_sha }} but branch is ${ACTUAL_SHA}. Refusing stale execution."
+            exit 1
+          fi
+
+      - name: Guard approved V8 scope
+        shell: bash
+        env:
+          TASK: ${{ inputs.task }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          task = os.environ['TASK'].lower()
+          allowed = [
+              '参赛者', 'participant', 'score', 'scoring',
+              '导航', 'navigation', 'bottom nav',
+              '快速开赛', 'quick start', 'round robin', 'knockout', '循环', '淘汰',
+              'platform admin', 'admin', '后台'
+          ]
+          if not any(token in task for token in allowed):
+              raise SystemExit('Task is outside the four approved V8 confirmed scopes.')
+          forbidden = ['merge main', 'production deploy', 'release gate', 'social club', 'crm', 'payment']
+          if any(token in task for token in forbidden):
+              raise SystemExit('Task requests a forbidden or research-only scope.')
+          PY
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex
+
+      - name: Run Codex against approved task
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          V8_TASK: ${{ inputs.task }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${OPENAI_API_KEY:-}" || { echo 'Missing GitHub Actions secret OPENAI_API_KEY'; exit 1; }
+          cat > /tmp/v8-codex-task.txt <<'EOF'
+          You are the implementation executor for 球搭子 V8.
+
+          Repository branch: feature/v8-confirmed-20261011.
+          You may modify ONLY this checked-out feature branch workspace.
+          Do NOT merge main, do NOT deploy Production, do NOT move release-candidate, do NOT broaden scope beyond the user-approved V8 confirmed items.
+          Research candidates are not approved development scope.
+
+          Governance requirements:
+          - Inspect current repository code and governance docs before editing.
+          - Make the smallest coherent implementation for the supplied task.
+          - Reuse existing domain semantics instead of duplicating business logic.
+          - Preserve compatibility with existing V7 behavior unless the supplied task explicitly changes it.
+          - If DB changes are needed, create repository migration files/tests only. Do not apply live Supabase changes.
+          - Before finishing, run relevant targeted tests, then the repository's real format/lint/test/build commands that exist in package.json. Never invent commands.
+          - Keep the git working tree with only intended changes. Do not commit or push; the workflow will do that after validation.
+          - If the task cannot be completed safely or tests fail, exit non-zero after explaining the blocker and leave no misleading success marker.
+
+          Approved task:
+          EOF
+          printf '%s\n' "${V8_TASK}" >> /tmp/v8-codex-task.txt
+          codex exec --full-auto "$(cat /tmp/v8-codex-task.txt)"
+
+      - name: Verify no forbidden workflow or release mutations
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only > /tmp/changed-files.txt
+          cat /tmp/changed-files.txt
+          while IFS= read -r file; do
+            case "$file" in
+              .github/workflows/*)
+                echo "Codex may not modify workflow files: $file"
+                exit 1
+                ;;
+              *release-candidate*|*production*|*Production*)
+                echo "Forbidden release/production mutation detected: $file"
+                exit 1
+                ;;
+            esac
+          done < /tmp/changed-files.txt
+
+      - name: Run repository validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('fs');
+          const { execSync } = require('child_process');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const scripts = pkg.scripts || {};
+          const preferred = ['format:check', 'format', 'lint', 'test:unit', 'test', 'build'];
+          for (const name of preferred) {
+            if (!scripts[name]) continue;
+            console.log(`::group::npm run ${name}`);
+            execSync(`npm run ${name}`, { stdio: 'inherit' });
+            console.log('::endgroup::');
+          }
+          NODE
+
+      - name: Commit and push to V8 feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet && git diff --cached --quiet; then
+            echo 'Codex produced no changes; nothing to commit.'
+            exit 0
+          fi
+          git config user.name 'qiudazi-v8-codex-bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m "V8: automated confirmed-scope implementation"
+          git push origin HEAD:feature/v8-confirmed-20261011
