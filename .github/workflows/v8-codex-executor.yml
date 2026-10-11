@@ -1,11 +1,6 @@
 name: V8 Codex Executor
 
 on:
-  push:
-    branches:
-      - feature/v8-confirmed-20261011
-    paths:
-      - '.github/v8-executor/request.md'
   workflow_dispatch:
     inputs:
       task:
@@ -47,17 +42,11 @@ jobs:
           ACTUAL_SHA="$(git rev-parse HEAD)"
           echo "actual_sha=${ACTUAL_SHA}"
 
-          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            if [ "${ACTUAL_SHA}" != "${EXPECTED_BASE_SHA}" ]; then
-              echo "Expected ${EXPECTED_BASE_SHA} but branch is ${ACTUAL_SHA}. Refusing stale execution."
-              exit 1
-            fi
-            printf '%s\n' "${DISPATCH_TASK}" > /tmp/v8-task.txt
-          else
-            test -f .github/v8-executor/request.md || { echo 'Missing request file'; exit 1; }
-            cp .github/v8-executor/request.md /tmp/v8-task.txt
+          if [ "${ACTUAL_SHA}" != "${EXPECTED_BASE_SHA}" ]; then
+            echo "Expected ${EXPECTED_BASE_SHA} but branch is ${ACTUAL_SHA}. Refusing stale execution."
+            exit 1
           fi
-
+          printf '%s\n' "${DISPATCH_TASK}" > /tmp/v8-task.txt
           test -s /tmp/v8-task.txt || { echo 'Resolved task is empty'; exit 1; }
           echo 'Resolved task:'
           cat /tmp/v8-task.txt
