@@ -68,7 +68,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '22.12.0'
           cache: npm
 
       - name: Install dependencies
@@ -99,9 +99,9 @@ jobs:
           - Reuse existing domain semantics instead of duplicating business logic.
           - Preserve compatibility with existing V7 behavior unless the supplied task explicitly changes it.
           - If DB changes are needed, create repository migration files/tests only. Do not apply live Supabase changes.
-          - Before finishing, run relevant targeted tests, then the repository's real format/lint/test/build commands that exist in package.json. Never invent commands.
-          - Keep the git working tree with only intended changes. Do not commit or push; the workflow will do that after validation.
-          - If the task cannot be completed safely or tests fail, exit non-zero after explaining the blocker and leave no misleading success marker.
+          - Run relevant targeted tests while developing.
+          - Keep the git working tree with only intended changes. Do not commit or push; the workflow will validate and commit after you finish.
+          - If the task cannot be completed safely, explain the blocker and exit non-zero rather than claiming success.
 
           Approved task:
           EOF
@@ -127,23 +127,26 @@ jobs:
             esac
           done < /tmp/changed-files.txt
 
-      - name: Run repository validation
+      - name: Format and check changed source files
         shell: bash
         run: |
           set -euo pipefail
-          node - <<'NODE'
-          const fs = require('fs');
-          const { execSync } = require('child_process');
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          const scripts = pkg.scripts || {};
-          const preferred = ['format:check', 'format', 'lint', 'test:unit', 'test', 'build'];
-          for (const name of preferred) {
-            if (!scripts[name]) continue;
-            console.log(`::group::npm run ${name}`);
-            execSync(`npm run ${name}`, { stdio: 'inherit' });
-            console.log('::endgroup::');
-          }
-          NODE
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR | grep -E '\.(js|mjs|cjs|ts|tsx|jsx|json|css|md|yml|yaml)$' || true)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo 'No Prettier-supported changed files.'
+            exit 0
+          fi
+          npx --yes prettier@3.6.2 --write "${files[@]}"
+          npx --yes prettier@3.6.2 --check "${files[@]}"
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+      - name: Build
+        run: npm run build
 
       - name: Commit and push to V8 feature branch
         shell: bash
