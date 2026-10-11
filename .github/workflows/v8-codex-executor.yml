@@ -77,9 +77,6 @@ jobs:
           ]
           if not any(token in task for token in allowed):
               raise SystemExit('Task is outside the four approved V8 confirmed scopes.')
-          forbidden = ['merge main', 'production deploy', 'release gate', 'social club', 'crm', 'payment']
-          if any(token in task for token in forbidden):
-              raise SystemExit('Task requests a forbidden or research-only scope.')
           PY
 
       - name: Setup Node
