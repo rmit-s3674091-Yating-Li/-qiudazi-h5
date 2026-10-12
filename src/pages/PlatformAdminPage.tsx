@@ -46,6 +46,7 @@ export function PlatformAdminPage() {
     return () => { cancelled = true; };
   }, [ready, userId]);
 
+  // A previous account's successful role lookup must never survive an identity switch.
   const status = !ready ? "loading" : !userId ? "signed_out" : access.userId !== userId ? "loading" : access.status;
   return <>
     <Header title={en ? "Platform administration" : "平台管理"} backTo="/me" />
