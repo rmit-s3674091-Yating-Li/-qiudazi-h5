@@ -17,6 +17,10 @@ requireText(edge, "path: [\"operation_id\"]", "missing point operation UUID is a
 requireText(edge, ".eq(\"id\", cmd.operation_id)", "edge retries resolve Point Log by operation UUID");
 requireText(edge, "return cmd.operation_id", "operation UUID becomes authoritative Point Log id");
 requireText(edge, "OPERATION_CONFLICT", "operation UUID cannot be reused for a different point");
+requireText(edge, "current.event.id !== cmd.event_id", "point replay is bound to its original event");
+requireText(edge, "match.id === cmd.match_id && match.event_id === cmd.event_id", "point replay match belongs to requested event");
+requireText(edge, "log.id === cmd.operation_id && log.match_id === cmd.match_id && log.winner_side === cmd.side", "point replay is backed by the authoritative point log");
+requireText(edge, "return { conflict: true as const, snapshot: null }", "cross-event point replay fails closed");
 requireText(edge, "const recovered = await findPointOperation(client, cmd, user.id)", "version-conflict loser rechecks committed operation with actor context");
 requireText(matchPage, "type PendingPoint={side:Side;operationId:string}", "optimistic queue retains a stable operation UUID per point");
 requireText(matchPage, "operation_id:pending.operationId", "point persistence sends the queued operation UUID");

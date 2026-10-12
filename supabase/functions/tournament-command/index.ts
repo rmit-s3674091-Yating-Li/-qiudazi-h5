@@ -47,7 +47,16 @@ async function findPointOperation(client: ReturnType<typeof createClient>, cmd: 
   if (data.match_id !== cmd.match_id || data.winner_side !== cmd.side) return { conflict: true as const, snapshot: null };
   const { data: snapshot, error: snapshotError } = await client.rpc("get_event_snapshot_for_actor", { p_event_id: cmd.event_id, p_actor_auth_user_id: actorAuthUserId });
   if (snapshotError) throw snapshotError;
-  return { conflict: false as const, snapshot: snapshot as Snapshot };
+  const current = snapshot as Snapshot | null;
+  if (
+    !current ||
+    current.event.id !== cmd.event_id ||
+    !current.matches.some((match) => match.id === cmd.match_id && match.event_id === cmd.event_id) ||
+    !current.point_logs.some(
+      (log) => log.id === cmd.operation_id && log.match_id === cmd.match_id && log.winner_side === cmd.side,
+    )
+  ) return { conflict: true as const, snapshot: null };
+  return { conflict: false as const, snapshot: current };
 }
 
 Deno.serve(async (req) => {
@@ -74,8 +83,6 @@ Deno.serve(async (req) => {
     if (existing?.conflict) return json({ error: "operation_id 已用于另一条得分操作", code: "OPERATION_CONFLICT" }, 409);
     if (existing?.snapshot) return json(existing.snapshot);
 
-    // Participant withdrawal has a deliberately narrow transaction boundary. Ordinary
-    // tournament mutations remain owner-only in commit_tournament.
     if (cmd.type === "withdraw") {
       if (!cmd.confirmed) return json({ error: "退出比赛前需要确认", code: "CONFIRM_REQUIRED" }, 409);
       const result = await client.rpc("withdraw_quick_event", {
@@ -87,9 +94,6 @@ Deno.serve(async (req) => {
       return json(result.data);
     }
 
-    // Once a Quick event is ongoing, leaving is a Match result rather than roster
-    // withdrawal. Keep this on the dedicated authoritative transaction so winner,
-    // downstream advancement and final Event completion are committed atomically.
     if (cmd.type === "exit") {
       if (!cmd.confirmed) return json({ error: "退赛/弃权前需要确认", code: "CONFIRM_REQUIRED" }, 409);
       const result = await client.rpc("resolve_quick_match_exit", {

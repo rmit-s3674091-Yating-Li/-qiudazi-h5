@@ -21,4 +21,12 @@ expect(publicNotice.includes("只有赛事组织者可以上传、管理或删�
 expect(publicNotice.includes("参赛者不能向赛事源相册上传、修改或删除赛事照片"),"participants must not be described as source-photo uploaders");
 expect(publicNotice.includes("形成与赛事源照片相互独立的个人相册副本"),"personal event-album copy must be described as independent");
 expect(publicNotice.includes("受保护预览内容"),"partner-visible personal albums must be described as protected previews");
-console.log("Login/privacy navigation unit tests passed");
+const adminShell=fs.readFileSync("src/pages/PlatformAdminPage.tsx","utf8");
+expect(main.includes('path="/platform-admin" element={<PlatformAdminPage/>}'),"admin route must be isolated from ordinary event routes");
+expect(!main.includes('path="/platform-admin" element={<IdentityGate>'),"admin route must not auto-provision a guest through IdentityGate");
+expect(adminShell.includes('rpc<string | null>("platform_admin_my_role")'),"admin access must be checked with caller-self role RPC");
+expect(adminShell.includes('access.userId !== userId'),"admin role state must not leak across account switches");
+expect(adminShell.includes('status === "unavailable"')&&adminShell.includes('status === "denied"'),"admin shell must fail closed on RPC errors and non-admins");
+expect(!adminShell.includes('rpc<void>')&&!adminShell.includes('command('),"admin shell must not expose mutation commands");
+expect(!ui.includes('to="/platform-admin"'),"platform admin must not be added to ordinary bottom navigation");
+console.log("Login/privacy/admin route contract tests passed");

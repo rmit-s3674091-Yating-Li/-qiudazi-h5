@@ -35,10 +35,19 @@ begin
     or (select count(*) from public.entries where event_id=ev.id and status='confirmed')<>4
   then raise exception 'QUICK_GROUP_PERSISTENCE_BAD'; end if;
 
+  -- Standard event parity: a single round-robin group may advance >=2 entries.
+  ev:=public.create_quick_event(config||'{"group_count":1,"qualifiers_per_group":2}'::jsonb,roster);
+  if ev.group_count<>1 or ev.qualifiers_per_group<>2
+    or (select count(*) from public.entries where event_id=ev.id and status='confirmed')<>4
+  then raise exception 'QUICK_SINGLE_GROUP_PERSISTENCE_BAD'; end if;
+  ev:=public.create_quick_event(config||'{"group_count":1,"qualifiers_per_group":2}'::jsonb,
+    jsonb_build_array(roster->0,roster->1,roster->2));
+  if ev.group_count<>1 or ev.entry_limit<>3 then raise exception 'QUICK_SINGLE_GROUP_THREE_ENTRIES_BAD'; end if;
+
   blocked:=false;
-  begin perform public.create_quick_event(config||'{"group_count":1}'::jsonb,roster);
+  begin perform public.create_quick_event(config||'{"group_count":1,"qualifiers_per_group":1}'::jsonb,roster);
   exception when others then blocked:=(sqlerrm='GROUP_CONFIG'); end;
-  if not blocked then raise exception 'QUICK_GROUP_ONE_GROUP_ACCEPTED'; end if;
+  if not blocked then raise exception 'QUICK_SINGLE_GROUP_ONE_QUALIFIER_ACCEPTED'; end if;
 
   blocked:=false;
   begin perform public.create_quick_event(config||'{"group_count":0}'::jsonb,roster);

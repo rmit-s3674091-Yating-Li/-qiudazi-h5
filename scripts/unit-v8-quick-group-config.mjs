@@ -11,7 +11,8 @@ const module = { exports: {} };
 vm.runInNewContext(`(function(module,exports){${js}\n})(module,module.exports)`, { module });
 const { maxQuickGroupCount, isValidQuickGroupConfig } = module.exports;
 
-assert.equal(maxQuickGroupCount(3), 0);
+assert.equal(maxQuickGroupCount(2), 0);
+assert.equal(maxQuickGroupCount(3), 1);
 assert.equal(maxQuickGroupCount(4), 2);
 assert.equal(maxQuickGroupCount(7), 3);
 assert.equal(maxQuickGroupCount(54), 26);
@@ -19,7 +20,12 @@ assert.equal(maxQuickGroupCount(4.5), 0);
 
 for (const [entries, groups, qualifiers, expected] of [
   [4, 2, 1, true],
+  [3, 1, 2, true],
+  [3, 1, 1, false],
   [4, 1, 1, false],
+  [4, 1, 2, true],
+  [4, 1, 3, true],
+  [4, 1, 4, false],
   [4, 2, 2, false],
   [5, 2, 1, true],
   [6, 3, 1, true],

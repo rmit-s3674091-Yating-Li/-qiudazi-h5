@@ -24,4 +24,6 @@ assert.match(
   "Pending Quick draw recovery must remain first",
 );
 assert.match(source, /<option value="points_15">/, "Quick scoring must retain the supported 15-point preset");
+assert.match(source, /min=\{1\} max=\{Math\.max\(1,maxGroups\)\}/, "Single group must be selectable");
+assert.match(source, /One group needs 3\+ entries and 2\+ qualifiers/, "Single-group minimums must be explained");
 console.log("V8 quick group + knockout UI contract passed");
