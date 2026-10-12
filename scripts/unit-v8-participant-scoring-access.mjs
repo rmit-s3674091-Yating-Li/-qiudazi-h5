@@ -48,7 +48,7 @@ try {
     event_id: "event-1",
     status: "confirmed",
     signup_user_id: signupUser,
-    players: [{ id: `player-${id}`, linked_user_id: linkedUser }],
+    players: [{ id: `player-${id}`, linked_user_id: linkedUser, active: true }],
   });
   const entries = [
     entry("entry-a", "alice"),
@@ -73,6 +73,22 @@ try {
     entries: [entry("entry-a", null), ...entries.slice(1)],
   });
   deny("charlie", "point", "NOT_MATCH_PARTICIPANT");
+  // Inactive links may still be present in historical snapshot rosters.
+  deny("alice", "point", "NOT_MATCH_PARTICIPANT", {
+    ...base,
+    entries: entries.map((e) =>
+      e.id === "entry-a" ? { ...e, players: [{ ...e.players[0], active: false }] } : e,
+    ),
+  });
+  // Older snapshots without an explicit active flag must fail closed.
+  deny("alice", "score", "NOT_MATCH_PARTICIPANT", {
+    ...base,
+    entries: entries.map((e) =>
+      e.id === "entry-a"
+        ? { ...e, players: [{ id: "legacy-player", linked_user_id: "alice" }] }
+        : e,
+    ),
+  });
   deny("alice", "undo", "ORGANIZER_ONLY");
   deny("alice", "begin", "ORGANIZER_ONLY");
   deny("alice", "point", "NOT_MATCH_PARTICIPANT", {

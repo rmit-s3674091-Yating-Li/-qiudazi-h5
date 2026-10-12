@@ -83,6 +83,50 @@ begin
   exception when unique_violation then blocked:=true; end;
   if not blocked then raise exception 'AUDIT_REQUEST_REPLAY_ACCEPTED'; end if;
 
+  -- Revocation and role downgrade must take effect at the next audit insert;
+  -- cached client role state must never authorize a stale administrator.
+  update platform_ops.admin_members set active=false
+  where auth_user_id='92222222-2222-4222-8222-222222222222';
+  blocked:=false;
+  begin
+    insert into platform_ops.admin_action_audit
+      (request_id,actor_auth_user_id,action,target_kind,target_id,reason)
+    values ('95555555-5555-4555-8555-555555555556',
+      '92222222-2222-4222-8222-222222222222',
+      'REPORT_RESOLVE','report','report-revoked','Revoked operator must not resolve reports');
+  exception when others then blocked:=(sqlerrm='PLATFORM_ADMIN_FORBIDDEN'); end;
+  if not blocked then raise exception 'DEACTIVATED_OPERATOR_WRITE_ACCEPTED'; end if;
+
+  update platform_ops.admin_members set active=true, role='reviewer'
+  where auth_user_id='92222222-2222-4222-8222-222222222222';
+  blocked:=false;
+  begin
+    insert into platform_ops.admin_action_audit
+      (request_id,actor_auth_user_id,action,target_kind,target_id,reason)
+    values ('95555555-5555-4555-8555-555555555557',
+      '92222222-2222-4222-8222-222222222222',
+      'FEEDBACK_RESOLVE','feedback','feedback-downgraded','Reviewer cannot resolve feedback after downgrade');
+  exception when others then blocked:=(sqlerrm='PLATFORM_ADMIN_FORBIDDEN'); end;
+  if not blocked then raise exception 'DOWNGRADED_REVIEWER_WRITE_ACCEPTED'; end if;
+
+  update platform_ops.admin_members set role='operator'
+  where auth_user_id='93333333-3333-4333-8333-333333333333';
+  blocked:=false;
+  begin
+    insert into platform_ops.admin_action_audit
+      (request_id,actor_auth_user_id,action,target_kind,target_id,reason)
+    values ('95555555-5555-4555-8555-555555555558',
+      '93333333-3333-4333-8333-333333333333',
+      'SCORE_CORRECT','match','match-downgraded','Downgraded admin cannot correct match results');
+  exception when others then blocked:=(sqlerrm='PLATFORM_ADMIN_HIGH_RISK_FORBIDDEN'); end;
+  if not blocked then raise exception 'DOWNGRADED_OPERATOR_HIGH_RISK_ACCEPTED'; end if;
+
+  -- Restore fixture roles for later assertions in this transaction.
+  update platform_ops.admin_members set role='operator'
+  where auth_user_id='92222222-2222-4222-8222-222222222222';
+  update platform_ops.admin_members set role='super_admin'
+  where auth_user_id='93333333-3333-4333-8333-333333333333';
+
   blocked:=false;
   begin
     update platform_ops.admin_action_audit set reason='Attempted unauthorized audit rewrite'
@@ -103,6 +147,50 @@ begin
   then raise exception 'AUDIT_INSERT_OR_RISK_CLASSIFICATION_BAD'; end if;
 end;
 $test$;
+do $role_acl$
+begin
+  if has_function_privilege('anon', 'public.platform_admin_my_role()', 'EXECUTE')
+     or not has_function_privilege('authenticated', 'public.platform_admin_my_role()', 'EXECUTE')
+  then raise exception 'ADMIN_ROLE_RPC_ACL_LEAK'; end if;
+end;
+$role_acl$;
+
+-- Simulate PostgREST's authenticated JWT claim; no caller-supplied user id.
+set local role authenticated;
+do $role_self$
+begin
+  perform set_config('request.jwt.claim.sub', '91111111-1111-4111-8111-111111111111', true);
+  if public.platform_admin_my_role() is distinct from 'reviewer'
+  then raise exception 'ADMIN_ROLE_REVIEWER_MISMATCH'; end if;
+
+  perform set_config('request.jwt.claim.sub', '92222222-2222-4222-8222-222222222222', true);
+  if public.platform_admin_my_role() is distinct from 'operator'
+  then raise exception 'ADMIN_ROLE_OPERATOR_MISMATCH'; end if;
+
+  perform set_config('request.jwt.claim.sub', '93333333-3333-4333-8333-333333333333', true);
+  if public.platform_admin_my_role() is distinct from 'super_admin'
+  then raise exception 'ADMIN_ROLE_SUPER_MISMATCH'; end if;
+
+  perform set_config('request.jwt.claim.sub', '94444444-4444-4444-8444-444444444444', true);
+  if public.platform_admin_my_role() is not null
+  then raise exception 'ADMIN_ROLE_OUTSIDER_DISCLOSURE'; end if;
+end;
+$role_self$;
+reset role;
+
+-- A deactivated administrator must immediately lose self-role visibility.
+update platform_ops.admin_members
+set active = false
+where auth_user_id = '92222222-2222-4222-8222-222222222222';
+set local role authenticated;
+do $role_inactive$
+begin
+  perform set_config('request.jwt.claim.sub', '92222222-2222-4222-8222-222222222222', true);
+  if public.platform_admin_my_role() is not null
+  then raise exception 'ADMIN_ROLE_INACTIVE_DISCLOSURE'; end if;
+end;
+$role_inactive$;
+reset role;
 select 'ok';
 rollback;
 SQL

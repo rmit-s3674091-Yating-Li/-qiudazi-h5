@@ -19,6 +19,7 @@ export type MatchScoringDecision =
  * The Edge Function must resolve actorProfileId from authenticated identity and
  * the database transaction must enforce the same match-scoped rules.
  * A signup_user_id alone does not establish that someone actually plays a match.
+ * Missing or inactive entry-player membership fails closed for participants.
  */
 export function decideMatchScoringAccess(
   snapshot: Snapshot,
@@ -49,7 +50,12 @@ export function decideMatchScoringAccess(
       entry.event_id === event.id &&
       entry.status === "confirmed" &&
       (entry.id === match.entry_a_id || entry.id === match.entry_b_id) &&
-      entry.players.some((player) => player.linked_user_id === actorProfileId),
+      entry.players.some(
+        (player) =>
+          player.linked_user_id === actorProfileId &&
+          "active" in player &&
+          player.active === true,
+      ),
   );
   if (!participates) return { allowed: false, reason: "NOT_MATCH_PARTICIPANT" };
   if (action === "begin" || action === "undo") return { allowed: false, reason: "ORGANIZER_ONLY" };
