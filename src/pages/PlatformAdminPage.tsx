@@ -34,17 +34,32 @@ export function PlatformAdminPage() {
   useEffect(() => {
     if (!ready || !userId) return;
     let cancelled = false;
-    setAccess({ userId, status: "loading", role: null });
-    rpc<string | null>("platform_admin_my_role")
-      .then((role) => {
-        if (cancelled) return;
-        setAccess({ userId, status: isAdminRole(role) ? "allowed" : "denied", role: isAdminRole(role) ? role : null });
-      })
-      .catch(() => {
-        if (!cancelled) setAccess({ userId, status: "unavailable", role: null });
-      });
-    return () => { cancelled = true; };
-  }, [ready, userId]);
+    let currentRequestId = 0;
+    const verifyAccess = () => {
+      const requestId = ++currentRequestId;
+      // A revoked or downgraded role must not remain visible during revalidation.
+      setAccess({ userId, status: "loading", role: null });
+      rpc<string | null>("platform_admin_my_role")
+        .then((role) => {
+          if (cancelled || requestId !== currentRequestId) return;
+          setAccess({ userId, status: isAdminRole(role) ? "allowed" : "denied", role: isAdminRole(role) ? role : null });
+        })
+        .catch(() => {
+          if (!cancelled && requestId === currentRequestId) setAccess({ userId, status: "unavailable", role: null });
+        });
+    };
+    const recheck = () => {
+      if (document.visibilityState === "visible") verifyAccess();
+    };
+    verifyAccess();
+    window.addEventListener("focus", recheck);
+    document.addEventListener("visibilitychange", recheck);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", recheck);
+      document.removeEventListener("visibilitychange", recheck);
+    };
+  }, [ready, userId, session?.access_token]);
 
   // A previous account's successful role lookup must never survive an identity switch.
   const status = !ready ? "loading" : !userId ? "signed_out" : access.userId !== userId ? "loading" : access.status;

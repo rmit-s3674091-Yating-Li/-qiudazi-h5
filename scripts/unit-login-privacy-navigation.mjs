@@ -28,5 +28,10 @@ expect(adminShell.includes('rpc<string | null>("platform_admin_my_role")'),"admi
 expect(adminShell.includes('access.userId !== userId'),"admin role state must not leak across account switches");
 expect(adminShell.includes('status === "unavailable"')&&adminShell.includes('status === "denied"'),"admin shell must fail closed on RPC errors and non-admins");
 expect(!adminShell.includes('rpc<void>')&&!adminShell.includes('command('),"admin shell must not expose mutation commands");
+expect(adminShell.includes('session?.access_token'),"admin role must recheck after session token changes");
+expect(adminShell.includes('window.addEventListener("focus", recheck)'),"admin role must recheck when the tab gains focus");
+expect(adminShell.includes('document.addEventListener("visibilitychange", recheck)'),"admin role must recheck when the tab becomes visible");
+expect(adminShell.includes('requestId !== currentRequestId'),"stale role lookup results must not override newer checks");
+expect(adminShell.includes('setAccess({ userId, status: "loading", role: null })'),"admin access must fail closed while revalidating");
 expect(!ui.includes('to="/platform-admin"'),"platform admin must not be added to ordinary bottom navigation");
 console.log("Login/privacy/admin route contract tests passed");
