@@ -33,20 +33,12 @@ function mergePlaces(groups:VenuePlace[][]){
   }
   return merged;
 }
-function coreSearchTerm(term:string){
-  return normalizeText(term).replace(/网球运动中心|网球俱乐部|网球中心|网球场|体育中心|运动中心|体育馆|运动馆|场馆|球场|网球|中心/g,"");
-}
-function fuzzyCoverage(candidate:string,core:string){
-  if(!core)return 1;
-  const chars=Array.from(new Set(core));
-  if(!chars.length)return 1;
-  return chars.filter(char=>candidate.includes(char)).length/chars.length;
-}
+function coreSearchTerm(term:string){return normalizeText(term).replace(/网球运动中心|网球俱乐部|网球中心|网球场|体育中心|运动中心|体育馆|运动馆|场馆|球场|网球|中心/g,"")}
+function fuzzyCoverage(candidate:string,core:string){if(!core)return 1;const chars=Array.from(new Set(core));if(!chars.length)return 1;return chars.filter(char=>candidate.includes(char)).length/chars.length}
 function rankPlaces(items:VenuePlace[],term:string){
   const needle=normalizeText(term),core=coreSearchTerm(term);
   return items.map((item,index)=>{
-    const name=normalizeText(item.name),address=normalizeText(item.address),haystack=`${name}${address}`;
-    const coverage=fuzzyCoverage(haystack,core);
+    const name=normalizeText(item.name),address=normalizeText(item.address),haystack=`${name}${address}`,coverage=fuzzyCoverage(haystack,core);
     let score=0;
     if(name===needle)score+=160;else if(name.startsWith(needle))score+=130;else if(name.includes(needle))score+=110;
     if(address.includes(needle))score+=55;
@@ -55,9 +47,7 @@ function rankPlaces(items:VenuePlace[],term:string){
     if(/网球|球场|体育|运动|公园/.test(item.name))score+=12;
     if(item.provider==="baidu")score+=8;
     return {item,index,score,coverage,direct:name.includes(needle)||address.includes(needle)||(!core?true:haystack.includes(core))};
-  }).filter(({coverage,direct})=>direct||coverage>=0.75)
-    .sort((a,b)=>b.score-a.score||a.index-b.index)
-    .map(({item})=>item);
+  }).filter(({coverage,direct})=>direct||coverage>=0.75).sort((a,b)=>b.score-a.score||a.index-b.index).map(({item})=>item);
 }
 
 export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,initialVenueName,initialAddress,language,onClose,onConfirm}:{initialLatitude?:number|null;initialLongitude?:number|null;initialCity?:string|null;initialVenueName?:string|null;initialAddress?:string|null;language:string;onClose:()=>void;onConfirm:(lat:number,lng:number,place?:PickedPlace|null)=>void}){
@@ -66,30 +56,21 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
   const[place,setPlace]=useState<PickedPlace|null>(null),[resolving,setResolving]=useState(false),[cityFallback,setCityFallback]=useState(false),[error,setError]=useState("");
   const[query,setQuery]=useState(initialVenueName||""),[results,setResults]=useState<VenuePlace[]>([]),[searching,setSearching]=useState(false),[searchOpen,setSearchOpen]=useState(false),[searchFocused,setSearchFocused]=useState(false);
 
-  function applyPlace(result:VenuePlace,zoom=15){
-    const next={lat:result.latitude,lng:result.longitude};
-    setPosition(next);setPlace({name:result.name,address:result.address,provider:result.provider,placeId:result.placeId});setCityFallback(false);setSearchOpen(false);setResults([]);setQuery(result.name);mapRef.current?.setView([next.lat,next.lng],zoom);
-  }
+  function applyPlace(result:VenuePlace,zoom=15){const next={lat:result.latitude,lng:result.longitude};setPosition(next);setPlace({name:result.name,address:result.address,provider:result.provider,placeId:result.placeId});setCityFallback(false);setSearchOpen(false);setResults([]);setQuery(result.name);mapRef.current?.setView([next.lat,next.lng],zoom)}
 
   async function searchPlaces(termInput=query){
     const term=termInput.trim();if(term.length<2)return;
     const seq=++searchSeq.current;setError("");setSearching(true);
     try{
       const groups:VenuePlace[][]=[];
-      if(!en){
+      if(en){
+        try{const items=await browserMapProvider.searchPlaces(term,{language:"en"});if(items.length)groups.push(items)}catch{}
+      }else{
         const baidu=createConfiguredBaiduMapProvider((initialCity||"").trim()||"全国");
         for(const variant of searchVariants(term)){
           try{const items=await baidu.searchPlaces(variant);if(items.length)groups.push(items)}catch{}
           if(seq!==searchSeq.current)return;
         }
-      }
-      const baiduCount=groups.reduce((sum,group)=>sum+group.length,0);
-      if(en||baiduCount<6){
-        try{
-          let fallback=await browserMapProvider.searchPlaces(term,{language:en?"en":"zh-CN"});
-          if(!en)fallback=fallback.filter(result=>hasHan(result.name)||hasHan(result.address));
-          if(fallback.length)groups.push(fallback);
-        }catch{}
       }
       if(seq!==searchSeq.current)return;
       const found=rankPlaces(mergePlaces(groups),term).slice(0,12);
@@ -98,61 +79,52 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
     finally{if(seq===searchSeq.current)setSearching(false)}
   }
 
-  useEffect(()=>{
-    if(!searchFocused)return;
-    const term=query.trim();
-    if(term.length<2){setSearchOpen(false);setResults([]);return;}
-    const timer=window.setTimeout(()=>{void searchPlaces(term)},320);
-    return()=>window.clearTimeout(timer);
-  },[query,searchFocused]);
+  useEffect(()=>{if(!searchFocused)return;const term=query.trim();if(term.length<2){setSearchOpen(false);setResults([]);return;}const timer=window.setTimeout(()=>{void searchPlaces(term)},320);return()=>window.clearTimeout(timer)},[query,searchFocused]);
 
   function resolveReadablePlace(next:{lat:number;lng:number}){
     if(lookupTimer.current!==null)window.clearTimeout(lookupTimer.current);
     const seq=++lookupSeq.current;setResolving(true);
     lookupTimer.current=window.setTimeout(()=>{void (async()=>{
       let found:VenuePlace|null=null;
-      if(!en){try{found=await createConfiguredBaiduMapProvider((initialCity||"").trim()||"全国").reverseGeocode({latitude:next.lat,longitude:next.lng},language);}catch{}}
-      if(!found){try{found=await browserMapProvider.reverseGeocode({latitude:next.lat,longitude:next.lng},language);}catch{}}
+      if(!en){try{found=await createConfiguredBaiduMapProvider((initialCity||"").trim()||"全国").reverseGeocode({latitude:next.lat,longitude:next.lng},language)}catch{}}
+      if(!found){try{found=await browserMapProvider.reverseGeocode({latitude:next.lat,longitude:next.lng},language)}catch{}}
       if(seq!==lookupSeq.current)return;
       if(found){setPlace({name:found.name,address:found.address,provider:found.provider,placeId:found.placeId});setQuery(q=>q||found!.name)}else setPlace(null);
-    })().finally(()=>{if(seq===lookupSeq.current)setResolving(false)});},400);
+    })().finally(()=>{if(seq===lookupSeq.current)setResolving(false)})},400);
   }
 
   useEffect(()=>{let cancelled=false;void ensureLeaflet().then(L=>{
     if(cancelled||!host.current)return;
-    const fallback={lat:39.9042,lng:116.4074};
-    const start=position??fallback;
+    const fallback={lat:39.9042,lng:116.4074},start=position??fallback;
     const map=L.map(host.current,{zoomControl:false}).setView([start.lat,start.lng],position?15:11);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap contributors"}).addTo(map);
-    map.on("dragstart",()=>{dragged.current=true;});
-    map.on("moveend",()=>{if(!dragged.current)return;dragged.current=false;const c=map.getCenter(),next={lat:c.lat,lng:c.lng};setPosition(next);setCityFallback(false);setPlace(null);setSearchOpen(false);resolveReadablePlace(next);});
+    map.on("dragstart",()=>{dragged.current=true});
+    map.on("moveend",()=>{if(!dragged.current)return;dragged.current=false;const c=map.getCenter(),next={lat:c.lat,lng:c.lng};setPosition(next);setCityFallback(false);setPlace(null);setSearchOpen(false);resolveReadablePlace(next)});
     mapRef.current=map;setTimeout(()=>map.invalidateSize(),0);
     if(position)resolveReadablePlace(position);
-    else {
+    else{
       const city=(initialCity||"").trim(),address=(initialAddress||"").trim();
-      if(city||address){
-        setResolving(true);
-        void (async()=>{
-          try{
-            let cityResult:VenuePlace|null=null;
-            if(city){const cityResults=await browserMapProvider.searchPlaces(city,{language:en?"en":"zh-CN"});if(cancelled)return;cityResult=cityResults[0]||null;}
-            const bounds=cityResult?.boundingBox||undefined;
-            const searchBounded=async(term:string)=>{const options=bounds?{viewbox:bounds,bounded:true,language:en?"en":"zh-CN"}:{language:en?"en":"zh-CN"};const items=await browserMapProvider.searchPlaces(term,options);if(cancelled)return [] as VenuePlace[];return en?items:items.filter(item=>hasHan(item.name)||hasHan(item.address));};
-            const baiduProvider=!en&&city?createConfiguredBaiduMapProvider(city):null;
-            if(address){let items:VenuePlace[]=[];if(baiduProvider){try{items=await baiduProvider.searchPlaces(address);}catch{}}if(!items.length)items=await searchBounded(address);if(items[0]){applyPlace(items[0]);return;}}
-            if(cityResult){setPosition(null);setPlace(null);setCityFallback(true);map.setView([cityResult.latitude,cityResult.longitude],12);}
-          }catch{}
-        })().finally(()=>{if(!cancelled)setResolving(false)});
-      }
+      if(city||address){setResolving(true);void (async()=>{
+        try{
+          let cityResult:VenuePlace|null=null;
+          if(city){const cityResults=await browserMapProvider.searchPlaces(city,{language:en?"en":"zh-CN"});if(cancelled)return;cityResult=cityResults[0]||null;}
+          const bounds=cityResult?.boundingBox||undefined;
+          const searchBounded=async(term:string)=>{const options=bounds?{viewbox:bounds,bounded:true,language:en?"en":"zh-CN"}:{language:en?"en":"zh-CN"};const items=await browserMapProvider.searchPlaces(term,options);if(cancelled)return [] as VenuePlace[];return en?items:items.filter(item=>hasHan(item.name)||hasHan(item.address));};
+          const baiduProvider=!en&&city?createConfiguredBaiduMapProvider(city):null;
+          if(address){let items:VenuePlace[]=[];if(baiduProvider){try{items=await baiduProvider.searchPlaces(address)}catch{}}if(!items.length)items=await searchBounded(address);if(items[0]){applyPlace(items[0]);return;}}
+          if(cityResult){setPosition(null);setPlace(null);setCityFallback(true);map.setView([cityResult.latitude,cityResult.longitude],12);}
+        }catch{}
+      })().finally(()=>{if(!cancelled)setResolving(false)})}
     }
   }).catch(()=>setError(en?"Map could not be loaded.":"地图暂时无法加载。"));
-  return()=>{cancelled=true;if(lookupTimer.current!==null)window.clearTimeout(lookupTimer.current);lookupSeq.current++;searchSeq.current++;mapRef.current?.remove();mapRef.current=null;};},[]);
+  return()=>{cancelled=true;if(lookupTimer.current!==null)window.clearTimeout(lookupTimer.current);lookupSeq.current++;searchSeq.current++;mapRef.current?.remove();mapRef.current=null}},[]);
 
-  function locate(){setError("");if(!navigator.geolocation){setError(en?"Location is unavailable.":"当前设备无法定位。");return;}navigator.geolocation.getCurrentPosition(p=>{const next={lat:p.coords.latitude,lng:p.coords.longitude};setPosition(next);setPlace(null);setCityFallback(false);setSearchOpen(false);setSearchFocused(false);mapRef.current?.setView([next.lat,next.lng],15);resolveReadablePlace(next);},()=>setError(en?"Location permission was not granted. You can still drag the map manually.":"未获得定位权限，你仍可以手动拖动地图选点。"),{enableHighAccuracy:false,timeout:10000,maximumAge:60000});}
+  function locate(){setError("");if(!navigator.geolocation){setError(en?"Location is unavailable.":"当前设备无法定位。");return;}navigator.geolocation.getCurrentPosition(p=>{const next={lat:p.coords.latitude,lng:p.coords.longitude};setPosition(next);setPlace(null);setCityFallback(false);setSearchOpen(false);setSearchFocused(false);mapRef.current?.setView([next.lat,next.lng],15);resolveReadablePlace(next)},()=>setError(en?"Location permission was not granted. You can still drag the map manually.":"未获得定位权限，你仍可以手动拖动地图选点。"),{enableHighAccuracy:false,timeout:10000,maximumAge:60000})}
 
   const selectedName=cityFallback?(en?"Move the map to the exact venue":"请拖动地图确认场馆"):(resolving?(en?"Finding this place…":"正在识别这个位置…"):place?.name||(position?(en?"Selected map location":"已选择地图位置"):(en?"Search or move the map":"搜索场馆，或拖动地图")));
   const selectedAddress=cityFallback?(en?"The map is centered on the event city. Search for the venue or move the map to its exact location.":"已定位到赛事城市范围。请搜索场馆，或拖动地图到准确位置。"):(resolving?(en?"Looking up a readable nearby address.":"正在获取附近可读地址。"):place?.address||(position?(en?"Address lookup is unavailable. You can still confirm this location.":"暂时无法识别这里的地址，你仍可以确认该位置。"):(en?"Search by venue name or address; you can also drag the map directly.":"可按场馆名称或地址搜索，也可以直接拖动地图。")));
   const canConfirm=!!position&&!cityFallback&&!resolving;
+  const noResultsCopy=en?"No matching places found. Try a shorter venue name.":`百度地图没有在${initialCity||"当前城市"}找到匹配地点，可以换一个更简短的场馆名称。`;
 
   return <div className="venue-map-overlay" role="dialog" aria-modal="true" aria-label={en?"Pick venue":"选择场馆"}><div className="venue-map-panel venue-picker-v2 venue-picker-v3">
     <div className="venue-picker-topbar"><button type="button" className="icon-button venue-picker-back" onClick={onClose} aria-label={en?"Back":"返回"}>‹</button><strong>{en?"Choose venue":"选择场馆"}</strong><span aria-hidden="true"/></div>
@@ -160,11 +132,11 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
     <section className="venue-picker-sheet">
       <form className="venue-picker-search" onSubmit={e=>{e.preventDefault();setSearchOpen(true);void searchPlaces();}}>
         <span className="venue-picker-city">{initialCity|| (en?"City":"城市")}</span>
-        <input value={query} onChange={e=>{const value=e.target.value;setQuery(value);if(value.trim().length>=2)setSearchOpen(true);}} onFocus={()=>{setSearchFocused(true);if(results.length)setSearchOpen(true)}} onBlur={()=>setSearchFocused(false)} placeholder={en?"Search venue or address":"搜索场馆 / 地址"}/>
+        <input value={query} onChange={e=>{const value=e.target.value;setQuery(value);if(value.trim().length>=2)setSearchOpen(true)}} onFocus={()=>{setSearchFocused(true);if(results.length)setSearchOpen(true)}} onBlur={()=>setSearchFocused(false)} placeholder={en?"Search venue or address":"搜索场馆 / 地址"}/>
         <button type="submit" className="secondary" disabled={searching||query.trim().length<2}>{searching?(en?"Searching…":"搜索中…"):(en?"Search":"搜索")}</button>
       </form>
       <button type="button" className="secondary full venue-picker-current" onClick={locate}>{en?"Use current location":"使用当前位置"}</button>
-      {searchOpen&&<div className="venue-picker-results"><div className="venue-picker-results-meta">{searching?(en?"Searching nearby places…":"正在搜索相关地点…"):(results.length?(en?`${results.length} suggestions`:`找到 ${results.length} 个候选`):"")}</div>{results.length?results.map(result=><button type="button" key={`${result.placeId||result.name}-${result.latitude}-${result.longitude}`} className="venue-picker-result" onMouseDown={e=>e.preventDefault()} onClick={()=>applyPlace(result)}><strong>{result.name}</strong><span>{result.address}</span></button>):<p className="muted small">{en?"No matching places found. Try a shorter venue name.":"没有找到匹配地点，可以换一个更简短的场馆名称。"}</p>}</div>}
+      {searchOpen&&<div className="venue-picker-results"><div className="venue-picker-results-meta">{searching?(en?"Searching nearby places…":"正在搜索相关地点…"):(results.length?(en?`${results.length} suggestions`:`找到 ${results.length} 个候选`):"")}</div>{results.length?results.map(result=><button type="button" key={`${result.placeId||result.name}-${result.latitude}-${result.longitude}`} className="venue-picker-result" onMouseDown={e=>e.preventDefault()} onClick={()=>applyPlace(result)}><strong>{result.name}</strong><span>{result.address}</span></button>):<p className="muted small">{noResultsCopy}</p>}</div>}
       {!searchOpen&&<div className={`venue-map-selection${position?" is-selected":""}`} aria-live="polite"><div className="venue-picker-selected-row"><span className="venue-picker-radio" aria-hidden="true">{position?"✓":"⌖"}</span><div><strong>{selectedName}</strong><p className="muted small">{selectedAddress}</p></div></div></div>}
       {error&&<p className="error-text">{error}</p>}
       <button type="button" className="full venue-picker-confirm" disabled={!canConfirm} onClick={()=>position&&canConfirm&&onConfirm(position.lat,position.lng,place)}>{en?"Confirm venue":"确认场馆"}</button>
