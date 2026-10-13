@@ -32,6 +32,15 @@ function mergeResults(...groups){
   }
   return out.slice(0,20);
 }
+function queryVariants(query){
+  const clean=query.trim();
+  const venueWord=/(网球|球场|体育|运动|公园|中心|场馆|俱乐部|酒店|学校|大学|学院)$/u.test(clean);
+  const variants=[clean];
+  if(!venueWord&&clean.length>=2&&clean.length<=8){
+    variants.push(`${clean}网球`,`${clean}公园`);
+  }
+  return [...new Set(variants)].slice(0,3);
+}
 
 export default async function handler(req,res){
   res.setHeader("Cache-Control","no-store");
@@ -50,21 +59,31 @@ export default async function handler(req,res){
   const ak=(process.env.BAIDU_MAP_AK||"").trim();
   if(!ak){res.status(503).json({error:"BAIDU_MAP_AK_MISSING"});return;}
 
-  const common={query,region,region_limit:"true",ret_coordtype:"gcj02ll",output:"json",ak};
-  const suggestionParams=new URLSearchParams(common);
-  const regionParams=new URLSearchParams({...common,scope:"2",page_num:"0"});
   try{
-    const [suggestionResponse,regionResponse]=await Promise.all([
-      fetch(`https://api.map.baidu.com/place/v3/suggestion?${suggestionParams.toString()}`,{headers:{"User-Agent":"qiudazi-h5/1.0"}}),
-      fetch(`https://api.map.baidu.com/place/v3/region?${regionParams.toString()}`,{headers:{"User-Agent":"qiudazi-h5/1.0"}}),
-    ]);
-    const [suggestionBody,regionBody]=await Promise.all([
-      suggestionResponse.json().catch(()=>null),
-      regionResponse.json().catch(()=>null),
-    ]);
-    if(!suggestionResponse.ok&&!regionResponse.ok){res.status(502).json({error:"BAIDU_PLACE_HTTP_ERROR"});return;}
-    const results=mergeResults(okResults(suggestionBody),okResults(regionBody));
-    res.status(200).json({status:0,message:"ok",results,total:results.length,result_type:"poi_type",query_type:"suggestion+region"});
+    const variants=queryVariants(query);
+    const requestPairs=variants.map(variant=>{
+      const common={query:variant,region,region_limit:"true",ret_coordtype:"gcj02ll",output:"json",ak};
+      const suggestionParams=new URLSearchParams(common);
+      const regionParams=new URLSearchParams({...common,scope:"2",page_num:"0",page_size:"20",address_result:"false"});
+      return Promise.all([
+        fetch(`https://api.map.baidu.com/place/v3/suggestion?${suggestionParams.toString()}`,{headers:{"User-Agent":"qiudazi-h5/1.0"}}),
+        fetch(`https://api.map.baidu.com/place/v3/region?${regionParams.toString()}`,{headers:{"User-Agent":"qiudazi-h5/1.0"}}),
+      ]);
+    });
+    const pairs=await Promise.all(requestPairs);
+    const bodies=[];
+    let anyHttpOk=false;
+    for(const [suggestionResponse,regionResponse] of pairs){
+      if(suggestionResponse.ok||regionResponse.ok)anyHttpOk=true;
+      const [suggestionBody,regionBody]=await Promise.all([
+        suggestionResponse.json().catch(()=>null),
+        regionResponse.json().catch(()=>null),
+      ]);
+      bodies.push(okResults(suggestionBody),okResults(regionBody));
+    }
+    if(!anyHttpOk){res.status(502).json({error:"BAIDU_PLACE_HTTP_ERROR"});return;}
+    const results=mergeResults(...bodies);
+    res.status(200).json({status:0,message:"ok",results,total:results.length,result_type:"poi_type",query_type:"suggestion+region",query_variants:variants});
   }catch{
     res.status(502).json({error:"BAIDU_PLACE_NETWORK_ERROR"});
   }
