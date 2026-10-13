@@ -1,7 +1,7 @@
 import type {MapProvider,VenueCoordinates,VenuePlace} from "./mapProvider.ts";
 
 type FetchLike=(input:string,init?:RequestInit)=>Promise<{ok:boolean;json():Promise<unknown>}>;
-type BaiduPlace={uid?:unknown;name?:unknown;address?:unknown;location?:{lat?:unknown;lng?:unknown}};
+type BaiduPlace={uid?:unknown;name?:unknown;address?:unknown;province?:unknown;city?:unknown;area?:unknown;district?:unknown;location?:{lat?:unknown;lng?:unknown}};
 type BaiduResponse={status?:unknown;message?:unknown;results?:unknown;result?:any};
 
 export interface BaiduMapProviderOptions{ak?:string;fetchImpl?:FetchLike;region?:string}
@@ -17,12 +17,15 @@ function gcj02ToWgs84(lat:number,lng:number){
   const mgLng=lng+(dLng*180)/(a/sqrtMagic*Math.cos(radLat)*Math.PI);
   return {lat:lat*2-mgLat,lng:lng*2-mgLng};
 }
+function text(value:unknown){return typeof value==="string"?value.trim():""}
 
 function normalizePlace(value:BaiduPlace):VenuePlace|null{
-  const rawLat=Number(value.location?.lat),rawLng=Number(value.location?.lng);
-  if(typeof value.name!=="string"||!value.name.trim()||typeof value.address!=="string"||!Number.isFinite(rawLat)||rawLat < -90||rawLat > 90||!Number.isFinite(rawLng)||rawLng < -180||rawLng > 180)return null;
+  const rawLat=Number(value.location?.lat),rawLng=Number(value.location?.lng),name=text(value.name);
+  if(!name||!Number.isFinite(rawLat)||rawLat < -90||rawLat > 90||!Number.isFinite(rawLng)||rawLng < -180||rawLng > 180)return null;
   const converted=gcj02ToWgs84(rawLat,rawLng);
-  return {name:value.name.trim(),address:value.address.trim(),latitude:converted.lat,longitude:converted.lng,provider:"baidu",placeId:typeof value.uid==="string"&&value.uid?value.uid:null};
+  const locality=[text(value.province),text(value.city),text(value.area)||text(value.district)].filter((part,index,parts)=>part&&parts.indexOf(part)===index).join("");
+  const address=text(value.address)||locality||name;
+  return {name,address,latitude:converted.lat,longitude:converted.lng,provider:"baidu",placeId:typeof value.uid==="string"&&value.uid?value.uid:null};
 }
 
 export function createBaiduMapProvider(options:BaiduMapProviderOptions={}):MapProvider{
