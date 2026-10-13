@@ -7,7 +7,7 @@ function childResults(parent){
   const children=Array.isArray(parent?.children)?parent.children:[];
   return children.map(child=>({
     uid:child?.uid||undefined,
-    name:[parent?.name,child?.show_name].filter(Boolean).join(" "),
+    name:[parent?.name,child?.show_name||child?.name].filter(Boolean).join(" "),
     address:parent?.address||"",
     location:child?.location||parent?.location,
     province:parent?.province,
@@ -34,12 +34,34 @@ function mergeResults(...groups){
 }
 function queryVariants(query){
   const clean=query.trim();
-  const venueWord=/(网球|球场|体育|运动|公园|中心|场馆|俱乐部|酒店|学校|大学|学院)$/u.test(clean);
   const variants=[clean];
-  if(!venueWord&&clean.length>=2&&clean.length<=8){
-    variants.push(`${clean}网球`,`${clean}公园`);
-  }
-  return [...new Set(variants)].slice(0,3);
+  const aliases={奥森:["奥林匹克森林公园","奥森网球"],绿心:["城市绿心","绿心网球"],国家网球:["国家网球中心"]};
+  for(const alias of aliases[clean]||[])variants.push(alias);
+  const venueWord=/(网球|球场|体育|运动|公园|中心|场馆|俱乐部|酒店|学校|大学|学院)$/u.test(clean);
+  if(!venueWord&&clean.length>=2&&clean.length<=8)variants.push(`${clean}网球`,`${clean}公园`);
+  return [...new Set(variants)].slice(0,5);
+}
+async function readJson(response){return response.json().catch(()=>null);}
+async function baiduV3(variant,region,ak){
+  const common={query:variant,region,region_limit:"true",ret_coordtype:"gcj02ll",output:"json",ak};
+  const suggestionParams=new URLSearchParams(common);
+  const regionParams=new URLSearchParams({...common,scope:"2",page_num:"0",page_size:"20",address_result:"false"});
+  const [suggestionResponse,regionResponse]=await Promise.all([
+    fetch(`https://api.map.baidu.com/place/v3/suggestion?${suggestionParams.toString()}`,{headers:{"User-Agent":"qiudazi-h5/1.0"}}),
+    fetch(`https://api.map.baidu.com/place/v3/region?${regionParams.toString()}`,{headers:{"User-Agent":"qiudazi-h5/1.0"}}),
+  ]);
+  const [suggestionBody,regionBody]=await Promise.all([readJson(suggestionResponse),readJson(regionResponse)]);
+  return {results:[...okResults(suggestionBody),...okResults(regionBody)],statuses:[suggestionBody?.status,regionBody?.status],httpOk:suggestionResponse.ok||regionResponse.ok};
+}
+async function baiduV2(variant,region,ak){
+  const suggestionParams=new URLSearchParams({query:variant,region,city_limit:"true",output:"json",ak});
+  const searchParams=new URLSearchParams({query:variant,region,city_limit:"true",scope:"2",page_num:"0",page_size:"20",output:"json",ak});
+  const [suggestionResponse,searchResponse]=await Promise.all([
+    fetch(`https://api.map.baidu.com/place/v2/suggestion?${suggestionParams.toString()}`,{headers:{"User-Agent":"qiudazi-h5/1.0"}}),
+    fetch(`https://api.map.baidu.com/place/v2/search?${searchParams.toString()}`,{headers:{"User-Agent":"qiudazi-h5/1.0"}}),
+  ]);
+  const [suggestionBody,searchBody]=await Promise.all([readJson(suggestionResponse),readJson(searchResponse)]);
+  return {results:[...okResults(suggestionBody),...okResults(searchBody)],statuses:[suggestionBody?.status,searchBody?.status],httpOk:suggestionResponse.ok||searchResponse.ok};
 }
 
 export default async function handler(req,res){
@@ -60,29 +82,22 @@ export default async function handler(req,res){
   if(!ak){res.status(503).json({error:"BAIDU_MAP_AK_MISSING"});return;}
 
   try{
-    const variants=queryVariants(query);
-    const requestPairs=variants.map(variant=>{
-      const common={query:variant,region,region_limit:"true",ret_coordtype:"gcj02ll",output:"json",ak};
-      const suggestionParams=new URLSearchParams(common);
-      const regionParams=new URLSearchParams({...common,scope:"2",page_num:"0",page_size:"20",address_result:"false"});
-      return Promise.all([
-        fetch(`https://api.map.baidu.com/place/v3/suggestion?${suggestionParams.toString()}`,{headers:{"User-Agent":"qiudazi-h5/1.0"}}),
-        fetch(`https://api.map.baidu.com/place/v3/region?${regionParams.toString()}`,{headers:{"User-Agent":"qiudazi-h5/1.0"}}),
-      ]);
-    });
-    const pairs=await Promise.all(requestPairs);
-    const bodies=[];
+    const variants=queryVariants(query),groups=[],statuses=[];
     let anyHttpOk=false;
-    for(const [suggestionResponse,regionResponse] of pairs){
-      if(suggestionResponse.ok||regionResponse.ok)anyHttpOk=true;
-      const [suggestionBody,regionBody]=await Promise.all([
-        suggestionResponse.json().catch(()=>null),
-        regionResponse.json().catch(()=>null),
-      ]);
-      bodies.push(okResults(suggestionBody),okResults(regionBody));
+    for(const variant of variants){
+      const primary=await baiduV3(variant,region,ak);
+      anyHttpOk=anyHttpOk||primary.httpOk;statuses.push(...primary.statuses);
+      if(primary.results.length)groups.push(primary.results);
+      if(!primary.results.length){
+        const fallback=await baiduV2(variant,region,ak);
+        anyHttpOk=anyHttpOk||fallback.httpOk;statuses.push(...fallback.statuses);
+        if(fallback.results.length)groups.push(fallback.results);
+      }
     }
     if(!anyHttpOk){res.status(502).json({error:"BAIDU_PLACE_HTTP_ERROR"});return;}
-    const results=mergeResults(...bodies);
+    const results=mergeResults(...groups);
+    const nonZero=statuses.filter(status=>Number.isFinite(Number(status))&&Number(status)!==0).map(Number);
+    if(!results.length&&nonZero.length){res.status(502).json({error:"BAIDU_PLACE_UPSTREAM_ERROR",upstream_statuses:[...new Set(nonZero)].slice(0,4)});return;}
     res.status(200).json({status:0,message:"ok",results,total:results.length,result_type:"poi_type",query_type:"suggestion+region",query_variants:variants});
   }catch{
     res.status(502).json({error:"BAIDU_PLACE_NETWORK_ERROR"});
