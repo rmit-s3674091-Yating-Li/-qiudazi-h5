@@ -17,31 +17,49 @@ function ensureLeaflet():Promise<any>{
 
 type PickedPlace=Pick<VenuePlace,"name"|"address"|"provider"|"placeId">;
 function hasHan(value:string){return /[\u3400-\u9fff]/.test(value)}
+
 export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,initialVenueName,initialAddress,language,onClose,onConfirm}:{initialLatitude?:number|null;initialLongitude?:number|null;initialCity?:string|null;initialVenueName?:string|null;initialAddress?:string|null;language:string;onClose:()=>void;onConfirm:(lat:number,lng:number,place?:PickedPlace|null)=>void}){
   const en=language==="en",host=useRef<HTMLDivElement>(null),mapRef=useRef<any>(null),lookupTimer=useRef<number|null>(null),lookupSeq=useRef(0),skipNextMoveReverse=useRef(false);
   const[position,setPosition]=useState<{lat:number;lng:number}|null>(initialLatitude!=null&&initialLongitude!=null?{lat:initialLatitude,lng:initialLongitude}:null);
   const[place,setPlace]=useState<PickedPlace|null>(null),[resolving,setResolving]=useState(false),[cityFallback,setCityFallback]=useState(false),[error,setError]=useState("");
+  const[query,setQuery]=useState(initialVenueName||""),[results,setResults]=useState<VenuePlace[]>([]),[searching,setSearching]=useState(false),[searchOpen,setSearchOpen]=useState(false);
+
+  function moveToResult(result:VenuePlace){
+    const next={lat:result.latitude,lng:result.longitude};
+    setPosition(next);setPlace({name:result.name,address:result.address,provider:result.provider,placeId:result.placeId});setCityFallback(false);setSearchOpen(false);setResults([]);skipNextMoveReverse.current=true;mapRef.current?.setView([next.lat,next.lng],16);
+  }
+
+  async function searchPlaces(){
+    const term=query.trim();if(!term)return;
+    setError("");setSearching(true);
+    try{
+      let found:VenuePlace[]=[];
+      if(!en){try{found=await createConfiguredBaiduMapProvider((initialCity||"").trim()||"全国").searchPlaces(term);}catch{}}
+      if(!found.length){
+        found=await browserMapProvider.searchPlaces(term,{language:en?"en":"zh-CN"});
+        if(!en)found=found.filter(result=>hasHan(result.name)||hasHan(result.address));
+      }
+      setResults(found.slice(0,8));setSearchOpen(true);
+    }catch{setError(en?"Search is temporarily unavailable. You can still move the map manually.":"暂时无法搜索地点，你仍可以拖动地图手动选择。");}
+    finally{setSearching(false)}
+  }
 
   function resolveReadablePlace(next:{lat:number;lng:number}){
     if(lookupTimer.current!==null)window.clearTimeout(lookupTimer.current);
     const seq=++lookupSeq.current;setResolving(true);
     lookupTimer.current=window.setTimeout(()=>{void (async()=>{
       let found:VenuePlace|null=null;
-      if(!en){
-        try{found=await createConfiguredBaiduMapProvider((initialCity||"").trim()||"全国").reverseGeocode({latitude:next.lat,longitude:next.lng},language);}catch{}
-      }
-      if(!found&&en){
-        try{found=await browserMapProvider.reverseGeocode({latitude:next.lat,longitude:next.lng},language);}catch{}
-      }
+      if(!en){try{found=await createConfiguredBaiduMapProvider((initialCity||"").trim()||"全国").reverseGeocode({latitude:next.lat,longitude:next.lng},language);}catch{}}
+      if(!found&&en){try{found=await browserMapProvider.reverseGeocode({latitude:next.lat,longitude:next.lng},language);}catch{}}
       if(seq!==lookupSeq.current)return;
-      if(found)setPlace({name:found.name,address:found.address,provider:found.provider,placeId:found.placeId});
+      if(found){setPlace({name:found.name,address:found.address,provider:found.provider,placeId:found.placeId});setQuery(q=>q||found!.name)}
     })().finally(()=>{if(seq===lookupSeq.current)setResolving(false)});},450);
   }
 
   useEffect(()=>{let cancelled=false;void ensureLeaflet().then(L=>{
     if(cancelled||!host.current)return;
     const start=position??{lat:35.8617,lng:104.1954};
-    const map=L.map(host.current,{zoomControl:true}).setView([start.lat,start.lng],position?16:4);
+    const map=L.map(host.current,{zoomControl:false}).setView([start.lat,start.lng],position?16:4);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap contributors"}).addTo(map);
     map.on("moveend",()=>{const c=map.getCenter(),next={lat:c.lat,lng:c.lng};setPosition(next);if(skipNextMoveReverse.current){skipNextMoveReverse.current=false;return;}setCityFallback(false);resolveReadablePlace(next);});
     mapRef.current=map;setTimeout(()=>map.invalidateSize(),0);
@@ -49,60 +67,19 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
     else {
       const city=(initialCity||"").trim(),venue=(initialVenueName||"").trim(),address=(initialAddress||"").trim();
       const coreVenue=venue.replace(/(网球运动中心|网球中心|网球场|体育中心|运动中心|体育馆|运动馆|场馆)$/,"").trim();
-      const venueQueries=Array.from(new Set([
-        venue,
-        coreVenue,
-        coreVenue&&/奥森/.test(coreVenue)?"奥林匹克森林公园":"",
-        coreVenue&&/奥森/.test(coreVenue)?"国家网球中心":""
-      ].filter(Boolean)));
+      const venueQueries=Array.from(new Set([venue,coreVenue,coreVenue&&/奥森/.test(coreVenue)?"奥林匹克森林公园":"",coreVenue&&/奥森/.test(coreVenue)?"国家网球中心":""].filter(Boolean)));
       if(city||address||venueQueries.length){
         setResolving(true);
         void (async()=>{
           try{
             let cityResult:VenuePlace|null=null;
-            if(city){
-              const cityResults=await browserMapProvider.searchPlaces(city,{language:en?"en":"zh-CN"});
-              if(cancelled)return;
-              cityResult=cityResults[0]||null;
-            }
+            if(city){const cityResults=await browserMapProvider.searchPlaces(city,{language:en?"en":"zh-CN"});if(cancelled)return;cityResult=cityResults[0]||null;}
             const bounds=cityResult?.boundingBox||undefined;
-            const searchBounded=async(query:string)=>{
-              const options=bounds?{viewbox:bounds,bounded:true,language:en?"en":"zh-CN"}:{language:en?"en":"zh-CN"};
-              const results=await browserMapProvider.searchPlaces(query,options);
-              if(cancelled)return [] as VenuePlace[];
-              return en?results:results.filter(result=>hasHan(result.name)||hasHan(result.address));
-            };
+            const searchBounded=async(term:string)=>{const options=bounds?{viewbox:bounds,bounded:true,language:en?"en":"zh-CN"}:{language:en?"en":"zh-CN"};const items=await browserMapProvider.searchPlaces(term,options);if(cancelled)return [] as VenuePlace[];return en?items:items.filter(item=>hasHan(item.name)||hasHan(item.address));};
             const baiduProvider=!en&&city?createConfiguredBaiduMapProvider(city):null;
-            if(address){
-              let results:VenuePlace[]=[];
-              if(baiduProvider){try{results=await baiduProvider.searchPlaces(address);}catch{}}
-              if(!results.length)results=await searchBounded(address);
-              if(results[0]){
-                const first=results[0],next={lat:first.latitude,lng:first.longitude};
-                setPosition(next);skipNextMoveReverse.current=true;setPlace({name:first.name,address:first.address,provider:first.provider,placeId:first.placeId});setCityFallback(false);map.setView([next.lat,next.lng],16);return;
-              }
-            }
-            for(const query of venueQueries){
-              let results:VenuePlace[]=[];
-              if(baiduProvider){
-                try{results=await baiduProvider.searchPlaces(query);}catch{}
-              }
-              if(!results.length)results=await searchBounded(query);
-              const first=results[0];
-              if(first){
-                const next={lat:first.latitude,lng:first.longitude};
-                setPosition(next);skipNextMoveReverse.current=true;
-                const exact=query===venue;
-                setPlace({name:first.name,address:first.address,provider:first.provider,placeId:first.placeId});
-                setCityFallback(!exact);
-                map.setView([next.lat,next.lng],exact?16:14);
-                return;
-              }
-            }
-            if(cityResult){
-              const next={lat:cityResult.latitude,lng:cityResult.longitude};
-              setPosition(next);skipNextMoveReverse.current=true;setPlace(null);setCityFallback(true);map.setView([next.lat,next.lng],12);
-            }
+            if(address){let items:VenuePlace[]=[];if(baiduProvider){try{items=await baiduProvider.searchPlaces(address);}catch{}}if(!items.length)items=await searchBounded(address);if(items[0]){moveToResult(items[0]);return;}}
+            for(const term of venueQueries){let items:VenuePlace[]=[];if(baiduProvider){try{items=await baiduProvider.searchPlaces(term);}catch{}}if(!items.length)items=await searchBounded(term);if(items[0]){const first=items[0],next={lat:first.latitude,lng:first.longitude};setPosition(next);skipNextMoveReverse.current=true;setPlace({name:first.name,address:first.address,provider:first.provider,placeId:first.placeId});setCityFallback(term!==venue);map.setView([next.lat,next.lng],term===venue?16:14);return;}}
+            if(cityResult){const next={lat:cityResult.latitude,lng:cityResult.longitude};setPosition(next);skipNextMoveReverse.current=true;setPlace(null);setCityFallback(true);map.setView([next.lat,next.lng],12);}
           }catch{}
         })().finally(()=>{if(!cancelled)setResolving(false)});
       }
@@ -111,14 +88,23 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
   return()=>{cancelled=true;if(lookupTimer.current!==null)window.clearTimeout(lookupTimer.current);lookupSeq.current++;mapRef.current?.remove();mapRef.current=null;};},[]);
 
   function locate(){setError("");if(!navigator.geolocation){setError(en?"Location is unavailable.":"当前设备无法定位。");return;}navigator.geolocation.getCurrentPosition(p=>{const next={lat:p.coords.latitude,lng:p.coords.longitude};setPosition(next);skipNextMoveReverse.current=true;mapRef.current?.setView([next.lat,next.lng],16);setCityFallback(false);resolveReadablePlace(next);},()=>setError(en?"Location permission was not granted. You can still drag the map manually.":"未获得定位权限，你仍可以手动拖动地图选点。"),{enableHighAccuracy:false,timeout:10000,maximumAge:60000});}
-  const selectedName=cityFallback?(place?.name?(en?"Approximate match — confirm on map":"已找到附近位置，请确认"):(en?"Venue not found yet":"暂未找到场馆")):place?.name||(en?"Selected map location":"已选择地图位置");
-  const selectedAddress=cityFallback?(place?.address?(en?"This is an approximate venue match. Drag the map to the exact court before confirming.":"这是根据场馆简称/核心词找到的附近位置，请拖动地图确认准确球场后再使用。"):(en?"The map is centered on the event city. Drag the map to the court, or use your current location, then confirm.":"已先定位到赛事城市范围。请拖动地图把准星对准球场，或使用当前位置后再确认。")):place?.address||(position?(en?"Address lookup is unavailable. You can still use this location and edit the venue text afterwards.":"暂时无法识别这里的地址，你仍可以使用这个位置，并在返回后手动修改场地信息。"):(en?"Move the map or use your current location.":"拖动地图，或定位到你的当前位置。"));
 
-  return <div className="venue-map-overlay" role="dialog" aria-modal="true" aria-label={en?"Pick venue location":"选择场地位置"}><div className="venue-map-panel">
-    <div className="venue-map-header row between"><div><strong>{en?"Pick venue location":"选择场地位置"}</strong><p className="muted small">{en?"Move the map until the crosshair is on the court. We'll identify the nearby place for you.":"拖动地图，让准星对准球场；系统会自动识别附近地点。"}</p></div><button type="button" className="text-button" onClick={onClose}>{en?"Close":"关闭"}</button></div>
-    <div className="venue-map-wrap"><div ref={host} className="venue-map-canvas"/><div className="venue-map-crosshair" aria-hidden="true">＋</div><button type="button" className="venue-map-locate secondary" onClick={locate}>{en?"My location":"定位到我"}</button></div>
-    <div className="venue-map-selection" aria-live="polite"><span className="eyebrow">{en?"SELECTED PLACE":"已选地点"}</span><strong>{resolving?(en?"Finding this place…":"正在识别这个位置…"):selectedName}</strong><p className="muted small">{resolving?(en?"Looking up a readable nearby address.":"正在获取附近可读地址。"):selectedAddress}</p>{position&&<details className="venue-map-technical"><summary>{en?"Location details":"定位信息"}</summary><span>{position.lat.toFixed(6)}, {position.lng.toFixed(6)}</span></details>}</div>
-    {error&&<p className="error-text">{error}</p>}
-    <div className="venue-map-buttons"><button type="button" className="secondary" onClick={onClose}>{en?"Cancel":"取消"}</button><button type="button" disabled={!position||cityFallback} onClick={()=>position&&!cityFallback&&onConfirm(position.lat,position.lng,place)}>{en?"Use this location":"使用这个位置"}</button></div>
+  const selectedName=cityFallback?(place?.name?(en?"Approximate match — confirm on map":"已找到附近位置，请确认"):(en?"Venue not found yet":"暂未找到场馆")):place?.name||(en?"Selected map location":"已选择地图位置");
+  const selectedAddress=cityFallback?(place?.address?(en?"This is an approximate venue match. Move the map to the exact venue before confirming.":"这是根据场馆简称找到的附近位置，请拖动地图确认准确场馆后再使用。"):(en?"The map is centered on the event city. Move it to the venue or use your current location.":"已先定位到赛事城市范围。请拖动地图到场馆，或使用当前位置。")):place?.address||(position?(en?"Address lookup is unavailable. You can still use this location.":"暂时无法识别这里的地址，你仍可以使用这个位置。"):(en?"Search for a venue or move the map.":"搜索场馆，或拖动地图选择位置。"));
+
+  return <div className="venue-map-overlay" role="dialog" aria-modal="true" aria-label={en?"Pick venue":"选择场馆"}><div className="venue-map-panel venue-picker-v2">
+    <div className="venue-picker-topbar"><button type="button" className="icon-button venue-picker-back" onClick={onClose} aria-label={en?"Back":"返回"}>‹</button><strong>{en?"Choose venue":"选择场馆"}</strong><span aria-hidden="true"/></div>
+    <div className="venue-map-wrap venue-picker-map"><div ref={host} className="venue-map-canvas"/><div className="venue-map-crosshair venue-picker-pin" aria-hidden="true">●</div><button type="button" className="venue-map-locate icon-button" onClick={locate} aria-label={en?"My location":"定位到我"}>◎</button></div>
+    <section className="venue-picker-sheet">
+      <form className="venue-picker-search" onSubmit={e=>{e.preventDefault();void searchPlaces();}}>
+        <span className="venue-picker-city">{initialCity|| (en?"City":"城市")}</span>
+        <input value={query} onChange={e=>setQuery(e.target.value)} onFocus={()=>results.length&&setSearchOpen(true)} placeholder={en?"Search venue or address":"搜索场馆 / 地址"}/>
+        <button type="submit" className="secondary" disabled={searching}>{searching?(en?"Searching…":"搜索中…"):(en?"Search":"搜索")}</button>
+      </form>
+      {searchOpen&&<div className="venue-picker-results">{results.length?results.map(result=><button type="button" key={`${result.placeId||result.name}-${result.latitude}-${result.longitude}`} className="venue-picker-result" onClick={()=>moveToResult(result)}><strong>{result.name}</strong><span>{result.address}</span></button>):<p className="muted small">{en?"No matching places found. Try a broader venue name.":"没有找到匹配地点，可以换一个更简短的场馆名称。"}</p>}</div>}
+      {!searchOpen&&<div className="venue-map-selection" aria-live="polite"><div className="venue-picker-selected-row"><span className="venue-picker-radio" aria-hidden="true">✓</span><div><strong>{resolving?(en?"Finding this place…":"正在识别这个位置…"):selectedName}</strong><p className="muted small">{resolving?(en?"Looking up a readable nearby address.":"正在获取附近可读地址。"):selectedAddress}</p></div></div><details className="venue-map-technical"><summary>{en?"Location details":"定位信息"}</summary>{position&&<span>{position.lat.toFixed(6)}, {position.lng.toFixed(6)}</span>}</details></div>}
+      {error&&<p className="error-text">{error}</p>}
+      <button type="button" className="full venue-picker-confirm" disabled={!position||cityFallback} onClick={()=>position&&!cityFallback&&onConfirm(position.lat,position.lng,place)}>{en?"Confirm venue":"确认场馆"}</button>
+    </section>
   </div></div>;
 }
