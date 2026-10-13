@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import ts from "typescript";
+import "./unit-v8-platform-admin-user-directory-ui.mjs";
 
 const source = await readFile("supabase/functions/platform-admin-users/index.ts", "utf8");
 assert.match(source, /client\.auth\.getUser\(token\)/, "Edge must validate JWT");

@@ -60,3 +60,6 @@ try {
 } finally {
   await rm(tmp, { recursive: true, force: true });
 }
+
+// Keep event directory UI tests in the existing admin UI unit test entry point.
+await import("./unit-v8-platform-admin-event-directory-ui.mjs");

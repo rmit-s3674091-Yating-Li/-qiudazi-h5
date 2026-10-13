@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Header } from "../components/UI";
 import { PlatformAdminAuditHistory } from "../components/PlatformAdminAuditHistory";
+import { PlatformAdminEventDirectory } from "../components/PlatformAdminEventDirectory";
+import { PlatformAdminUserDirectory } from "../components/PlatformAdminUserDirectory";
 import { useAuth } from "../hooks/Auth";
 import { useLanguage } from "../i18n";
 import { rpc } from "../repositories/supabase";
@@ -77,6 +79,8 @@ export function PlatformAdminPage() {
         {AREAS.map(([zh, english]) => <section className="card" key={zh} aria-label={en ? english : zh}>
           <h2>{en ? english : zh}</h2>
           {zh === "操作审计" ? <PlatformAdminAuditHistory key={userId} userId={userId!} en={en} /> :
+           zh === "用户管理" && access.role === "super_admin" ? <PlatformAdminUserDirectory key={userId} userId={userId!} en={en} /> :
+           zh === "赛事管理" ? <PlatformAdminEventDirectory key={userId} userId={userId!} en={en} /> :
             <p className="muted small">{en ? "Not available yet · no changes can be made" : "尚未开放 · 当前不可执行修改"}</p>}
         </section>)}
       </>}
