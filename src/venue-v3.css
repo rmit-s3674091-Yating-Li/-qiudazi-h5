@@ -1,7 +1,7 @@
 /* V8 venue picker v3 — keep search and confirmation visible, simplify creation-page map affordance. */
 
 .venue-picker-v3.venue-map-panel {
-  grid-template-rows: 64px minmax(220px, 34dvh) minmax(0, 1fr);
+  grid-template-rows: 64px minmax(185px, 28dvh) minmax(0, 1fr);
 }
 
 .venue-picker-v3 .venue-picker-map {
@@ -33,7 +33,7 @@
 }
 
 .venue-picker-v3 .venue-picker-results {
-  max-height: min(38dvh, 360px);
+  max-height: min(44dvh, 420px);
   overflow: auto;
   overscroll-behavior: contain;
 }
@@ -135,7 +135,7 @@
 
 @media (max-width: 390px) {
   .venue-picker-v3.venue-map-panel {
-    grid-template-rows: 60px minmax(205px, 31dvh) minmax(0, 1fr);
+    grid-template-rows: 60px minmax(175px, 25dvh) minmax(0, 1fr);
   }
 
   .venue-picker-v3 .venue-picker-search {
