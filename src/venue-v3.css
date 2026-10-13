@@ -24,6 +24,24 @@
   box-shadow: 0 5px 16px rgba(39, 48, 41, .055);
 }
 
+.venue-picker-v3 .venue-picker-current {
+  min-height: 40px;
+  margin: 0 0 8px;
+  background: #f3f5ef;
+  color: #5e6b54;
+  border-color: #dfe4d8;
+}
+
+.venue-picker-v3 .venue-picker-results {
+  max-height: min(38dvh, 360px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.venue-picker-v3 .venue-picker-result {
+  text-align: left;
+}
+
 .venue-picker-v3 .venue-picker-selected-row {
   padding: 11px 2px 7px;
 }
@@ -84,15 +102,12 @@
 }
 
 .event-form-page .venue-location-actions {
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
   margin-top: 0;
 }
 
-.event-form-page .venue-location-actions > button:first-child {
-  display: none;
-}
-
-.event-form-page .venue-location-actions > button:last-child {
+.event-form-page .venue-location-actions > button {
   min-height: 44px;
   background: #e8ece3;
   color: #56644b;
@@ -139,5 +154,9 @@
 
   .event-form-page .venue-location-card > .row.between > button.secondary {
     max-width: none;
+  }
+
+  .event-form-page .venue-location-actions {
+    grid-template-columns: 1fr;
   }
 }
