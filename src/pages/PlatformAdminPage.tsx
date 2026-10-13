@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Header } from "../components/UI";
+import { PlatformAdminAuditHistory } from "../components/PlatformAdminAuditHistory";
 import { useAuth } from "../hooks/Auth";
 import { useLanguage } from "../i18n";
 import { rpc } from "../repositories/supabase";
@@ -75,7 +76,8 @@ export function PlatformAdminPage() {
         <p className="muted small">{en ? `Access level: ${access.role}. This page is read-only until audited management actions are available.` : `权限级别：${access.role}。审计化管理操作上线前，此页面仅供查看模块范围。`}</p>
         {AREAS.map(([zh, english]) => <section className="card" key={zh} aria-label={en ? english : zh}>
           <h2>{en ? english : zh}</h2>
-          <p className="muted small">{en ? "Not available yet · no changes can be made" : "尚未开放 · 当前不可执行修改"}</p>
+          {zh === "操作审计" ? <PlatformAdminAuditHistory key={userId} userId={userId!} en={en} /> :
+            <p className="muted small">{en ? "Not available yet · no changes can be made" : "尚未开放 · 当前不可执行修改"}</p>}
         </section>)}
       </>}
     </main>
