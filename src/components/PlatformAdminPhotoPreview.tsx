@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { parseAdminPhotoPreview, validAdminPhotoId } from "../domain/PlatformAdminPhotoPreview";
 import { supabase } from "../repositories/supabase";
 
+const supabaseUrl =
+  (import.meta.env.VITE_SUPABASE_URL as string | undefined) ??
+  "https://rtmjzmgrhifjzxaliltm.supabase.co";
+
 type PreviewState = "idle" | "loading" | "ready" | "failed";
 
 export function PlatformAdminPhotoPreview({ userId, eventId, photoId, en }: {
@@ -54,7 +58,7 @@ export function PlatformAdminPhotoPreview({ userId, eventId, photoId, en }: {
         body: { event_id: eventId, photo_id: photoId },
       });
       if (error) throw new Error("PHOTO_PREVIEW_UNAVAILABLE");
-      const result = parseAdminPhotoPreview(data, supabase.supabaseUrl);
+      const result = parseAdminPhotoPreview(data, supabaseUrl);
       if (!result) throw new Error("INVALID_PHOTO_PREVIEW_RESPONSE");
       if (generation.current !== epoch) return;
       setPreviewUrl(result.url);
