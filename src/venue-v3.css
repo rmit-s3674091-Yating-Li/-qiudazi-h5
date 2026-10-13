@@ -1,7 +1,7 @@
 /* V8 venue picker v3 — keep search and confirmation visible, simplify creation-page map affordance. */
 
 .venue-picker-v3.venue-map-panel {
-  grid-template-rows: 64px minmax(185px, 28dvh) minmax(0, 1fr);
+  grid-template-rows: 64px clamp(150px, 19dvh, 172px) minmax(0, 1fr);
 }
 
 .venue-picker-v3 .venue-picker-map {
@@ -11,8 +11,8 @@
 
 .venue-picker-v3 .venue-picker-sheet {
   z-index: 20;
-  margin-top: -14px;
-  padding: 13px 18px max(18px, env(safe-area-inset-bottom));
+  margin-top: -6px;
+  padding: 10px 14px max(14px, env(safe-area-inset-bottom));
   overflow: auto;
 }
 
@@ -25,25 +25,32 @@
 }
 
 .venue-picker-v3 .venue-picker-current {
-  min-height: 40px;
-  margin: 0 0 8px;
+  min-height: 34px;
+  margin: 0 0 6px;
   background: #f3f5ef;
   color: #5e6b54;
   border-color: #dfe4d8;
 }
 
 .venue-picker-v3 .venue-picker-results {
-  max-height: min(44dvh, 420px);
+  max-height: min(52dvh, 520px);
   overflow: auto;
   overscroll-behavior: contain;
 }
 
+.venue-picker-v3 .venue-picker-results-meta {
+  padding: 2px 4px 7px;
+  color: #7d8578;
+  font-size: 12px;
+}
+
 .venue-picker-v3 .venue-picker-result {
   text-align: left;
+  padding-block: 10px;
 }
 
 .venue-picker-v3 .venue-picker-selected-row {
-  padding: 11px 2px 7px;
+  padding: 8px 2px 5px;
 }
 
 .venue-picker-v3 .venue-map-selection:not(.is-selected) .venue-picker-radio {
@@ -135,7 +142,7 @@
 
 @media (max-width: 390px) {
   .venue-picker-v3.venue-map-panel {
-    grid-template-rows: 60px minmax(175px, 25dvh) minmax(0, 1fr);
+    grid-template-rows: 60px clamp(138px, 18dvh, 158px) minmax(0, 1fr);
   }
 
   .venue-picker-v3 .venue-picker-search {

@@ -55,7 +55,7 @@ function rankPlaces(items:VenuePlace[],term:string){
     if(/网球|球场|体育|运动|公园/.test(item.name))score+=12;
     if(item.provider==="baidu")score+=8;
     return {item,index,score,coverage,direct:name.includes(needle)||address.includes(needle)||(!core?true:haystack.includes(core))};
-  }).filter(({coverage,direct})=>direct||coverage>=0.5)
+  }).filter(({coverage,direct})=>direct||coverage>=0.75)
     .sort((a,b)=>b.score-a.score||a.index-b.index)
     .map(({item})=>item);
 }
@@ -129,10 +129,8 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
     mapRef.current=map;setTimeout(()=>map.invalidateSize(),0);
     if(position)resolveReadablePlace(position);
     else {
-      const city=(initialCity||"").trim(),venue=(initialVenueName||"").trim(),address=(initialAddress||"").trim();
-      const coreVenue=venue.replace(/(网球运动中心|网球中心|网球场|体育中心|运动中心|体育馆|运动馆|场馆)$/,"").trim();
-      const venueQueries=Array.from(new Set([venue,coreVenue].filter(Boolean)));
-      if(city||address||venueQueries.length){
+      const city=(initialCity||"").trim(),address=(initialAddress||"").trim();
+      if(city||address){
         setResolving(true);
         void (async()=>{
           try{
@@ -142,7 +140,6 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
             const searchBounded=async(term:string)=>{const options=bounds?{viewbox:bounds,bounded:true,language:en?"en":"zh-CN"}:{language:en?"en":"zh-CN"};const items=await browserMapProvider.searchPlaces(term,options);if(cancelled)return [] as VenuePlace[];return en?items:items.filter(item=>hasHan(item.name)||hasHan(item.address));};
             const baiduProvider=!en&&city?createConfiguredBaiduMapProvider(city):null;
             if(address){let items:VenuePlace[]=[];if(baiduProvider){try{items=await baiduProvider.searchPlaces(address);}catch{}}if(!items.length)items=await searchBounded(address);if(items[0]){applyPlace(items[0]);return;}}
-            for(const term of venueQueries){let items:VenuePlace[]=[];if(baiduProvider){try{items=await baiduProvider.searchPlaces(term);}catch{}}if(!items.length)items=await searchBounded(term);if(items[0]){const first=items[0],next={lat:first.latitude,lng:first.longitude};setPosition(next);setPlace({name:first.name,address:first.address,provider:first.provider,placeId:first.placeId});setCityFallback(term!==venue);map.setView([next.lat,next.lng],term===venue?15:13);return;}}
             if(cityResult){setPosition(null);setPlace(null);setCityFallback(true);map.setView([cityResult.latitude,cityResult.longitude],12);}
           }catch{}
         })().finally(()=>{if(!cancelled)setResolving(false)});
@@ -161,13 +158,13 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
     <div className="venue-picker-topbar"><button type="button" className="icon-button venue-picker-back" onClick={onClose} aria-label={en?"Back":"返回"}>‹</button><strong>{en?"Choose venue":"选择场馆"}</strong><span aria-hidden="true"/></div>
     <div className="venue-map-wrap venue-picker-map"><div ref={host} className="venue-map-canvas"/><div className="venue-map-crosshair venue-picker-pin" aria-hidden="true">●</div><button type="button" className="venue-map-locate icon-button" onClick={locate} aria-label={en?"My location":"定位到我"}>◎</button></div>
     <section className="venue-picker-sheet">
-      <form className="venue-picker-search" onSubmit={e=>{e.preventDefault();void searchPlaces();}}>
+      <form className="venue-picker-search" onSubmit={e=>{e.preventDefault();setSearchOpen(true);void searchPlaces();}}>
         <span className="venue-picker-city">{initialCity|| (en?"City":"城市")}</span>
-        <input value={query} onChange={e=>setQuery(e.target.value)} onFocus={()=>{setSearchFocused(true);if(results.length)setSearchOpen(true)}} onBlur={()=>setSearchFocused(false)} placeholder={en?"Search venue or address":"搜索场馆 / 地址"}/>
+        <input value={query} onChange={e=>{const value=e.target.value;setQuery(value);if(value.trim().length>=2)setSearchOpen(true);}} onFocus={()=>{setSearchFocused(true);if(results.length)setSearchOpen(true)}} onBlur={()=>setSearchFocused(false)} placeholder={en?"Search venue or address":"搜索场馆 / 地址"}/>
         <button type="submit" className="secondary" disabled={searching||query.trim().length<2}>{searching?(en?"Searching…":"搜索中…"):(en?"Search":"搜索")}</button>
       </form>
       <button type="button" className="secondary full venue-picker-current" onClick={locate}>{en?"Use current location":"使用当前位置"}</button>
-      {searchOpen&&<div className="venue-picker-results">{results.length?results.map(result=><button type="button" key={`${result.placeId||result.name}-${result.latitude}-${result.longitude}`} className="venue-picker-result" onMouseDown={e=>e.preventDefault()} onClick={()=>applyPlace(result)}><strong>{result.name}</strong><span>{result.address}</span></button>):<p className="muted small">{en?"No matching places found. Try a shorter venue name.":"没有找到匹配地点，可以换一个更简短的场馆名称。"}</p>}</div>}
+      {searchOpen&&<div className="venue-picker-results"><div className="venue-picker-results-meta">{searching?(en?"Searching nearby places…":"正在搜索相关地点…"):(results.length?(en?`${results.length} suggestions`:`找到 ${results.length} 个候选`):"")}</div>{results.length?results.map(result=><button type="button" key={`${result.placeId||result.name}-${result.latitude}-${result.longitude}`} className="venue-picker-result" onMouseDown={e=>e.preventDefault()} onClick={()=>applyPlace(result)}><strong>{result.name}</strong><span>{result.address}</span></button>):<p className="muted small">{en?"No matching places found. Try a shorter venue name.":"没有找到匹配地点，可以换一个更简短的场馆名称。"}</p>}</div>}
       {!searchOpen&&<div className={`venue-map-selection${position?" is-selected":""}`} aria-live="polite"><div className="venue-picker-selected-row"><span className="venue-picker-radio" aria-hidden="true">{position?"✓":"⌖"}</span><div><strong>{selectedName}</strong><p className="muted small">{selectedAddress}</p></div></div></div>}
       {error&&<p className="error-text">{error}</p>}
       <button type="button" className="full venue-picker-confirm" disabled={!canConfirm} onClick={()=>position&&canConfirm&&onConfirm(position.lat,position.lng,place)}>{en?"Confirm venue":"确认场馆"}</button>
