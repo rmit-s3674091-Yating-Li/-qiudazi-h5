@@ -33,17 +33,31 @@ function mergePlaces(groups:VenuePlace[][]){
   }
   return merged;
 }
+function coreSearchTerm(term:string){
+  return normalizeText(term).replace(/网球运动中心|网球俱乐部|网球中心|网球场|体育中心|运动中心|体育馆|运动馆|场馆|球场|网球|中心/g,"");
+}
+function fuzzyCoverage(candidate:string,core:string){
+  if(!core)return 1;
+  const chars=Array.from(new Set(core));
+  if(!chars.length)return 1;
+  return chars.filter(char=>candidate.includes(char)).length/chars.length;
+}
 function rankPlaces(items:VenuePlace[],term:string){
-  const needle=normalizeText(term);
+  const needle=normalizeText(term),core=coreSearchTerm(term);
   return items.map((item,index)=>{
-    const name=normalizeText(item.name),address=normalizeText(item.address);
+    const name=normalizeText(item.name),address=normalizeText(item.address),haystack=`${name}${address}`;
+    const coverage=fuzzyCoverage(haystack,core);
     let score=0;
-    if(name===needle)score+=120;else if(name.startsWith(needle))score+=90;else if(name.includes(needle))score+=70;
-    if(address.includes(needle))score+=30;
+    if(name===needle)score+=160;else if(name.startsWith(needle))score+=130;else if(name.includes(needle))score+=110;
+    if(address.includes(needle))score+=55;
+    if(core&&name.includes(core))score+=85;else if(core&&address.includes(core))score+=45;
+    score+=coverage*45;
     if(/网球|球场|体育|运动|公园/.test(item.name))score+=12;
     if(item.provider==="baidu")score+=8;
-    return {item,index,score};
-  }).sort((a,b)=>b.score-a.score||a.index-b.index).map(({item})=>item);
+    return {item,index,score,coverage,direct:name.includes(needle)||address.includes(needle)||(!core?true:haystack.includes(core))};
+  }).filter(({coverage,direct})=>direct||coverage>=0.5)
+    .sort((a,b)=>b.score-a.score||a.index-b.index)
+    .map(({item})=>item);
 }
 
 export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,initialVenueName,initialAddress,language,onClose,onConfirm}:{initialLatitude?:number|null;initialLongitude?:number|null;initialCity?:string|null;initialVenueName?:string|null;initialAddress?:string|null;language:string;onClose:()=>void;onConfirm:(lat:number,lng:number,place?:PickedPlace|null)=>void}){
@@ -52,7 +66,7 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
   const[place,setPlace]=useState<PickedPlace|null>(null),[resolving,setResolving]=useState(false),[cityFallback,setCityFallback]=useState(false),[error,setError]=useState("");
   const[query,setQuery]=useState(initialVenueName||""),[results,setResults]=useState<VenuePlace[]>([]),[searching,setSearching]=useState(false),[searchOpen,setSearchOpen]=useState(false),[searchFocused,setSearchFocused]=useState(false);
 
-  function applyPlace(result:VenuePlace,zoom=16){
+  function applyPlace(result:VenuePlace,zoom=15){
     const next={lat:result.latitude,lng:result.longitude};
     setPosition(next);setPlace({name:result.name,address:result.address,provider:result.provider,placeId:result.placeId});setCityFallback(false);setSearchOpen(false);setResults([]);setQuery(result.name);mapRef.current?.setView([next.lat,next.lng],zoom);
   }
@@ -108,7 +122,7 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
     if(cancelled||!host.current)return;
     const fallback={lat:39.9042,lng:116.4074};
     const start=position??fallback;
-    const map=L.map(host.current,{zoomControl:false}).setView([start.lat,start.lng],position?16:11);
+    const map=L.map(host.current,{zoomControl:false}).setView([start.lat,start.lng],position?15:11);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap contributors"}).addTo(map);
     map.on("dragstart",()=>{dragged.current=true;});
     map.on("moveend",()=>{if(!dragged.current)return;dragged.current=false;const c=map.getCenter(),next={lat:c.lat,lng:c.lng};setPosition(next);setCityFallback(false);setPlace(null);setSearchOpen(false);resolveReadablePlace(next);});
@@ -128,7 +142,7 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
             const searchBounded=async(term:string)=>{const options=bounds?{viewbox:bounds,bounded:true,language:en?"en":"zh-CN"}:{language:en?"en":"zh-CN"};const items=await browserMapProvider.searchPlaces(term,options);if(cancelled)return [] as VenuePlace[];return en?items:items.filter(item=>hasHan(item.name)||hasHan(item.address));};
             const baiduProvider=!en&&city?createConfiguredBaiduMapProvider(city):null;
             if(address){let items:VenuePlace[]=[];if(baiduProvider){try{items=await baiduProvider.searchPlaces(address);}catch{}}if(!items.length)items=await searchBounded(address);if(items[0]){applyPlace(items[0]);return;}}
-            for(const term of venueQueries){let items:VenuePlace[]=[];if(baiduProvider){try{items=await baiduProvider.searchPlaces(term);}catch{}}if(!items.length)items=await searchBounded(term);if(items[0]){const first=items[0],next={lat:first.latitude,lng:first.longitude};setPosition(next);setPlace({name:first.name,address:first.address,provider:first.provider,placeId:first.placeId});setCityFallback(term!==venue);map.setView([next.lat,next.lng],term===venue?16:14);return;}}
+            for(const term of venueQueries){let items:VenuePlace[]=[];if(baiduProvider){try{items=await baiduProvider.searchPlaces(term);}catch{}}if(!items.length)items=await searchBounded(term);if(items[0]){const first=items[0],next={lat:first.latitude,lng:first.longitude};setPosition(next);setPlace({name:first.name,address:first.address,provider:first.provider,placeId:first.placeId});setCityFallback(term!==venue);map.setView([next.lat,next.lng],term===venue?15:13);return;}}
             if(cityResult){setPosition(null);setPlace(null);setCityFallback(true);map.setView([cityResult.latitude,cityResult.longitude],12);}
           }catch{}
         })().finally(()=>{if(!cancelled)setResolving(false)});
@@ -137,7 +151,7 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
   }).catch(()=>setError(en?"Map could not be loaded.":"地图暂时无法加载。"));
   return()=>{cancelled=true;if(lookupTimer.current!==null)window.clearTimeout(lookupTimer.current);lookupSeq.current++;searchSeq.current++;mapRef.current?.remove();mapRef.current=null;};},[]);
 
-  function locate(){setError("");if(!navigator.geolocation){setError(en?"Location is unavailable.":"当前设备无法定位。");return;}navigator.geolocation.getCurrentPosition(p=>{const next={lat:p.coords.latitude,lng:p.coords.longitude};setPosition(next);setPlace(null);setCityFallback(false);setSearchOpen(false);setSearchFocused(false);mapRef.current?.setView([next.lat,next.lng],16);resolveReadablePlace(next);},()=>setError(en?"Location permission was not granted. You can still drag the map manually.":"未获得定位权限，你仍可以手动拖动地图选点。"),{enableHighAccuracy:false,timeout:10000,maximumAge:60000});}
+  function locate(){setError("");if(!navigator.geolocation){setError(en?"Location is unavailable.":"当前设备无法定位。");return;}navigator.geolocation.getCurrentPosition(p=>{const next={lat:p.coords.latitude,lng:p.coords.longitude};setPosition(next);setPlace(null);setCityFallback(false);setSearchOpen(false);setSearchFocused(false);mapRef.current?.setView([next.lat,next.lng],15);resolveReadablePlace(next);},()=>setError(en?"Location permission was not granted. You can still drag the map manually.":"未获得定位权限，你仍可以手动拖动地图选点。"),{enableHighAccuracy:false,timeout:10000,maximumAge:60000});}
 
   const selectedName=cityFallback?(en?"Move the map to the exact venue":"请拖动地图确认场馆"):(resolving?(en?"Finding this place…":"正在识别这个位置…"):place?.name||(position?(en?"Selected map location":"已选择地图位置"):(en?"Search or move the map":"搜索场馆，或拖动地图")));
   const selectedAddress=cityFallback?(en?"The map is centered on the event city. Search for the venue or move the map to its exact location.":"已定位到赛事城市范围。请搜索场馆，或拖动地图到准确位置。"):(resolving?(en?"Looking up a readable nearby address.":"正在获取附近可读地址。"):place?.address||(position?(en?"Address lookup is unavailable. You can still confirm this location.":"暂时无法识别这里的地址，你仍可以确认该位置。"):(en?"Search by venue name or address; you can also drag the map directly.":"可按场馆名称或地址搜索，也可以直接拖动地图。")));
