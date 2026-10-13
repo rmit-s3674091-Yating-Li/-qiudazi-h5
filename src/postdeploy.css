@@ -102,3 +102,101 @@
     gap: 8px;
   }
 }
+
+/* V8 venue selection v1: make venue choice read like one clear action instead of a technical map block. */
+.event-form-page .venue-seed-hint {
+  display: none;
+}
+
+.event-form-page .venue-location-card {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--line, #dfe3dc) 74%, #ff6b00 26%);
+  background: linear-gradient(180deg, #fffdfa 0%, #fff 100%);
+  box-shadow: 0 5px 18px rgba(34, 42, 36, .045);
+}
+
+.event-form-page .venue-location-card > .row.between {
+  align-items: center;
+  gap: 12px;
+}
+
+.event-form-page .venue-location-card > .row.between > div {
+  min-width: 0;
+}
+
+.event-form-page .venue-location-card > .row.between > div > strong {
+  display: block;
+  font-size: 15px;
+  margin-bottom: 3px;
+}
+
+.event-form-page .venue-location-card > .row.between > div > p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.event-form-page .venue-location-card > .row.between > button.secondary {
+  flex: none;
+  min-height: 42px;
+  padding: 9px 13px;
+  border-color: #ff6b00;
+  color: #d95700;
+  background: #fff7f0;
+}
+
+.event-form-page .venue-location-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.event-form-page .venue-location-actions > button {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+}
+
+.event-form-page .venue-location-confirmed {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 12px 13px;
+  border-radius: 12px;
+}
+
+/* Coordinates are implementation data, not useful creation-form content. */
+.event-form-page .venue-location-confirmed details,
+.venue-map-technical {
+  display: none !important;
+}
+
+.venue-map-selection {
+  padding-bottom: 4px;
+}
+
+.venue-map-selection > strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 16px;
+}
+
+.venue-map-selection > p {
+  margin-top: 5px;
+  line-height: 1.55;
+}
+
+@media (max-width: 390px) {
+  .event-form-page .venue-location-card > .row.between {
+    align-items: flex-start;
+  }
+
+  .event-form-page .venue-location-card > .row.between > button.secondary {
+    max-width: 124px;
+  }
+
+  .event-form-page .venue-location-actions {
+    grid-template-columns: 1fr;
+  }
+}
