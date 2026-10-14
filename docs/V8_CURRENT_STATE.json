@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "project": "球搭子 V8",
+  "stage": "confirmed-scope development",
+  "development_branch": "feature/v8-confirmed-20261011",
+  "runtime_head_source": "GitHub live branch exact HEAD; never hard-code a stale SHA as current truth",
+  "scope_canonical": "docs/V8_CONFIRMED_SCOPE.md",
+  "confirmed_scope_count": 5,
+  "confirmed_scopes": [
+    {
+      "id": "V8-01",
+      "name": "participant-scoring",
+      "title": "参赛者记分",
+      "mode": "active-development"
+    },
+    {
+      "id": "V8-02",
+      "name": "event-detail-tab-selected-state",
+      "title": "赛事详情页 Tab 选中态强化",
+      "mode": "acceptance-defect-only"
+    },
+    {
+      "id": "V8-03",
+      "name": "quick-round-robin-knockout",
+      "title": "Quick Start 补齐循环 + 淘汰",
+      "mode": "acceptance-defect-only"
+    },
+    {
+      "id": "V8-04",
+      "name": "platform-admin",
+      "title": "Platform Admin 后台",
+      "mode": "active-development"
+    },
+    {
+      "id": "V8-05",
+      "name": "venue-map-picker",
+      "title": "创建赛事的比赛场馆 / 地图选择体验",
+      "mode": "active-development"
+    }
+  ],
+  "development_priority": [
+    "V8-01",
+    "V8-04",
+    "V8-05",
+    "V8-03",
+    "V8-02"
+  ],
+  "handoff_policy": {
+    "top_level_path": "/球搭子/V8/handoffs/",
+    "consumed_path": "/球搭子/V8/handoffs/consumed/",
+    "rule": "Unconsumed handoffs do not stop development unless every remaining actionable block is hard-dependent on them.",
+    "batching": "Prefer low-frequency semantic batch integration after rechecking live exact HEAD."
+  },
+  "read_chain": [
+    "docs/V8_CONFIRMED_SCOPE.md",
+    "docs/V8_CURRENT_STATE.json",
+    "docs/DOCUMENT_GOVERNANCE.md",
+    "relevant inherited V7/topic canonical if needed",
+    "current exact-head code/tests",
+    "Library unconsumed V8 handoffs",
+    "runtime/CI/Supabase/Vercel evidence when relevant"
+  ],
+  "legacy_classification": {
+    "docs/CURRENT_STATE.json": "V7 historical/current-state manifest for the V7 governance model; not authoritative for V8 scope count",
+    "docs/V7_WORKBOARD.md": "V7 implementation history; not the V8 implementation queue",
+    "PR_24_v7_verification_ledger": "V7 verification evidence only; not V8 verification truth",
+    "V7_product_baselines": "Inherited product rules unless explicitly changed by V8 confirmed scope"
+  },
+  "scope_rules": [
+    "The current V8 confirmed scope count is exactly 5.",
+    "Venue/map is V8-05 and is not scope creep.",
+    "Old references to four confirmed V8 items are historical and must not drive current scope decisions.",
+    "Research candidates do not enter development unless explicitly confirmed by the user.",
+    "No automation may merge main, deploy Production, or move release-candidate without explicit authorization."
+  ]
+}
