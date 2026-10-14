@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { PlatformAdminFeedbackResolutionAction } from "./PlatformAdminFeedbackResolutionAction";
 import { parseAdminFeedbackPage } from "../domain/PlatformAdminFeedbackDirectory";
 import type { AdminFeedbackCursor, AdminFeedbackRow, AdminFeedbackStatus } from "../domain/PlatformAdminFeedbackDirectory";
-import { supabase } from "../repositories/supabase";
+import { rpc, supabase } from "../repositories/supabase";
 
 type Filter = "all" | AdminFeedbackStatus;
 const filters: readonly Filter[] = ["all", "open", "in_review", "resolved", "dismissed"];
@@ -19,7 +20,7 @@ const categoryText: Record<AdminFeedbackRow["category"], [string, string]> = {
   other: ["其他", "Other"],
 };
 
-/** Read-only feedback triage; server independently reauthorizes each request. */
+/** Feedback triage with audited actions; Edge and DB independently authorize every mutation. */
 export function PlatformAdminFeedbackDirectory({ userId, en }: { userId: string; en: boolean }) {
   const [filter, setFilter] = useState<Filter>("all");
   const scope = `${userId}:${filter}`;
@@ -30,6 +31,52 @@ export function PlatformAdminFeedbackDirectory({ userId, en }: { userId: string;
   const [busy, setBusy] = useState(false);
   const generation = useRef(0);
   const inFlight = useRef(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [roleAccess, setRoleAccess] = useState<{ userId: string; role: "reviewer" | "operator" | "super_admin" | null }>({
+    userId: "", role: null,
+  });
+  const roleEpoch = useRef(0);
+
+  // The page's initial role check is not enough for an action control: fail closed on
+  // focus/visibility changes and every identity switch. Server reauthorization is final.
+  useEffect(() => {
+    let cancelled = false;
+    const recheckRole = () => {
+      const epoch = ++roleEpoch.current;
+      setRoleAccess({ userId, role: null });
+      void rpc<string | null>("platform_admin_my_role")
+        .then((role) => {
+          if (cancelled || roleEpoch.current !== epoch) return;
+          setRoleAccess({ userId, role: role === "reviewer" || role === "operator" || role === "super_admin" ? role : null });
+        })
+        .catch(() => {
+          if (!cancelled && roleEpoch.current === epoch) setRoleAccess({ userId, role: null });
+        });
+    };
+    const onFocus = () => { if (document.visibilityState === "visible") recheckRole(); };
+    recheckRole();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      cancelled = true;
+      roleEpoch.current++;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [userId]);
+
+  const actionRole = roleAccess.userId === userId ? roleAccess.role : null;
+  const canResolve = actionRole === "operator" || actionRole === "super_admin";
+
+  function refreshAfterAction() {
+    const epoch = ++generation.current;
+    inFlight.current = false;
+    setSelectedId(null);
+    setItems([]);
+    setCursor(null);
+    setState("loading");
+    void loadPage(null, true, epoch, filter);
+  }
 
   async function loadPage(before: AdminFeedbackCursor | null, reset: boolean, epoch: number, selected: Filter) {
     if (inFlight.current) return;
@@ -60,6 +107,7 @@ export function PlatformAdminFeedbackDirectory({ userId, en }: { userId: string;
       setItems([]);
       setCursor(null);
       setState("failed");
+      setRoleAccess({ userId, role: null });
     } finally {
       if (generation.current === epoch) {
         inFlight.current = false;
@@ -73,6 +121,7 @@ export function PlatformAdminFeedbackDirectory({ userId, en }: { userId: string;
     inFlight.current = false;
     setItems([]);
     setCursor(null);
+    setSelectedId(null);
     setState("loading");
     setLoadedScope(scope);
     void loadPage(null, true, epoch, filter);
@@ -82,8 +131,8 @@ export function PlatformAdminFeedbackDirectory({ userId, en }: { userId: string;
   if (loadedScope !== scope) return <p role="status">{en ? "Loading feedback records…" : "正在加载反馈记录…"}</p>;
   return <div>
     <p className="muted small">{en
-      ? "Read-only feedback metadata. Submitter identities and feedback messages are not displayed. Every request is reauthorized."
-      : "仅查看反馈元数据，不展示提交人身份或反馈正文。每次查询均由服务端重新核验权限。"}</p>
+      ? "Feedback metadata only. Authorized operators can resolve records with an audited server-side action. Submitter identities and messages stay private."
+      : "仅展示反馈元数据。获授权的管理员可通过服务端审计操作处理反馈，不展示提交人身份或反馈正文。"}</p>
     <label className="small" htmlFor="platform-admin-feedback-status">{en ? "Feedback status" : "反馈状态"}</label>
     <select id="platform-admin-feedback-status" value={filter} onChange={(event) => setFilter(event.target.value as Filter)}>
       {filters.map((value) => <option key={value} value={value}>{statusText[value][en ? 1 : 0]}</option>)}
@@ -100,6 +149,18 @@ export function PlatformAdminFeedbackDirectory({ userId, en }: { userId: string;
           <strong>{categoryText[item.category][en ? 1 : 0]}</strong> <span className="badge">{statusText[item.status][en ? 1 : 0]}</span>
           <p className="small muted"><time dateTime={item.created_at}>{new Date(item.created_at).toLocaleString(en ? "en-US" : "zh-CN")}</time></p>
           <p className="small muted">{en ? "Feedback ID" : "反馈 ID"}: {item.id} · {en ? "Version" : "版本"}: {item.version}</p>
+          {canResolve && (item.status === "open" || item.status === "in_review") && <>
+            <button type="button" className="secondary" aria-expanded={selectedId === item.id}
+              aria-controls={`feedback-resolution-${item.id}`}
+              onClick={() => setSelectedId((old) => old === item.id ? null : item.id)}>
+              {selectedId === item.id ? (en ? "Close action" : "收起处理") : (en ? "Review action" : "处理反馈")}
+            </button>
+            {selectedId === item.id && <div id={`feedback-resolution-${item.id}`}>
+              <PlatformAdminFeedbackResolutionAction key={`${userId}:${item.id}:${item.version}:${item.status}`}
+                userId={userId} feedbackId={item.id} version={item.version} status={item.status}
+                role={actionRole!} en={en} onRefresh={refreshAfterAction} />
+            </div>}
+          </>}
         </li>)}
       </ol>
       {cursor && <button type="button" className="secondary" disabled={busy} onClick={() => void loadPage(cursor, false, generation.current, filter)}>{busy ? (en ? "Loading…" : "加载中…") : (en ? "Load more" : "加载更多")}</button>}
