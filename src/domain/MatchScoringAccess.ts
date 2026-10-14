@@ -10,6 +10,7 @@ export type MatchScoringDecision =
         | "MATCH_UNAVAILABLE"
         | "NOT_MATCH_PARTICIPANT"
         | "ORGANIZER_ONLY"
+        | "PARTICIPANT_POINT_NOT_ALLOWED"
         | "RESULT_LOCKED"
         | "SCORING_MODE_CONFLICT";
     };
@@ -27,7 +28,7 @@ export function decideMatchScoringAccess(
   matchId: string,
   action: MatchScoringAction,
 ): MatchScoringDecision {
-  const { event, matches, entries, set_scores: setScores, point_logs: pointLogs } = snapshot;
+  const { event, matches, entries } = snapshot;
   if (event.status !== "ongoing") return { allowed: false, reason: "EVENT_CLOSED" };
   const match = matches.find((candidate) => candidate.id === matchId);
   if (!match || match.event_id !== event.id || match.is_bye || !match.entry_a_id || !match.entry_b_id) {
@@ -58,17 +59,14 @@ export function decideMatchScoringAccess(
       ),
   );
   if (!participates) return { allowed: false, reason: "NOT_MATCH_PARTICIPANT" };
-  if (action === "begin" || action === "undo") return { allowed: false, reason: "ORGANIZER_ONLY" };
   if (match.status === "finished") return { allowed: false, reason: "RESULT_LOCKED" };
-  if (action === "point" && match.scoring_mode === "direct") {
-    return { allowed: false, reason: "SCORING_MODE_CONFLICT" };
+  // The trusted Edge + transactional RPC currently authorize participant points
+  // only for round-robin matches. Do not advertise direct scores or other formats.
+  if (action !== "point") return { allowed: false, reason: "ORGANIZER_ONLY" };
+  if (event.format !== "round_robin" || match.stage !== "round_robin") {
+    return { allowed: false, reason: "PARTICIPANT_POINT_NOT_ALLOWED" };
   }
-  if (
-    action === "score" &&
-    (match.scoring_mode !== null ||
-      setScores.some((score) => score.match_id === match.id) ||
-      pointLogs.some((point) => point.match_id === match.id && !point.voided_at))
-  ) {
+  if (match.scoring_mode === "direct") {
     return { allowed: false, reason: "SCORING_MODE_CONFLICT" };
   }
   return { allowed: true, actor: "participant" };

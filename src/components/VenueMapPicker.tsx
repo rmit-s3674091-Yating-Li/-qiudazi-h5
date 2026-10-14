@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { browserMapProvider, type VenuePlace } from "../utils/mapProvider";
 import { createConfiguredBaiduMapProvider } from "../utils/baiduMapProvider";
 import { collectVenueSearch } from "../domain/VenueSearchResolution";
+import { reverseLocationHint } from "../domain/VenueSelection";
 import "../venue-v3.css";
 
 declare global { interface Window { L?: any } }
@@ -58,7 +59,14 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
   const[query,setQuery]=useState(initialVenueName||""),[results,setResults]=useState<VenuePlace[]>([]),[searching,setSearching]=useState(false),[searchOpen,setSearchOpen]=useState(false),[searchFocused,setSearchFocused]=useState(false);
   const[searchCompleted,setSearchCompleted]=useState(false);
 
-  function applyPlace(result:VenuePlace,zoom=15){searchSeq.current++;setSearching(false);setSearchCompleted(false);setError("");const next={lat:result.latitude,lng:result.longitude};setPosition(next);setPlace({name:result.name,address:result.address,provider:result.provider,placeId:result.placeId});setCityFallback(false);setSearchOpen(false);setResults([]);setQuery(result.name);mapRef.current?.setView([next.lat,next.lng],zoom)}
+  // An explicit POI choice or a new drag must outrank an older reverse lookup.
+  function invalidateReverseLookup(){
+    if(lookupTimer.current!==null){window.clearTimeout(lookupTimer.current);lookupTimer.current=null}
+    lookupSeq.current++;
+    setResolving(false);
+  }
+
+  function applyPlace(result:VenuePlace,zoom=15){invalidateReverseLookup();searchSeq.current++;setSearching(false);setSearchCompleted(false);setError("");const next={lat:result.latitude,lng:result.longitude};setPosition(next);setPlace({name:result.name,address:result.address,provider:result.provider,placeId:result.placeId});setCityFallback(false);setSearchOpen(false);setResults([]);setQuery(result.name);mapRef.current?.setView([next.lat,next.lng],zoom)}
 
   async function searchPlaces(termInput=query){
     const term=termInput.trim();if(term.length<2)return;
@@ -93,7 +101,7 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
       if(!en){try{found=await createConfiguredBaiduMapProvider((initialCity||"").trim()||"全国").reverseGeocode({latitude:next.lat,longitude:next.lng},language)}catch{}}
       if(!found){try{found=await browserMapProvider.reverseGeocode({latitude:next.lat,longitude:next.lng},language)}catch{}}
       if(seq!==lookupSeq.current)return;
-      if(found){setPlace({name:found.name,address:found.address,provider:found.provider,placeId:found.placeId});setQuery(q=>q||found!.name)}else setPlace(null);
+      if(found)setPlace(reverseLocationHint(found));else setPlace(null);
     })().finally(()=>{if(seq===lookupSeq.current)setResolving(false)})},400);
   }
 
@@ -102,7 +110,7 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
     const fallback={lat:39.9042,lng:116.4074},start=position??fallback;
     const map=L.map(host.current,{zoomControl:false}).setView([start.lat,start.lng],position?15:11);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap contributors"}).addTo(map);
-    map.on("dragstart",()=>{dragged.current=true});
+    map.on("dragstart",()=>{dragged.current=true;invalidateReverseLookup()});
     map.on("moveend",()=>{if(!dragged.current)return;dragged.current=false;const c=map.getCenter(),next={lat:c.lat,lng:c.lng};setPosition(next);setCityFallback(false);setPlace(null);setSearchOpen(false);resolveReadablePlace(next)});
     mapRef.current=map;setTimeout(()=>map.invalidateSize(),0);
     if(position)resolveReadablePlace(position);

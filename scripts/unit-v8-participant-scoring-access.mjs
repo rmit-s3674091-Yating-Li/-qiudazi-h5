@@ -22,11 +22,12 @@ try {
   await writeFile(modulePath, compiled.outputText, "utf8");
   const { decideMatchScoringAccess: decide } = await import(pathToFileURL(modulePath).href);
 
-  const event = { id: "event-1", owner_user_id: "owner", status: "ongoing" };
+  const event = { id: "event-1", owner_user_id: "owner", status: "ongoing", format: "round_robin" };
   const matches = [
     {
       id: "match-1",
       event_id: "event-1",
+      stage: "round_robin",
       entry_a_id: "entry-a",
       entry_b_id: "entry-b",
       is_bye: false,
@@ -36,6 +37,7 @@ try {
     {
       id: "match-2",
       event_id: "event-1",
+      stage: "round_robin",
       entry_a_id: "entry-c",
       entry_b_id: "entry-d",
       is_bye: false,
@@ -63,7 +65,7 @@ try {
     assert.deepEqual(check(actor, action, snapshot, matchId), { allowed: false, reason });
 
   assert.deepEqual(check("alice", "point"), { allowed: true, actor: "participant" });
-  assert.deepEqual(check("bob", "score"), { allowed: true, actor: "participant" });
+  deny("bob", "score", "ORGANIZER_ONLY");
   assert.deepEqual(check("owner", "undo"), { allowed: true, actor: "organizer" });
   assert.deepEqual(check("owner", "begin"), { allowed: true, actor: "organizer" });
   deny("stranger", "point", "NOT_MATCH_PARTICIPANT");
@@ -86,6 +88,18 @@ try {
         ? { ...e, players: [{ id: "legacy-player", linked_user_id: "alice" }] }
         : e,
     ),
+  });
+  deny("alice", "point", "PARTICIPANT_POINT_NOT_ALLOWED", {
+    ...base, event: { ...event, format: "knockout" },
+  });
+  deny("alice", "point", "PARTICIPANT_POINT_NOT_ALLOWED", {
+    ...base, matches: [{ ...matches[0], stage: "group" }],
+  });
+  deny("alice", "point", "PARTICIPANT_POINT_NOT_ALLOWED", {
+    ...base, event: { ...event, format: undefined },
+  });
+  deny("alice", "point", "PARTICIPANT_POINT_NOT_ALLOWED", {
+    ...base, matches: [{ ...matches[0], stage: undefined }],
   });
   deny("alice", "undo", "ORGANIZER_ONLY");
   deny("alice", "begin", "ORGANIZER_ONLY");
@@ -113,25 +127,22 @@ try {
     ...base,
     matches: [{ ...matches[0], scoring_mode: "direct" }],
   });
-  deny("alice", "score", "SCORING_MODE_CONFLICT", {
+  deny("alice", "score", "ORGANIZER_ONLY", {
     ...base,
     matches: [{ ...matches[0], scoring_mode: "live" }],
   });
-  deny("alice", "score", "SCORING_MODE_CONFLICT", {
+  deny("alice", "score", "ORGANIZER_ONLY", {
     ...base,
     set_scores: [{ match_id: "match-1" }],
   });
-  deny("alice", "score", "SCORING_MODE_CONFLICT", {
+  deny("alice", "score", "ORGANIZER_ONLY", {
     ...base,
     point_logs: [{ match_id: "match-1", voided_at: null }],
   });
-  assert.deepEqual(
-    check("alice", "score", {
-      ...base,
-      point_logs: [{ match_id: "match-1", voided_at: "2026-10-11T00:00:00Z" }],
-    }),
-    { allowed: true, actor: "participant" },
-  );
+  deny("alice", "score", "ORGANIZER_ONLY", {
+    ...base,
+    point_logs: [{ match_id: "match-1", voided_at: "2026-10-11T00:00:00Z" }],
+  });
   assert.deepEqual(check("charlie", "point", base, "match-2"), {
     allowed: true,
     actor: "participant",
