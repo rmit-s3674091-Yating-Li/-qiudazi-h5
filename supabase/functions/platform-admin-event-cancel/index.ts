@@ -1,0 +1,100 @@
+import { createClient } from "npm:@supabase/supabase-js@2.112.4";
+
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" },
+});
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const record = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+type CancelRequest = {
+  eventId: string;
+  expectedVersion: number;
+  requestId: string;
+  reason: string;
+};
+function parseCancelRequest(value: unknown): CancelRequest | null {
+  if (!record(value)) return null;
+  const expected = ["event_id", "expected_version", "request_id", "reason", "confirmed"];
+  if (Object.keys(value).length !== expected.length ||
+      Object.keys(value).some((key) => !expected.includes(key))) return null;
+  if (value.confirmed !== true ||
+      typeof value.event_id !== "string" || !uuid.test(value.event_id) ||
+      typeof value.request_id !== "string" || !uuid.test(value.request_id) ||
+      typeof value.expected_version !== "number" ||
+      !Number.isSafeInteger(value.expected_version) || value.expected_version < 1 ||
+      typeof value.reason !== "string") return null;
+  const reason = value.reason.replace(/^ +| +$/g, "");
+  if (Array.from(reason).length < 10 || Array.from(reason).length > 1000) return null;
+  return {
+    eventId: value.event_id,
+    expectedVersion: value.expected_version,
+    requestId: value.request_id,
+    reason,
+  };
+}
+
+const knownErrors: Record<string, { status: number; code: string }> = {
+  PLATFORM_ADMIN_HIGH_RISK_FORBIDDEN: { status: 403, code: "PLATFORM_ADMIN_FORBIDDEN" },
+  EVENT_NOT_FOUND: { status: 404, code: "EVENT_NOT_FOUND" },
+  VERSION_CONFLICT: { status: 409, code: "VERSION_CONFLICT" },
+  ADMIN_REQUEST_CONFLICT: { status: 409, code: "ADMIN_REQUEST_CONFLICT" },
+  ADMIN_EVENT_CANCEL_STATE: { status: 409, code: "EVENT_CANCEL_STATE_CONFLICT" },
+  ADMIN_EVENT_CANCEL_STARTED: { status: 409, code: "EVENT_ALREADY_STARTED" },
+  INVALID_ADMIN_CANCEL_COMMAND: { status: 400, code: "INVALID_CANCEL_REQUEST" },
+  ADMIN_REASON_INVALID: { status: 400, code: "INVALID_CANCEL_REASON" },
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+  if (req.method !== "POST") return json({ code: "METHOD_NOT_ALLOWED" }, 405);
+  const token = (req.headers.get("Authorization") || "").match(/^Bearer (\S+)$/)?.[1];
+  if (!token) return json({ code: "AUTH_REQUIRED" }, 401);
+
+  let command: CancelRequest | null;
+  try {
+    const raw = await req.text();
+    if (raw.length > 4096) return json({ code: "INVALID_CANCEL_REQUEST" }, 413);
+    command = parseCancelRequest(JSON.parse(raw));
+  } catch {
+    return json({ code: "INVALID_CANCEL_REQUEST" }, 400);
+  }
+  if (!command) return json({ code: "INVALID_CANCEL_REQUEST" }, 400);
+
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) return json({ code: "SERVICE_UNAVAILABLE" }, 503);
+  const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  try {
+    const { data: { user }, error: authError } = await client.auth.getUser(token);
+    if (authError || !user) return json({ code: "AUTH_REQUIRED" }, 401);
+    const { data, error } = await client.rpc("platform_admin_cancel_unstarted_event", {
+      p_actor_auth_user_id: user.id,
+      p_event_id: command.eventId,
+      p_expected_version: command.expectedVersion,
+      p_request_id: command.requestId,
+      p_reason: command.reason,
+    });
+    if (error) {
+      const code = Object.keys(knownErrors).find((item) => String(error.message || "").includes(item));
+      if (code) return json({ code: knownErrors[code].code }, knownErrors[code].status);
+      return json({ code: "ADMIN_CANCEL_UNAVAILABLE" }, 503);
+    }
+    if (!record(data) || data.id !== command.eventId || data.status !== "cancelled" ||
+        typeof data.version !== "number" || !Number.isSafeInteger(data.version) ||
+        data.version < 1 || typeof data.cancelled_at !== "string" ||
+        typeof data.replayed !== "boolean") {
+      return json({ code: "ADMIN_CANCEL_UNAVAILABLE" }, 503);
+    }
+    return json({ id: data.id, status: data.status, version: data.version,
+      cancelled_at: data.cancelled_at, replayed: data.replayed });
+  } catch {
+    return json({ code: "ADMIN_CANCEL_UNAVAILABLE" }, 503);
+  }
+});

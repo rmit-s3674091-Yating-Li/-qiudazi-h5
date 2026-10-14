@@ -54,12 +54,33 @@ try {
   assert.match(ui, /overflowWrap: "anywhere"/, "long identifiers fit mobile");
   assert.doesNotMatch(ui, /\.from\(|\.insert\(|\.update\(|\.delete\(|\.upsert\(/,
     "no direct DB access or browser mutation");
-  assert.doesNotMatch(ui, /signed_url|original_url|storage_path|<img/, "no image URL or preview");
+  assert.doesNotMatch(ui, /signed_url|original_url|storage_path/, "no private image URL leaks");
   const transpiled = ts.transpileModule(ui, { fileName: "PlatformAdminPhotoDirectory.tsx",
     compilerOptions: { jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
     reportDiagnostics: true });
   assert.equal(transpiled.diagnostics?.length ?? 0, 0, "TSX syntax");
-  console.log("V8 Platform Admin photo metadata UI parser and contract passed");
+  const review = await readFile("src/components/PlatformAdminPhotoReview.tsx", "utf8");
+  const shell = await readFile("src/pages/PlatformAdminPage.tsx", "utf8");
+  for (const [name, component] of [["review", review], ["shell", shell]]) {
+    const checked = ts.transpileModule(component, {
+      fileName: `${name}.tsx`,
+      compilerOptions: { jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
+      reportDiagnostics: true,
+    });
+    assert.equal(checked.diagnostics?.length ?? 0, 0, `${name} TSX syntax`);
+  }
+  assert.match(shell, /status === "allowed"/, "admin shell remains fail-closed");
+  assert.match(shell, /<PlatformAdminPhotoReview key=\{userId\}/, "review resets on account change");
+  assert.match(review, /validAdminPhotoId\(candidate\)/, "reject invalid event identifiers before request");
+  assert.match(review, /setEventId\(null\)/, "changing event clears previous photo scope");
+  assert.match(review, /<PlatformAdminPhotoDirectory key=\{`\$\{userId\}:\$\{eventId\}`\}/,
+    "event and user scoped photo directory remount");
+  assert.match(ui, /<PlatformAdminPhotoPreview key=\{item.id\}/, "only a listed photo may be previewed");
+  assert.match(ui, /selectedPhotoId === item.id/, "only selected current event photo is rendered");
+  assert.match(ui, /setSelectedPhotoId\(null\)/, "clear selection on refresh, failure or scope change");
+  assert.doesNotMatch(review + shell, /\.storage\.|\.insert\(|\.update\(|\.delete\(|\.upsert\(/,
+    "integration must not access storage or mutate data from browser");
+  console.log("V8 Platform Admin photo directory and watermarked review integration contract passed");
 } finally {
   await rm(tmp, { recursive: true, force: true });
 }

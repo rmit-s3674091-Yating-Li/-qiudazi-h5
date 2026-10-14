@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { parseAdminPhotoPage } from "../domain/PlatformAdminPhotoDirectory";
+import { PlatformAdminPhotoPreview } from "./PlatformAdminPhotoPreview";
 import type { AdminPhotoCursor, AdminPhotoRow } from "../domain/PlatformAdminPhotoDirectory";
 import { supabase } from "../repositories/supabase";
 
-/** Read-only event-photo metadata triage. No image preview or moderation mutation. */
+/** Read-only event-photo triage with opt-in short-lived watermarked preview. */
 export function PlatformAdminPhotoDirectory({ userId, eventId, en }: {
   userId: string; eventId: string; en: boolean;
 }) {
@@ -13,6 +14,7 @@ export function PlatformAdminPhotoDirectory({ userId, eventId, en }: {
   const [cursor, setCursor] = useState<AdminPhotoCursor | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
   const [busy, setBusy] = useState(false);
+  const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const generation = useRef(0);
   const inFlight = useRef(false);
 
@@ -20,6 +22,7 @@ export function PlatformAdminPhotoDirectory({ userId, eventId, en }: {
     if (inFlight.current) return;
     inFlight.current = true;
     if (reset) {
+      setSelectedPhotoId(null);
       setItems([]);
       setCursor(null);
       setState("loading");
@@ -43,6 +46,7 @@ export function PlatformAdminPhotoDirectory({ userId, eventId, en }: {
       if (generation.current !== epoch) return;
       setItems([]);
       setCursor(null);
+      setSelectedPhotoId(null);
       setState("failed");
     } finally {
       if (generation.current === epoch) {
@@ -57,6 +61,7 @@ export function PlatformAdminPhotoDirectory({ userId, eventId, en }: {
     inFlight.current = false;
     setItems([]);
     setCursor(null);
+    setSelectedPhotoId(null);
     setState("loading");
     setLoadedScope(scope);
     void loadPage(null, true, epoch);
@@ -66,8 +71,8 @@ export function PlatformAdminPhotoDirectory({ userId, eventId, en }: {
   if (loadedScope !== scope) return <p role="status">{en ? "Loading photo records…" : "正在加载照片记录…"}</p>;
   return <div>
     <p className="muted small">{en
-      ? "Event photo metadata only. No image preview or moderation action is available. Each request is reauthorized."
-      : "仅显示赛事照片元数据，不提供照片预览或治理操作。每次查询均由服务端重新核验权限。"}</p>
+      ? "Read-only photo review. Watermarked previews require separate short-lived authorization. No moderation changes are available."
+      : "仅供只读审核；水印预览需单独短时授权，当前不可修改或删除照片。每次查询均重新核验权限。"}</p>
     <p className="small muted" style={{ overflowWrap: "anywhere" }}>{en ? "Event ID" : "赛事 ID"}: {eventId}</p>
     {state === "loading" && <p role="status">{en ? "Loading photo records…" : "正在加载照片记录…"}</p>}
     {state === "failed" && <div role="alert">
@@ -81,6 +86,15 @@ export function PlatformAdminPhotoDirectory({ userId, eventId, en }: {
           <p className="small">{en ? "Photo ID" : "照片 ID"}: {item.id}</p>
           <p className="small muted">{en ? "Version" : "版本"}: {item.version}</p>
           <p className="small muted">{en ? "Uploaded" : "上传时间"}: <time dateTime={item.uploaded_at}>{new Date(item.uploaded_at).toLocaleString(en ? "en-US" : "zh-CN")}</time></p>
+          <button type="button" className="secondary"
+            aria-expanded={selectedPhotoId === item.id}
+            aria-controls={`platform-admin-photo-preview-${item.id}`}
+            onClick={() => setSelectedPhotoId((current) => current === item.id ? null : item.id)}>
+            {selectedPhotoId === item.id ? (en ? "Hide preview" : "收起预览") : (en ? "Review photo" : "审核预览")}
+          </button>
+          {selectedPhotoId === item.id && <div id={`platform-admin-photo-preview-${item.id}`}>
+            <PlatformAdminPhotoPreview key={item.id} userId={userId} eventId={eventId} photoId={item.id} en={en} />
+          </div>}
         </li>)}
       </ol>
       {cursor && <button type="button" className="secondary" disabled={busy} onClick={() => void loadPage(cursor, false, generation.current)}>{busy ? (en ? "Loading…" : "加载中…") : (en ? "Load more" : "加载更多")}</button>}
