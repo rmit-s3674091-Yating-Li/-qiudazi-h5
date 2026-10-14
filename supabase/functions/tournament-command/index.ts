@@ -30,8 +30,10 @@ const schema = z.object({
   }).strict()).max(5).optional(),
   confirmed: z.boolean().optional(),
 }).strict().superRefine((cmd, ctx) => {
-  if (cmd.type === "point" && !cmd.operation_id) {
-    ctx.addIssue({ code: "custom", path: ["operation_id"], message: "point 命令必须提供 operation_id" });
+  if (cmd.type === "point") {
+    if (!cmd.operation_id) ctx.addIssue({ code: "custom", path: ["operation_id"], message: "point 命令必须提供 operation_id" });
+    if (!cmd.match_id || !cmd.match_version) ctx.addIssue({ code: "custom", path: ["match_id"], message: "point 命令必须提供 match_id 和 match_version" });
+    if (!cmd.side) ctx.addIssue({ code: "custom", path: ["side"], message: "point 命令必须指定得分方" });
   }
   if (cmd.type === "exit" && (!cmd.match_id || !cmd.match_version)) {
     ctx.addIssue({ code: "custom", path: ["match_id"], message: "退赛/弃权命令必须提供 match_id 和 match_version" });
@@ -47,9 +49,6 @@ async function findPointOperation(client: ReturnType<typeof createClient>, cmd: 
   if (data.match_id !== cmd.match_id || data.winner_side !== cmd.side) return { conflict: true as const, snapshot: null };
   const { data: snapshot, error: snapshotError } = await client.rpc("get_event_snapshot_for_actor", { p_event_id: cmd.event_id, p_actor_auth_user_id: actorAuthUserId });
   if (snapshotError) throw snapshotError;
-  // A point UUID is idempotent only for the original event and match. The
-  // organizer may own multiple events; a forged event_id must not return a
-  // different event snapshot as if the original point had been committed there.
   const current = snapshot as Snapshot | null;
   if (
     !current ||
@@ -60,6 +59,58 @@ async function findPointOperation(client: ReturnType<typeof createClient>, cmd: 
     )
   ) return { conflict: true as const, snapshot: null };
   return { conflict: false as const, snapshot: current };
+}
+
+async function tryParticipantRoundRobinPoint(
+  client: ReturnType<typeof createClient>, cmd: Command,
+  actorAuthUserId: string, actorProfileId: string,
+): Promise<Response | null> {
+  if (cmd.type !== "point" || !cmd.match_id || !cmd.match_version || !cmd.side || !cmd.operation_id) return null;
+  const { data, error } = await client.rpc("get_event_snapshot", { p_event_id: cmd.event_id });
+  if (error) throw error;
+  const current = data as Snapshot;
+  if (current.event.owner_user_id === actorProfileId) return null;
+
+  const match = current.matches.find((item) => item.id === cmd.match_id && item.event_id === cmd.event_id);
+  if (!match) return json({ error: "比赛不存在", code: "MATCH_NOT_FOUND" }, 404);
+  if (current.event.format !== "round_robin" || match.stage !== "round_robin") {
+    return json({ error: "当前赛制尚未开放参赛者逐分记分", code: "PARTICIPANT_POINT_NOT_ALLOWED" }, 403);
+  }
+
+  const { data: prior, error: priorError } = await client.from("point_logs")
+    .select("id,match_id,winner_side").eq("id", cmd.operation_id).maybeSingle();
+  if (priorError) throw priorError;
+  if (prior && (prior.match_id !== cmd.match_id || prior.winner_side !== cmd.side)) {
+    return json({ error: "operation_id 已用于另一条得分操作", code: "OPERATION_CONFLICT" }, 409);
+  }
+  if (!prior) {
+    const { data: eligible, error: eligibilityError } = await client.rpc("v8_active_match_participant", {
+      p_event_id: cmd.event_id, p_match_id: cmd.match_id, p_actor_auth_user_id: actorAuthUserId,
+    });
+    if (eligibilityError) throw eligibilityError;
+    if (eligible !== true) return json({ error: "当前账号不是该场比赛的实际参赛者", code: "NOT_MATCH_PARTICIPANT" }, 403);
+  }
+
+  let firstId = true;
+  const next = prior ? current : applyCommand(current, current.event.owner_user_id, cmd, {
+    id: () => {
+      if (firstId) { firstId = false; return cmd.operation_id!; }
+      return crypto.randomUUID();
+    },
+    now: () => new Date().toISOString(),
+  });
+  const result = await client.rpc("v8_commit_participant_round_robin_point", {
+    p_event_id: cmd.event_id,
+    p_match_id: cmd.match_id,
+    p_actor_auth_user_id: actorAuthUserId,
+    p_expected_event_version: cmd.event_version,
+    p_expected_match_version: cmd.match_version,
+    p_operation_id: cmd.operation_id,
+    p_side: cmd.side,
+    p_snapshot: next,
+  });
+  if (result.error) throw result.error;
+  return json(result.data);
 }
 
 Deno.serve(async (req) => {
@@ -82,12 +133,12 @@ Deno.serve(async (req) => {
     if (profileError) throw profileError;
     const profile = Array.isArray(profiles) ? profiles[0] : profiles;
     if (!profile || profile.profile_status !== "completed") return json({ error: "PROFILE_REQUIRED" }, 403);
+    const participantPoint = await tryParticipantRoundRobinPoint(client, cmd, user.id, profile.id);
+    if (participantPoint) return participantPoint;
     const existing = await findPointOperation(client, cmd, user.id);
     if (existing?.conflict) return json({ error: "operation_id 已用于另一条得分操作", code: "OPERATION_CONFLICT" }, 409);
     if (existing?.snapshot) return json(existing.snapshot);
 
-    // Participant withdrawal has a deliberately narrow transaction boundary. Ordinary
-    // tournament mutations remain owner-only in commit_tournament.
     if (cmd.type === "withdraw") {
       if (!cmd.confirmed) return json({ error: "退出比赛前需要确认", code: "CONFIRM_REQUIRED" }, 409);
       const result = await client.rpc("withdraw_quick_event", {
@@ -99,9 +150,6 @@ Deno.serve(async (req) => {
       return json(result.data);
     }
 
-    // Once a Quick event is ongoing, leaving is a Match result rather than roster
-    // withdrawal. Keep this on the dedicated authoritative transaction so winner,
-    // downstream advancement and final Event completion are committed atomically.
     if (cmd.type === "exit") {
       if (!cmd.confirmed) return json({ error: "退赛/弃权前需要确认", code: "CONFIRM_REQUIRED" }, 409);
       const result = await client.rpc("resolve_quick_match_exit", {
@@ -137,6 +185,9 @@ Deno.serve(async (req) => {
   } catch (error) {
     if (error instanceof RuleError) return json({ error: error.message, code: error.code }, error.code === "FORBIDDEN" ? 403 : 409);
     const message = typeof error === "object" && error && "message" in error ? String((error as { message: unknown }).message) : "";
+    if (message.includes("OPERATION_CONFLICT")) return json({ error: "operation_id 已用于另一条得分操作", code: "OPERATION_CONFLICT" }, 409);
+    if (message.includes("PARTICIPANT_POINT_NOT_ALLOWED")) return json({ error: "当前比赛不允许参赛者逐分记分", code: "PARTICIPANT_POINT_NOT_ALLOWED" }, 403);
+    if (message.includes("INVALID_POINT_SNAPSHOT")) return json({ error: "比分状态已变化，请刷新后重试", code: "POINT_SNAPSHOT_CONFLICT" }, 409);
     if (message.includes("VERSION_CONFLICT")) return json({ error: "数据已更新，请刷新重试", code: "VERSION_CONFLICT" }, 409);
     if (message.includes("EVENT_NOT_FOUND")) return json({ error: "赛事不存在" }, 404);
     if (message.includes("MATCH_NOT_FOUND")) return json({ error: "比赛不存在", code: "MATCH_NOT_FOUND" }, 404);

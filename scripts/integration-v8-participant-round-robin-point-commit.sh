@@ -55,11 +55,21 @@ begin
     or not exists(select 1 from public.matches where id=v_match and version=2 and status='ongoing' and scoring_mode='live')
   then raise exception 'POINT_COMMIT_FAILED'; end if;
 
-  -- Same operation must be idempotent even when original expected versions are stale.
   v_result := public.v8_commit_participant_round_robin_point(v_event,v_match,v_actor,1,1,v_op,'A',v_next);
   if (v_result->'event'->>'version')::integer<>2
     or (select count(*) from public.point_logs where match_id=v_match)<>1
   then raise exception 'REPLAY_NOT_IDEMPOTENT'; end if;
+
+  -- The opponent is a valid participant, but cannot claim the original scorer's operation.
+  v_blocked:=false;
+  begin
+    perform public.v8_commit_participant_round_robin_point(v_event,v_match,
+      'c1111111-1111-4111-8111-111111111111',1,1,v_op,'A',v_next);
+  exception when others then v_blocked:=(sqlerrm='OPERATION_CONFLICT'); end;
+  if not v_blocked then raise exception 'OTHER_ACTIVE_PLAYER_REPLAY_ACCEPTED'; end if;
+  if (select actor_auth_user_id from scoring_ops.participant_point_actor_binding
+      where operation_id=v_op) is distinct from v_actor
+  then raise exception 'POINT_ACTOR_BINDING_MISSING'; end if;
 
   v_blocked:=false;
   begin
@@ -74,7 +84,6 @@ begin
   exception when others then v_blocked:=(sqlerrm='OPERATION_CONFLICT'); end;
   if not v_blocked then raise exception 'OPERATION_REPLAY_CONFLICT_NOT_REJECTED'; end if;
 
-  -- Signup-only account must not gain scoring permission.
   v_blocked:=false;
   begin
     perform public.v8_commit_participant_round_robin_point(v_event,v_match,
@@ -82,7 +91,6 @@ begin
   exception when others then v_blocked:=(sqlerrm='NOT_MATCH_PARTICIPANT'); end;
   if not v_blocked then raise exception 'SIGNUP_ONLY_GRANTED'; end if;
 
-  -- Membership revocation must be enforced even on a retry.
   update public.entry_players set active=false where player_id='c7777777-7777-4777-8777-777777777777';
   v_blocked:=false;
   begin
@@ -91,7 +99,6 @@ begin
   if not v_blocked then raise exception 'REVOKED_PLAYER_REPLAY_GRANTED'; end if;
   update public.entry_players set active=true where player_id='c7777777-7777-4777-8777-777777777777';
 
-  -- A forged snapshot may not change another match or the event owner.
   v_bad := jsonb_set(v_next,'{event,owner_user_id}',to_jsonb(v_actor),true);
   v_blocked:=false;
   begin
@@ -107,6 +114,18 @@ begin
     or not has_function_privilege('service_role',
       'public.v8_commit_participant_round_robin_point(uuid,uuid,uuid,integer,integer,uuid,text,jsonb)','EXECUTE')
   then raise exception 'POINT_TRANSACTION_ACL_BAD'; end if;
+  if has_function_privilege('service_role',
+      'public.v8_commit_participant_round_robin_point_unbound(uuid,uuid,uuid,integer,integer,uuid,text,jsonb)','EXECUTE')
+    or has_function_privilege('authenticated',
+      'public.v8_commit_participant_round_robin_point_unbound(uuid,uuid,uuid,integer,integer,uuid,text,jsonb)','EXECUTE')
+  then raise exception 'UNBOUND_POINT_TRANSACTION_EXPOSED'; end if;
+
+  delete from scoring_ops.participant_point_actor_binding where operation_id=v_op;
+  v_blocked:=false;
+  begin
+    perform public.v8_commit_participant_round_robin_point(v_event,v_match,v_actor,1,1,v_op,'A',v_next);
+  exception when others then v_blocked:=(sqlerrm='OPERATION_CONFLICT'); end;
+  if not v_blocked then raise exception 'UNBOUND_LEGACY_POINT_REPLAY_ACCEPTED'; end if;
 end;
 $test$;
 select 'ok';
