@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { Header } from "../components/UI";
 import { PlatformAdminAuditHistory } from "../components/PlatformAdminAuditHistory";
 import { PlatformAdminEventDirectory } from "../components/PlatformAdminEventDirectory";
+import { PlatformAdminFeedbackDirectory } from "../components/PlatformAdminFeedbackDirectory";
+import { PlatformAdminReportDirectory } from "../components/PlatformAdminReportDirectory";
 import { PlatformAdminUserDirectory } from "../components/PlatformAdminUserDirectory";
 import { useAuth } from "../hooks/Auth";
 import { useLanguage } from "../i18n";
@@ -40,7 +42,6 @@ export function PlatformAdminPage() {
     let currentRequestId = 0;
     const verifyAccess = () => {
       const requestId = ++currentRequestId;
-      // A revoked or downgraded role must not remain visible during revalidation.
       setAccess({ userId, status: "loading", role: null });
       rpc<string | null>("platform_admin_my_role")
         .then((role) => {
@@ -64,7 +65,6 @@ export function PlatformAdminPage() {
     };
   }, [ready, userId, session?.access_token]);
 
-  // A previous account's successful role lookup must never survive an identity switch.
   const status = !ready ? "loading" : !userId ? "signed_out" : access.userId !== userId ? "loading" : access.status;
   return <>
     <Header title={en ? "Platform administration" : "平台管理"} backTo="/me" />
@@ -81,6 +81,16 @@ export function PlatformAdminPage() {
           {zh === "操作审计" ? <PlatformAdminAuditHistory key={userId} userId={userId!} en={en} /> :
            zh === "用户管理" && access.role === "super_admin" ? <PlatformAdminUserDirectory key={userId} userId={userId!} en={en} /> :
            zh === "赛事管理" ? <PlatformAdminEventDirectory key={userId} userId={userId!} en={en} /> :
+           zh === "举报与反馈" ? <div>
+             <section aria-label={en ? "Reports" : "举报记录"}>
+               <h3>{en ? "Reports" : "举报记录"}</h3>
+               <PlatformAdminReportDirectory key={`${userId}-reports`} userId={userId!} en={en} />
+             </section>
+             <section aria-label={en ? "Feedback" : "用户反馈"}>
+               <h3>{en ? "Feedback" : "用户反馈"}</h3>
+               <PlatformAdminFeedbackDirectory key={`${userId}-feedback`} userId={userId!} en={en} />
+             </section>
+           </div> :
             <p className="muted small">{en ? "Not available yet · no changes can be made" : "尚未开放 · 当前不可执行修改"}</p>}
         </section>)}
       </>}
