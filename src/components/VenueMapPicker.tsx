@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { browserMapProvider, type VenuePlace } from "../utils/mapProvider";
 import { createConfiguredBaiduMapProvider } from "../utils/baiduMapProvider";
+import { collectVenueSearch } from "../domain/VenueSearchResolution";
 import "../venue-v3.css";
 
 declare global { interface Window { L?: any } }
@@ -55,28 +56,31 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
   const[position,setPosition]=useState<{lat:number;lng:number}|null>(initialLatitude!=null&&initialLongitude!=null?{lat:initialLatitude,lng:initialLongitude}:null);
   const[place,setPlace]=useState<PickedPlace|null>(null),[resolving,setResolving]=useState(false),[cityFallback,setCityFallback]=useState(false),[error,setError]=useState("");
   const[query,setQuery]=useState(initialVenueName||""),[results,setResults]=useState<VenuePlace[]>([]),[searching,setSearching]=useState(false),[searchOpen,setSearchOpen]=useState(false),[searchFocused,setSearchFocused]=useState(false);
+  const[searchCompleted,setSearchCompleted]=useState(false);
 
-  function applyPlace(result:VenuePlace,zoom=15){const next={lat:result.latitude,lng:result.longitude};setPosition(next);setPlace({name:result.name,address:result.address,provider:result.provider,placeId:result.placeId});setCityFallback(false);setSearchOpen(false);setResults([]);setQuery(result.name);mapRef.current?.setView([next.lat,next.lng],zoom)}
+  function applyPlace(result:VenuePlace,zoom=15){searchSeq.current++;setSearching(false);setSearchCompleted(false);setError("");const next={lat:result.latitude,lng:result.longitude};setPosition(next);setPlace({name:result.name,address:result.address,provider:result.provider,placeId:result.placeId});setCityFallback(false);setSearchOpen(false);setResults([]);setQuery(result.name);mapRef.current?.setView([next.lat,next.lng],zoom)}
 
   async function searchPlaces(termInput=query){
     const term=termInput.trim();if(term.length<2)return;
-    const seq=++searchSeq.current;setError("");setSearching(true);
+    const seq=++searchSeq.current;setError("");setResults([]);setSearchCompleted(false);setSearchOpen(true);setSearching(true);
     try{
-      const groups:VenuePlace[][]=[];
-      if(en){
-        try{const items=await browserMapProvider.searchPlaces(term,{language:"en"});if(items.length)groups.push(items)}catch{}
-      }else{
-        const baidu=createConfiguredBaiduMapProvider((initialCity||"").trim()||"全国");
-        for(const variant of searchVariants(term)){
-          try{const items=await baidu.searchPlaces(variant);if(items.length)groups.push(items)}catch{}
-          if(seq!==searchSeq.current)return;
-        }
-      }
-      if(seq!==searchSeq.current)return;
+      const baidu=en?null:createConfiguredBaiduMapProvider((initialCity||"").trim()||"全国");
+      const variants=en?[term]:searchVariants(term);
+      const {groups,hadFailure,cancelled}=await collectVenueSearch<VenuePlace>(
+        variants,
+        variant=>en?browserMapProvider.searchPlaces(variant,{language:"en"}):baidu!.searchPlaces(variant),
+        ()=>seq===searchSeq.current,
+      );
+      if(cancelled)return;
       const found=rankPlaces(mergePlaces(groups),term).slice(0,12);
-      setResults(found);setSearchOpen(true);
-    }catch{if(seq===searchSeq.current)setError(en?"Search is temporarily unavailable. You can still move the map manually.":"暂时无法搜索地点，你仍可以拖动地图手动选择。");}
-    finally{if(seq===searchSeq.current)setSearching(false)}
+      setResults(found);
+      setSearchCompleted(!hadFailure||found.length>0);
+      if(!found.length&&hadFailure){
+        setError(en?"Search is temporarily unavailable. You can still move the map or enter the venue manually.":"地点搜索服务暂时不可用，你仍可以拖动地图或返回手填比赛场馆。");
+      }
+    }catch{
+      if(seq===searchSeq.current){setResults([]);setSearchCompleted(false);setError(en?"Search is temporarily unavailable. You can still move the map or enter the venue manually.":"地点搜索服务暂时不可用，你仍可以拖动地图或返回手填比赛场馆。");}
+    }finally{if(seq===searchSeq.current)setSearching(false)}
   }
 
   useEffect(()=>{if(!searchFocused)return;const term=query.trim();if(term.length<2){setSearchOpen(false);setResults([]);return;}const timer=window.setTimeout(()=>{void searchPlaces(term)},320);return()=>window.clearTimeout(timer)},[query,searchFocused]);
@@ -132,11 +136,11 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
     <section className="venue-picker-sheet">
       <form className="venue-picker-search" onSubmit={e=>{e.preventDefault();setSearchOpen(true);void searchPlaces();}}>
         <span className="venue-picker-city">{initialCity|| (en?"City":"城市")}</span>
-        <input value={query} onChange={e=>{const value=e.target.value;setQuery(value);if(value.trim().length>=2)setSearchOpen(true)}} onFocus={()=>{setSearchFocused(true);if(results.length)setSearchOpen(true)}} onBlur={()=>setSearchFocused(false)} placeholder={en?"Search venue or address":"搜索场馆 / 地址"}/>
+        <input value={query} onChange={e=>{const value=e.target.value;searchSeq.current++;setQuery(value);setError("");setResults([]);setSearchCompleted(false);setSearching(false);setSearchOpen(value.trim().length>=2)}} onFocus={()=>{setSearchFocused(true);if(results.length)setSearchOpen(true)}} onBlur={()=>setSearchFocused(false)} placeholder={en?"Search venue or address":"搜索场馆 / 地址"}/>
         <button type="submit" className="secondary" disabled={searching||query.trim().length<2}>{searching?(en?"Searching…":"搜索中…"):(en?"Search":"搜索")}</button>
       </form>
       <button type="button" className="secondary full venue-picker-current" onClick={locate}>{en?"Use current location":"使用当前位置"}</button>
-      {searchOpen&&<div className="venue-picker-results"><div className="venue-picker-results-meta">{searching?(en?"Searching nearby places…":"正在搜索相关地点…"):(results.length?(en?`${results.length} suggestions`:`找到 ${results.length} 个候选`):"")}</div>{results.length?results.map(result=><button type="button" key={`${result.placeId||result.name}-${result.latitude}-${result.longitude}`} className="venue-picker-result" onMouseDown={e=>e.preventDefault()} onClick={()=>applyPlace(result)}><strong>{result.name}</strong><span>{result.address}</span></button>):<p className="muted small">{noResultsCopy}</p>}</div>}
+      {searchOpen&&<div className="venue-picker-results"><div className="venue-picker-results-meta">{searching?(en?"Searching nearby places…":"正在搜索相关地点…"):(results.length?(en?`${results.length} suggestions`:`找到 ${results.length} 个候选`):"")}</div>{results.length?results.map(result=><button type="button" key={`${result.placeId||result.name}-${result.latitude}-${result.longitude}`} className="venue-picker-result" onMouseDown={e=>e.preventDefault()} onClick={()=>applyPlace(result)}><strong>{result.name}</strong><span>{result.address}</span></button>):(!searching&&!error&&searchCompleted?<p className="muted small">{noResultsCopy}</p>:null)}</div>}
       {!searchOpen&&<div className={`venue-map-selection${position?" is-selected":""}`} aria-live="polite"><div className="venue-picker-selected-row"><span className="venue-picker-radio" aria-hidden="true">{position?"✓":"⌖"}</span><div><strong>{selectedName}</strong><p className="muted small">{selectedAddress}</p></div></div></div>}
       {error&&<p className="error-text">{error}</p>}
       <button type="button" className="full venue-picker-confirm" disabled={!canConfirm} onClick={()=>position&&canConfirm&&onConfirm(position.lat,position.lng,place)}>{en?"Confirm venue":"确认场馆"}</button>

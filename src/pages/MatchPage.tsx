@@ -7,8 +7,9 @@ import { invalidateQueryPrefix, useQuery } from "../hooks/useQuery";
 import { Header,ErrorNotice,Loading,entryName,labelFor,Confirm } from "../components/UI";
 import { applyCommand } from "../application/TournamentService";
 import { useLanguage } from "../i18n";
+import { pointRetryDisposition, type PointAttemptVersions } from "../domain/PointCommandConflict";
 
-type PendingPoint={side:Side;operationId:string};
+type PendingPoint={side:Side;operationId:string;lastAttempt?:PointAttemptVersions};
 
 export function MatchPage({mode="detail"}:{mode?:"detail"|"direct"|"live"}){
   const{id,matchId}=useParams(),navigate=useNavigate();
@@ -36,23 +37,42 @@ export function MatchPage({mode="detail"}:{mode?:"detail"|"direct"|"live"}){
   async function flushPointQueue(){
     if(pointFlush.current)return;
     pointFlush.current=true;setError("");
+    const conflictMessage=en
+      ? "The match changed or the point was rejected. Unsent points were cleared; review the latest score before scoring again."
+      : "比赛状态已变化或记分被拒绝，未同步的分数已清空。请核对最新比分后重新操作。";
     try{
       while(pointQueue.current.length){
-        let current=latestSnapshot.current,currentMatch=current?.matches.find(x=>x.id===matchId);
+        const current=latestSnapshot.current,currentMatch=current?.matches.find(x=>x.id===matchId);
         if(!current||!currentMatch)throw new Error(en?"The latest match state is unavailable. Refresh and try again.":"最新比赛状态不可用，请刷新后重试。");
         const pending=pointQueue.current[0];
+        const observed={eventVersion:current.event.version,matchVersion:currentMatch.version};
+        if(pending.lastAttempt){
+          const committed=current.point_logs.some(log=>log.id===pending.operationId&&log.match_id===matchId&&log.winner_side===pending.side);
+          const disposition=pointRetryDisposition(null,pending.lastAttempt,observed,committed);
+          if(disposition==="committed"){
+            pointQueue.current.shift();setOptimisticPoints([...pointQueue.current]);q.replace(current);continue;
+          }
+          if(disposition==="conflict"){
+            pointQueue.current=[];setOptimisticPoints([]);throw new Error(conflictMessage);
+          }
+        }
+        pending.lastAttempt=observed;
         let next:Snapshot;
         try{
-          next=await command(current.event.id,{type:"point",event_version:current.event.version,match_id:currentMatch.id,match_version:currentMatch.version,side:pending.side,operation_id:pending.operationId});
+          next=await command(current.event.id,{type:"point",event_version:observed.eventVersion,match_id:currentMatch.id,match_version:observed.matchVersion,side:pending.side,operation_id:pending.operationId});
         }catch(firstError){
           const reconciled=await q.refresh();
           latestSnapshot.current=reconciled;
+          const reconciledMatch=reconciled.matches.find(x=>x.id===matchId);
           const committed=reconciled.point_logs.some(log=>log.id===pending.operationId&&log.match_id===matchId&&log.winner_side===pending.side);
-          if(committed){next=reconciled}
-          else{
-            current=reconciled;currentMatch=current.matches.find(x=>x.id===matchId);
-            if(!currentMatch)throw firstError;
-            next=await command(current.event.id,{type:"point",event_version:current.event.version,match_id:currentMatch.id,match_version:currentMatch.version,side:pending.side,operation_id:pending.operationId});
+          const refreshedVersions=reconciledMatch?{eventVersion:reconciled.event.version,matchVersion:reconciledMatch.version}:null;
+          const disposition=pointRetryDisposition(firstError,observed,refreshedVersions,committed);
+          if(disposition==="committed")next=reconciled;
+          else if(disposition==="conflict"){
+            pointQueue.current=[];setOptimisticPoints([]);throw new Error(conflictMessage);
+          }else{
+            // Only a transient/unknown failure with unchanged versions gets one replay.
+            next=await command(reconciled.event.id,{type:"point",event_version:observed.eventVersion,match_id:currentMatch.id,match_version:observed.matchVersion,side:pending.side,operation_id:pending.operationId});
           }
         }
         latestSnapshot.current=next;
@@ -61,7 +81,8 @@ export function MatchPage({mode="detail"}:{mode?:"detail"|"direct"|"live"}){
         q.replace(next);invalidateEventReads();
       }
     }catch(e){
-      setOptimisticPoints([...pointQueue.current]);const detail=explainError(e);setError(en?`This point was not synced. It is kept for a safe retry and will not be counted twice.${detail?` ${detail}`:""}`:`这一分尚未同步成功，系统已保留为安全重试，不会重复记分。${detail?` ${detail}`:""}`);
+      setOptimisticPoints([...pointQueue.current]);const detail=explainError(e);
+      setError(!pointQueue.current.length?detail:(en?`This point was not synced. It is kept for a safe retry and will not be counted twice.${detail?` ${detail}`:""}`:`这一分尚未同步成功，系统已保留为安全重试，不会重复记分。${detail?` ${detail}`:""}`));
     }finally{pointFlush.current=false}
   }
 

@@ -73,14 +73,12 @@ try {
     entries: [entry("entry-a", null), ...entries.slice(1)],
   });
   deny("charlie", "point", "NOT_MATCH_PARTICIPANT");
-  // Inactive links may still be present in historical snapshot rosters.
   deny("alice", "point", "NOT_MATCH_PARTICIPANT", {
     ...base,
     entries: entries.map((e) =>
       e.id === "entry-a" ? { ...e, players: [{ ...e.players[0], active: false }] } : e,
     ),
   });
-  // Older snapshots without an explicit active flag must fail closed.
   deny("alice", "score", "NOT_MATCH_PARTICIPANT", {
     ...base,
     entries: entries.map((e) =>
@@ -138,7 +136,33 @@ try {
     allowed: true,
     actor: "participant",
   });
-  console.log("V8 participant scoring eligibility domain tests passed");
+
+  const policySource = await readFile("src/domain/PointCommandConflict.ts", "utf8");
+  const policyCompiled = ts.transpileModule(policySource, {
+    fileName: "PointCommandConflict.ts",
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
+    reportDiagnostics: true,
+  });
+  assert.equal(policyCompiled.diagnostics?.length ?? 0, 0);
+  const policyPath = join(tmp, "PointCommandConflict.mjs");
+  await writeFile(policyPath, policyCompiled.outputText, "utf8");
+  const { TournamentCommandError, pointRetryDisposition } = await import(pathToFileURL(policyPath).href);
+  const attempt = { eventVersion: 8, matchVersion: 4 };
+  const same = { ...attempt };
+  assert.equal(pointRetryDisposition(null, attempt, same, true), "committed");
+  assert.equal(pointRetryDisposition(null, attempt, null, false), "conflict");
+  assert.equal(pointRetryDisposition(null, attempt, { eventVersion: 9, matchVersion: 4 }, false), "conflict");
+  assert.equal(pointRetryDisposition(null, attempt, { eventVersion: 8, matchVersion: 5 }, false), "conflict");
+  assert.equal(pointRetryDisposition(new TournamentCommandError("conflict", "VERSION_CONFLICT", 409), attempt, same, false), "conflict");
+  assert.equal(pointRetryDisposition(new TournamentCommandError("forbidden", null, 403), attempt, same, false), "conflict");
+  assert.equal(pointRetryDisposition(new TournamentCommandError("server error", null, 500), attempt, same, false), "retry");
+  assert.equal(pointRetryDisposition(new Error("network error"), attempt, same, false), "retry");
+  const matchSource = await readFile("src/pages/MatchPage.tsx", "utf8");
+  const commandSource = await readFile("src/repositories/supabase.ts", "utf8");
+  assert.match(matchSource, /pending\.lastAttempt=observed/, "point queue must retain attempted versions");
+  assert.match(matchSource, /pointQueue\.current=\[\];setOptimisticPoints\(\[\]\)/, "conflicts must clear unsent optimistic points");
+  assert.match(commandSource, /new TournamentCommandError\(explainError/, "Edge HTTP status and code must not be discarded");
+  console.log("V8 participant scoring eligibility and point conflict retry tests passed");
 } finally {
   await rm(tmp, { recursive: true, force: true });
 }
