@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { PlatformAdminEventCancelAction } from "./PlatformAdminEventCancelAction";
 import { parseAdminEventPage } from "../domain/PlatformAdminEventDirectory";
 import type { AdminEventCursor, AdminEventRow, AdminEventStatus } from "../domain/PlatformAdminEventDirectory";
-import { supabase } from "../repositories/supabase";
+import { rpc, supabase } from "../repositories/supabase";
 
 type Filter = "all" | AdminEventStatus;
 const statusOptions: readonly Filter[] = ["all", "signup", "locked", "ongoing", "finished", "cancelled"];
@@ -14,15 +15,59 @@ const statusText: Record<Filter, [string, string]> = {
   cancelled: ["已取消", "Cancelled"],
 };
 
-/** Read-only triage. Every Edge request is JWT-authenticated and DB-reauthorized. */
+/** Audited cancellation is available only to a freshly checked super administrator. */
 export function PlatformAdminEventDirectory({ userId, en }: { userId: string; en: boolean }) {
   const [filter, setFilter] = useState<Filter>("all");
+  const scope = `${userId}:${filter}`;
+  const [loadedScope, setLoadedScope] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [roleAccess, setRoleAccess] = useState<{ userId: string; role: string | null }>({ userId: "", role: null });
+  const roleEpoch = useRef(0);
   const [items, setItems] = useState<AdminEventRow[]>([]);
   const [cursor, setCursor] = useState<AdminEventCursor | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "failed">("loading");
   const [busy, setBusy] = useState(false);
   const generation = useRef(0);
   const inFlight = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const recheckRole = () => {
+      const epoch = ++roleEpoch.current;
+      setRoleAccess({ userId, role: null });
+      setSelectedId(null);
+      void rpc<string | null>("platform_admin_my_role")
+        .then((role) => {
+          if (cancelled || roleEpoch.current !== epoch) return;
+          setRoleAccess({ userId, role: role === "super_admin" ? role : null });
+        })
+        .catch(() => {
+          if (!cancelled && roleEpoch.current === epoch) setRoleAccess({ userId, role: null });
+        });
+    };
+    const onFocus = () => { if (document.visibilityState === "visible") recheckRole(); };
+    recheckRole();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      cancelled = true;
+      roleEpoch.current++;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [userId]);
+
+  const canCancel = roleAccess.userId === userId && roleAccess.role === "super_admin";
+
+  function refreshAfterCancel() {
+    const epoch = ++generation.current;
+    inFlight.current = false;
+    setSelectedId(null);
+    setItems([]);
+    setCursor(null);
+    setState("loading");
+    void loadPage(null, true, epoch, filter);
+  }
 
   async function loadPage(before: AdminEventCursor | null, reset: boolean, epoch: number, selected: Filter) {
     if (inFlight.current) return;
@@ -45,9 +90,10 @@ export function PlatformAdminEventDirectory({ userId, en }: { userId: string; en
       setState("ready");
     } catch {
       if (generation.current !== epoch) return;
-      // A failed page can mean permission revocation; never retain stale admin rows.
       setItems([]);
       setCursor(null);
+      setSelectedId(null);
+      setRoleAccess({ userId, role: null });
       setState("failed");
     } finally {
       if (generation.current === epoch) {
@@ -62,12 +108,17 @@ export function PlatformAdminEventDirectory({ userId, en }: { userId: string; en
     inFlight.current = false;
     setItems([]);
     setCursor(null);
+    setSelectedId(null);
+    setLoadedScope(scope);
     void loadPage(null, true, epoch, filter);
     return () => { generation.current++; };
   }, [userId, filter]);
 
+  if (loadedScope !== scope) return <p role="status">{en ? "Loading event records…" : "正在加载赛事记录…"}</p>;
   return <div>
-    <p className="muted small">{en ? "Read-only event directory. Each page is reauthorized by the server." : "只读赛事目录，每次查询均由服务端重新核验权限。"}</p>
+    <p className="muted small">{en
+      ? "Event directory. Only a verified super administrator may cancel an unstarted event with an audited reason. Each request is reauthorized by the server."
+      : "赛事目录。仅经重新核验的超级管理员可填写审计原因取消未开始的赛事，每次请求均由服务端重新授权。"}</p>
     <label className="small" htmlFor="platform-admin-event-status">{en ? "Event status" : "赛事状态"}</label>
     <select id="platform-admin-event-status" value={filter} onChange={(e) => setFilter(e.target.value as Filter)}>
       {statusOptions.map((value) => <option key={value} value={value}>{statusText[value][en ? 1 : 0]}</option>)}
@@ -86,6 +137,17 @@ export function PlatformAdminEventDirectory({ userId, en }: { userId: string; en
           <p className="small muted">{item.event_mode === "quick" ? (en ? "Quick" : "快速开赛") : (en ? "Standard" : "常规赛事")} · {item.format} · {item.match_type}</p>
           <p className="small muted">{en ? "Event ID" : "赛事 ID"}: {item.id} · {en ? "Version" : "版本"}: {item.version}</p>
           <p className="small muted">{en ? "Organizer ID" : "创建者 ID"}: {item.owner_user_id}</p>
+          {canCancel && (item.status === "signup" || item.status === "locked") && <>
+            <button type="button" className="secondary" aria-expanded={selectedId === item.id}
+              aria-controls={`platform-admin-event-cancel-${item.id}`}
+              onClick={() => setSelectedId((previous) => previous === item.id ? null : item.id)}>
+              {selectedId === item.id ? (en ? "Close cancellation" : "收起取消操作") : (en ? "Review cancellation" : "审核取消赛事")}
+            </button>
+            {selectedId === item.id && <div id={`platform-admin-event-cancel-${item.id}`}>
+              <PlatformAdminEventCancelAction key={`${userId}:${item.id}:${item.version}`}
+                userId={userId} event={item} role={roleAccess.role} en={en} onCancelled={refreshAfterCancel} />
+            </div>}
+          </>}
         </li>)}
       </ol>
       {cursor && <button type="button" className="secondary" disabled={busy} onClick={() => void loadPage(cursor, false, generation.current, filter)}>{busy ? (en ? "Loading…" : "加载中…") : (en ? "Load more" : "加载更多")}</button>}
