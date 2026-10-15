@@ -6,6 +6,7 @@ import { PlatformAdminEventDirectory } from "../components/PlatformAdminEventDir
 import { PlatformAdminFeedbackDirectory } from "../components/PlatformAdminFeedbackDirectory";
 import { PlatformAdminPhotoReview } from "../components/PlatformAdminPhotoReview";
 import { PlatformAdminReportDirectory } from "../components/PlatformAdminReportDirectory";
+import { PlatformAdminScoreExceptionLookup } from "../components/PlatformAdminScoreExceptionLookup";
 import { PlatformAdminUserDirectory } from "../components/PlatformAdminUserDirectory";
 import { PlatformAdminVenueCandidateDirectory } from "../components/PlatformAdminVenueCandidateDirectory";
 import { useAuth } from "../hooks/Auth";
@@ -83,6 +84,7 @@ export function PlatformAdminPage() {
           {zh === "操作审计" ? <PlatformAdminAuditHistory key={userId} userId={userId!} en={en} /> :
            zh === "用户管理" && access.role === "super_admin" ? <PlatformAdminUserDirectory key={userId} userId={userId!} en={en} /> :
            zh === "赛事管理" ? <PlatformAdminEventDirectory key={userId} userId={userId!} en={en} /> :
+           zh === "比分与结果异常" ? <PlatformAdminScoreExceptionLookup key={userId} userId={userId!} en={en} /> :
            zh === "场馆与商业机构" ? <PlatformAdminVenueCandidateDirectory key={userId} userId={userId!} en={en} /> :
            zh === "照片与内容治理" ? <PlatformAdminPhotoReview key={userId} userId={userId!} en={en} /> :
            zh === "举报与反馈" ? <div>
