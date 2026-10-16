@@ -16,7 +16,7 @@ try {
   assert.equal(compiled.diagnostics?.length ?? 0, 0);
   const path = join(dir, "PointQueueScope.mjs");
   await writeFile(path, compiled.outputText, "utf8");
-  const { advancePointQueueScope: advance, samePointQueueScope: same } = await import(pathToFileURL(path).href);
+  const { advancePointQueueScope: advance, pointQueueScopeKey: key, samePointQueueScope: same } = await import(pathToFileURL(path).href);
 
   const first = { route: "event-A/match-1", generation: 0 };
   assert.equal(advance(first, first.route), first, "same match must preserve queue identity");
@@ -28,7 +28,21 @@ try {
   assert.equal(same(third, third), true);
   assert.equal(advance(third, third.route), third);
 
+  const actorA = key("event-A/match-1", "auth-user-A");
+  const actorB = key("event-A/match-1", "auth-user-B");
+  const signedOut = key("event-A/match-1", null);
+  assert.equal(actorA, key("event-A/match-1", "auth-user-A"), "JWT refresh for the same actor must preserve the queue");
+  assert.notEqual(actorA, actorB, "same match with a different account must not reuse pending points");
+  assert.notEqual(actorA, signedOut, "sign-out must invalidate in-flight points");
+  assert.notEqual(signedOut, actorB, "sign-in must not inherit signed-out points");
+  const beforeSwitch = { route: actorA, generation: 0 };
+  const afterSwitch = advance(beforeSwitch, actorB);
+  assert.equal(same(afterSwitch, beforeSwitch), false, "old actor's in-flight response must be ignored");
+  assert.equal(same(advance(afterSwitch, actorA), beforeSwitch), false, "A-B-A account switching must not revive old responses");
+
   const page = await readFile("src/pages/MatchPage.tsx", "utf8");
+  assert.match(page, /const \{session\}=useAuth\(\)/);
+  assert.match(page, /const routeKey=pointQueueScopeKey\(\(id\?\?""\)\+"\/"\+\(matchId\?\?""\),session\?\.user\.id\)/);
   assert.match(page, /pointScope\.current=advancePointQueueScope\(pointScope\.current,routeKey\)/);
   assert.match(page, /pointFlush=useRef<number\|null>\(null\)/);
   assert.match(page, /while\(active\(\)\&\&pointQueue\.current\.length\)/);
@@ -38,7 +52,7 @@ try {
   assert.match(page, /if\(pointFlush\.current===scope\.generation\)pointFlush\.current=null/);
   assert.match(page, /q\.data\?\.event\.id===id\?q\.data:null/);
   assert.match(page, /pointQueue\.current=\[\];setOptimisticPoints\(\[\]\);latestSnapshot\.current=null/);
-  console.log("PASS: V8 point queue route isolation, A-B-A and stale async guard");
+  console.log("PASS: V8 point queue route/account isolation and stale async guard");
 } finally {
   await rm(dir, { recursive: true, force: true });
 }

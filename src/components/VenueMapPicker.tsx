@@ -3,6 +3,7 @@ import { browserMapProvider, type VenuePlace } from "../utils/mapProvider";
 import { createConfiguredBaiduMapProvider } from "../utils/baiduMapProvider";
 import { collectVenueSearch } from "../domain/VenueSearchResolution";
 import { reverseLocationHint } from "../domain/VenueSelection";
+import { isWithinVenueCityBounds, resolveVenueCityBounds, type VenueCityBounds } from "../domain/VenueCitySearch";
 import "../venue-v3.css";
 
 declare global { interface Window { L?: any } }
@@ -19,7 +20,6 @@ function ensureLeaflet():Promise<any>{
 }
 
 type PickedPlace=Pick<VenuePlace,"name"|"address"|"provider"|"placeId">;
-function hasHan(value:string){return /[\u3400-\u9fff]/.test(value)}
 function normalizeText(value:string){return value.replace(/[\s·•・()（）\-_/]/g,"").toLowerCase()}
 function searchVariants(term:string){
   const clean=term.trim();
@@ -36,9 +36,12 @@ function mergePlaces(groups:VenuePlace[][]){
   return merged;
 }
 function coreSearchTerm(term:string){return normalizeText(term).replace(/网球运动中心|网球俱乐部|网球中心|网球场|体育中心|运动中心|体育馆|运动馆|场馆|球场|网球|中心/g,"")}
-function fuzzyCoverage(candidate:string,core:string){if(!core)return 1;const chars=Array.from(new Set(core));if(!chars.length)return 1;return chars.filter(char=>candidate.includes(char)).length/chars.length}
+function fuzzyCoverage(candidate:string,core:string){if(!core)return 0;const chars=Array.from(new Set(core));if(!chars.length)return 0;return chars.filter(char=>candidate.includes(char)).length/chars.length}
+function broadVenueCategory(needle:string){
+  return ["网球","体育","运动","球场","公园"].find(token=>needle.includes(token))||"";
+}
 function rankPlaces(items:VenuePlace[],term:string){
-  const needle=normalizeText(term),core=coreSearchTerm(term);
+  const needle=normalizeText(term),core=coreSearchTerm(term),category=core?"":broadVenueCategory(needle);
   return items.map((item,index)=>{
     const name=normalizeText(item.name),address=normalizeText(item.address),haystack=`${name}${address}`,coverage=fuzzyCoverage(haystack,core);
     let score=0;
@@ -48,16 +51,31 @@ function rankPlaces(items:VenuePlace[],term:string){
     score+=coverage*45;
     if(/网球|球场|体育|运动|公园/.test(item.name))score+=12;
     if(item.provider==="baidu")score+=8;
-    return {item,index,score,coverage,direct:name.includes(needle)||address.includes(needle)||(!core?true:haystack.includes(core))};
+    return {item,index,score,coverage,direct:name.includes(needle)||address.includes(needle)||(core?haystack.includes(core):!!category&&name.includes(category))};
   }).filter(({coverage,direct})=>direct||coverage>=0.75).sort((a,b)=>b.score-a.score||a.index-b.index).map(({item})=>item);
 }
 
 export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,initialVenueName,initialAddress,language,onClose,onConfirm}:{initialLatitude?:number|null;initialLongitude?:number|null;initialCity?:string|null;initialVenueName?:string|null;initialAddress?:string|null;language:string;onClose:()=>void;onConfirm:(lat:number,lng:number,place?:PickedPlace|null)=>void}){
-  const en=language==="en",host=useRef<HTMLDivElement>(null),mapRef=useRef<any>(null),lookupTimer=useRef<number|null>(null),lookupSeq=useRef(0),dragged=useRef(false),searchSeq=useRef(0);
+  const en=language==="en",host=useRef<HTMLDivElement>(null),mapRef=useRef<any>(null),lookupTimer=useRef<number|null>(null),lookupSeq=useRef(0),dragged=useRef(false),searchSeq=useRef(0),locationSeq=useRef(0);
+  const searchInputRef=useRef<HTMLInputElement>(null);
   const[position,setPosition]=useState<{lat:number;lng:number}|null>(initialLatitude!=null&&initialLongitude!=null?{lat:initialLatitude,lng:initialLongitude}:null);
   const[place,setPlace]=useState<PickedPlace|null>(null),[resolving,setResolving]=useState(false),[cityFallback,setCityFallback]=useState(false),[error,setError]=useState("");
-  const[query,setQuery]=useState(initialVenueName||""),[results,setResults]=useState<VenuePlace[]>([]),[searching,setSearching]=useState(false),[searchOpen,setSearchOpen]=useState(false),[searchFocused,setSearchFocused]=useState(false);
+  const[query,setQuery]=useState(initialVenueName||initialAddress||""),[results,setResults]=useState<VenuePlace[]>([]),[searching,setSearching]=useState(false),[searchOpen,setSearchOpen]=useState(false),[searchFocused,setSearchFocused]=useState(false);
   const[searchCompleted,setSearchCompleted]=useState(false);
+  const cityBoundsCache=useRef<{city:string;promise:Promise<VenueCityBounds>}|null>(null);
+
+  async function englishCityBounds():Promise<VenueCityBounds|null>{
+    const city=(initialCity||"").trim();
+    if(!city)return null;
+    const cached=cityBoundsCache.current;
+    if(cached?.city===city)return cached.promise;
+    const promise=resolveVenueCityBounds(city,term=>browserMapProvider.searchPlaces(term,{language:"zh-CN"}));
+    cityBoundsCache.current={city,promise};
+    try{return await promise;}catch(error){
+      if(cityBoundsCache.current?.promise===promise)cityBoundsCache.current=null;
+      throw error;
+    }
+  }
 
   // An explicit POI choice or a new drag must outrank an older reverse lookup.
   function invalidateReverseLookup(){
@@ -66,17 +84,23 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
     setResolving(false);
   }
 
-  function applyPlace(result:VenuePlace,zoom=15){invalidateReverseLookup();searchSeq.current++;setSearching(false);setSearchCompleted(false);setError("");const next={lat:result.latitude,lng:result.longitude};setPosition(next);setPlace({name:result.name,address:result.address,provider:result.provider,placeId:result.placeId});setCityFallback(false);setSearchOpen(false);setResults([]);setQuery(result.name);mapRef.current?.setView([next.lat,next.lng],zoom)}
+  function applyPlace(result:VenuePlace,zoom=15){searchInputRef.current?.blur();setSearchFocused(false);locationSeq.current++;invalidateReverseLookup();searchSeq.current++;setSearching(false);setSearchCompleted(false);setError("");const next={lat:result.latitude,lng:result.longitude};setPosition(next);setPlace({name:result.name,address:result.address,provider:result.provider,placeId:result.placeId});setCityFallback(false);setSearchOpen(false);setResults([]);setQuery(result.name);mapRef.current?.setView([next.lat,next.lng],zoom)}
 
   async function searchPlaces(termInput=query){
     const term=termInput.trim();if(term.length<2)return;
     const seq=++searchSeq.current;setError("");setResults([]);setSearchCompleted(false);setSearchOpen(true);setSearching(true);
     try{
+      // A selected city must constrain English POI search too. Never fall back globally.
+      const bounds=en?await englishCityBounds():null;
+      if(seq!==searchSeq.current)return;
       const baidu=en?null:createConfiguredBaiduMapProvider((initialCity||"").trim()||"全国");
       const variants=en?[term]:searchVariants(term);
       const {groups,hadFailure,cancelled}=await collectVenueSearch<VenuePlace>(
         variants,
-        variant=>en?browserMapProvider.searchPlaces(variant,{language:"en"}):baidu!.searchPlaces(variant),
+        variant=>en
+          ?browserMapProvider.searchPlaces(variant,{language:"en",...(bounds?{viewbox:bounds,bounded:true}:{})})
+            .then(items=>bounds?items.filter(item=>isWithinVenueCityBounds(item,bounds)):items)
+          :baidu!.searchPlaces(variant),
         ()=>seq===searchSeq.current,
       );
       if(cancelled)return;
@@ -110,32 +134,32 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
     const fallback={lat:39.9042,lng:116.4074},start=position??fallback;
     const map=L.map(host.current,{zoomControl:false}).setView([start.lat,start.lng],position?15:11);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap contributors"}).addTo(map);
-    map.on("dragstart",()=>{dragged.current=true;invalidateReverseLookup()});
+    map.on("dragstart",()=>{dragged.current=true;locationSeq.current++;invalidateReverseLookup()});
     map.on("moveend",()=>{if(!dragged.current)return;dragged.current=false;const c=map.getCenter(),next={lat:c.lat,lng:c.lng};setPosition(next);setCityFallback(false);setPlace(null);setSearchOpen(false);resolveReadablePlace(next)});
     mapRef.current=map;setTimeout(()=>map.invalidateSize(),0);
     if(position)resolveReadablePlace(position);
     else{
-      const city=(initialCity||"").trim(),address=(initialAddress||"").trim();
-      if(city||address){setResolving(true);void (async()=>{
+      // An existing address is only a search hint, never a confirmed POI.
+      // Only an explicit result tap, pin drag, or device location can select coordinates.
+      const bootstrapEpoch=lookupSeq.current;
+      const city=(initialCity||"").trim();
+      if(city){setResolving(true);void (async()=>{
         try{
-          let cityResult:VenuePlace|null=null;
-          if(city){const cityResults=await browserMapProvider.searchPlaces(city,{language:en?"en":"zh-CN"});if(cancelled)return;cityResult=cityResults[0]||null;}
-          const bounds=cityResult?.boundingBox||undefined;
-          const searchBounded=async(term:string)=>{const options=bounds?{viewbox:bounds,bounded:true,language:en?"en":"zh-CN"}:{language:en?"en":"zh-CN"};const items=await browserMapProvider.searchPlaces(term,options);if(cancelled)return [] as VenuePlace[];return en?items:items.filter(item=>hasHan(item.name)||hasHan(item.address));};
-          const baiduProvider=!en&&city?createConfiguredBaiduMapProvider(city):null;
-          if(address){let items:VenuePlace[]=[];if(baiduProvider){try{items=await baiduProvider.searchPlaces(address)}catch{}}if(!items.length)items=await searchBounded(address);if(items[0]){applyPlace(items[0]);return;}}
+          const cityResults=await browserMapProvider.searchPlaces(city,{language:en?"en":"zh-CN"});
+          if(cancelled||lookupSeq.current!==bootstrapEpoch)return;
+          const cityResult=cityResults[0]||null;
           if(cityResult){setPosition(null);setPlace(null);setCityFallback(true);map.setView([cityResult.latitude,cityResult.longitude],12);}
         }catch{}
-      })().finally(()=>{if(!cancelled)setResolving(false)})}
+      })().finally(()=>{if(!cancelled&&lookupSeq.current===bootstrapEpoch)setResolving(false)})}
     }
   }).catch(()=>setError(en?"Map could not be loaded.":"地图暂时无法加载。"));
-  return()=>{cancelled=true;if(lookupTimer.current!==null)window.clearTimeout(lookupTimer.current);lookupSeq.current++;searchSeq.current++;mapRef.current?.remove();mapRef.current=null}},[]);
+  return()=>{cancelled=true;locationSeq.current++;if(lookupTimer.current!==null)window.clearTimeout(lookupTimer.current);lookupSeq.current++;searchSeq.current++;mapRef.current?.remove();mapRef.current=null}},[]);
 
-  function locate(){setError("");if(!navigator.geolocation){setError(en?"Location is unavailable.":"当前设备无法定位。");return;}navigator.geolocation.getCurrentPosition(p=>{const next={lat:p.coords.latitude,lng:p.coords.longitude};setPosition(next);setPlace(null);setCityFallback(false);setSearchOpen(false);setSearchFocused(false);mapRef.current?.setView([next.lat,next.lng],15);resolveReadablePlace(next)},()=>setError(en?"Location permission was not granted. You can still drag the map manually.":"未获得定位权限，你仍可以手动拖动地图选点。"),{enableHighAccuracy:false,timeout:10000,maximumAge:60000})}
+  function locate(){const seq=++locationSeq.current;invalidateReverseLookup();setError("");if(!navigator.geolocation){setError(en?"Location is unavailable.":"当前设备无法定位。");return;}navigator.geolocation.getCurrentPosition(p=>{if(seq!==locationSeq.current)return;const next={lat:p.coords.latitude,lng:p.coords.longitude};setPosition(next);setPlace(null);setCityFallback(false);setSearchOpen(false);setSearchFocused(false);mapRef.current?.setView([next.lat,next.lng],15);resolveReadablePlace(next)},()=>{if(seq===locationSeq.current)setError(en?"Location permission was not granted. You can still drag the map manually.":"未获得定位权限，你仍可以手动拖动地图选点。")},{enableHighAccuracy:false,timeout:10000,maximumAge:60000})}
 
   const selectedName=cityFallback?(en?"Move the map to the exact venue":"请拖动地图确认场馆"):(resolving?(en?"Finding this place…":"正在识别这个位置…"):place?.name||(position?(en?"Selected map location":"已选择地图位置"):(en?"Search or move the map":"搜索场馆，或拖动地图")));
   const selectedAddress=cityFallback?(en?"The map is centered on the event city. Search for the venue or move the map to its exact location.":"已定位到赛事城市范围。请搜索场馆，或拖动地图到准确位置。"):(resolving?(en?"Looking up a readable nearby address.":"正在获取附近可读地址。"):place?.address||(position?(en?"Address lookup is unavailable. You can still confirm this location.":"暂时无法识别这里的地址，你仍可以确认该位置。"):(en?"Search by venue name or address; you can also drag the map directly.":"可按场馆名称或地址搜索，也可以直接拖动地图。")));
-  const canConfirm=!!position&&!cityFallback&&!resolving;
+  const canConfirm=!!position&&!cityFallback&&!resolving&&!searchOpen;
   const noResultsCopy=en?"No matching places found. Try a shorter venue name.":`百度地图没有在${initialCity||"当前城市"}找到匹配地点，可以换一个更简短的场馆名称。`;
 
   return <div className="venue-map-overlay" role="dialog" aria-modal="true" aria-label={en?"Pick venue":"选择场馆"}><div className="venue-map-panel venue-picker-v2 venue-picker-v3">
@@ -144,7 +168,7 @@ export function VenueMapPicker({initialLatitude,initialLongitude,initialCity,ini
     <section className="venue-picker-sheet">
       <form className="venue-picker-search" onSubmit={e=>{e.preventDefault();setSearchOpen(true);void searchPlaces();}}>
         <span className="venue-picker-city">{initialCity|| (en?"City":"城市")}</span>
-        <input value={query} onChange={e=>{const value=e.target.value;searchSeq.current++;setQuery(value);setError("");setResults([]);setSearchCompleted(false);setSearching(false);setSearchOpen(value.trim().length>=2)}} onFocus={()=>{setSearchFocused(true);if(results.length)setSearchOpen(true)}} onBlur={()=>setSearchFocused(false)} placeholder={en?"Search venue or address":"搜索场馆 / 地址"}/>
+        <input ref={searchInputRef} value={query} onChange={e=>{const value=e.target.value;searchSeq.current++;setQuery(value);setError("");setResults([]);setSearchCompleted(false);setSearching(false);setSearchOpen(value.trim().length>=2)}} onFocus={()=>{setSearchFocused(true);if(results.length)setSearchOpen(true)}} onBlur={()=>setSearchFocused(false)} placeholder={en?"Search venue or address":"搜索场馆 / 地址"}/>
         <button type="submit" className="secondary" disabled={searching||query.trim().length<2}>{searching?(en?"Searching…":"搜索中…"):(en?"Search":"搜索")}</button>
       </form>
       <button type="button" className="secondary full venue-picker-current" onClick={locate}>{en?"Use current location":"使用当前位置"}</button>

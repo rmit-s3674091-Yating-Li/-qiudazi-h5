@@ -8,11 +8,22 @@ export interface MapProvider{
   externalDirectionsUrl(location:{latitude:number;longitude:number;name?:string|null}):string
 }
 function valid(latitude:number,longitude:number){return Number.isFinite(latitude)&&latitude>=-90&&latitude<=90&&Number.isFinite(longitude)&&longitude>=-180&&longitude<=180}
+/** Do not trust a provider's bounded=1 hint as a hard city boundary. */
+function validSearchBounds(bounds:[number,number,number,number]|undefined){
+  if(!bounds)return false;
+  const [south,north,west,east]=bounds;
+  return valid(south,west)&&valid(north,east)&&south<=north&&west<=east;
+}
+function withinSearchBounds(latitude:number,longitude:number,bounds:[number,number,number,number]){
+  const [south,north,west,east]=bounds;
+  return latitude>=south&&latitude<=north&&longitude>=west&&longitude<=east;
+}
 export function hasVenueCoordinates(value:{venue_latitude?:number|null;venue_longitude?:number|null}){return value.venue_latitude!==null&&value.venue_latitude!==undefined&&value.venue_longitude!==null&&value.venue_longitude!==undefined&&valid(value.venue_latitude,value.venue_longitude)}
 export const browserMapProvider:MapProvider={
   getCurrentPosition(){return new Promise((resolve,reject)=>{if(typeof navigator==="undefined"||!navigator.geolocation){reject(new Error("GEOLOCATION_UNAVAILABLE"));return;}navigator.geolocation.getCurrentPosition(position=>resolve({latitude:position.coords.latitude,longitude:position.coords.longitude,provider:"device_geolocation",placeId:null}),()=>reject(new Error("GEOLOCATION_DENIED")),{enableHighAccuracy:false,timeout:10000,maximumAge:60000});});},
   async searchPlaces(query,options){
     const q=query.trim();if(!q)return [];
+    if(options?.bounded&&!validSearchBounds(options.viewbox))throw new Error("VENUE_SEARCH_INVALID_BOUNDS");
     const url=new URL("https://nominatim.openstreetmap.org/search");
     url.searchParams.set("format","jsonv2");
     url.searchParams.set("q",q);
@@ -29,7 +40,7 @@ export const browserMapProvider:MapProvider={
       name:(typeof item.name==="string"&&item.name.trim())?item.name.trim():String(item.display_name||"").split(",")[0].trim(),
       address:String(item.display_name||"").trim(),
       boundingBox:Array.isArray(item.boundingbox)&&item.boundingbox.length===4?([Number(item.boundingbox[0]),Number(item.boundingbox[1]),Number(item.boundingbox[2]),Number(item.boundingbox[3])] as [number,number,number,number]):null
-    })).filter(item=>valid(item.latitude,item.longitude)&&item.address);
+    })).filter(item=>valid(item.latitude,item.longitude)&&item.address&&(!options?.bounded||(!!options.viewbox&&withinSearchBounds(item.latitude,item.longitude,options.viewbox))));
   },
   async reverseGeocode({latitude,longitude},language="zh-CN"){
     if(!valid(latitude,longitude))throw new Error("VENUE_COORDINATES");

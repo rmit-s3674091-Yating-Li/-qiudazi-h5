@@ -7,15 +7,17 @@ import { invalidateQueryPrefix, useQuery } from "../hooks/useQuery";
 import { Header,ErrorNotice,Loading,entryName,labelFor,Confirm } from "../components/UI";
 import { applyCommand } from "../application/TournamentService";
 import { useLanguage } from "../i18n";
+import { useAuth } from "../hooks/Auth";
 import { useParticipantScoringEligibility } from "../hooks/useParticipantScoringEligibility";
 import { pointRetryDisposition, type PointAttemptVersions } from "../domain/PointCommandConflict";
-import { advancePointQueueScope, samePointQueueScope } from "../domain/PointQueueScope";
+import { advancePointQueueScope, pointQueueScopeKey, samePointQueueScope } from "../domain/PointQueueScope";
 
 type PendingPoint={side:Side;operationId:string;lastAttempt?:PointAttemptVersions};
 
 export function MatchPage({mode="detail"}:{mode?:"detail"|"direct"|"live"}){
   const{id,matchId}=useParams(),navigate=useNavigate();
-  const routeKey=(id??"")+"/"+(matchId??"");
+  const {session}=useAuth();
+  const routeKey=pointQueueScopeKey((id??"")+"/"+(matchId??""),session?.user.id);
   const pointScope=useRef({route:routeKey,generation:0});
   pointScope.current=advancePointQueueScope(pointScope.current,routeKey);
   const{language,t}=useLanguage(),en=language==="en";

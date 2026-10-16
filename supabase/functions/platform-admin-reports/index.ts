@@ -19,8 +19,20 @@ const statuses = ["open", "in_review", "resolved", "dismissed"] as const;
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const validId = (value: unknown): value is string => typeof value === "string" && uuid.test(value);
+const fractionDigits = (value: string) =>
+  value.match(/\.(\d+)(?=Z|[+-]\d{2}:\d{2}$)/)?.[1] ?? "";
 const validTime = (value: unknown): value is string =>
-  typeof value === "string" && zonedTime.test(value) && Number.isFinite(Date.parse(value));
+  typeof value === "string" && zonedTime.test(value) && Number.isFinite(Date.parse(value)) &&
+  fractionDigits(value).length <= 6;
+/** Preserve PostgreSQL microsecond ordering, including equivalent timezone offsets. */
+const earlierThan = (left: { id: string; created_at: string }, right: { id: string; created_at: string }) => {
+  const a = Date.parse(left.created_at), b = Date.parse(right.created_at);
+  if (a !== b) return a < b;
+  const aMicros = Number(fractionDigits(left.created_at).padEnd(6, "0").slice(3));
+  const bMicros = Number(fractionDigits(right.created_at).padEnd(6, "0").slice(3));
+  if (aMicros !== bMicros) return aMicros < bMicros;
+  return left.id.toLowerCase() < right.id.toLowerCase();
+};
 const oneOf = (value: unknown, allowed: readonly string[]): value is string =>
   typeof value === "string" && allowed.includes(value);
 
@@ -68,16 +80,15 @@ function sanitizePage(value: unknown, query: Query) {
         !oneOf(row.status, statuses) || (query.status !== null && row.status !== query.status) ||
         typeof row.version !== "number" || !Number.isSafeInteger(row.version) || row.version < 1 ||
         !validTime(row.created_at) || seen.has(row.id.toLowerCase())) return null;
-    if (previous && (Date.parse(row.created_at) > Date.parse(previous.created_at) ||
-        (Date.parse(row.created_at) === Date.parse(previous.created_at) &&
-          row.id.toLowerCase() >= previous.id.toLowerCase()))) return null;
-    if (query.beforeCreatedAt && (Date.parse(row.created_at) > Date.parse(query.beforeCreatedAt) ||
-        (Date.parse(row.created_at) === Date.parse(query.beforeCreatedAt) &&
-          row.id.toLowerCase() >= query.beforeId!.toLowerCase()))) return null;
+    const current = { id: row.id, created_at: row.created_at };
+    if (previous && !earlierThan(current, previous)) return null;
+    if (query.beforeCreatedAt && !earlierThan(current, {
+      id: query.beforeId!, created_at: query.beforeCreatedAt,
+    })) return null;
     seen.add(row.id.toLowerCase());
     items.push({ id: row.id, target_kind: row.target_kind, target_id: row.target_id,
       category: row.category, status: row.status, version: row.version, created_at: row.created_at });
-    previous = { id: row.id, created_at: row.created_at };
+    previous = current;
   }
   const cursor = value.next_cursor;
   if (cursor === null) return { items, next_cursor: null };

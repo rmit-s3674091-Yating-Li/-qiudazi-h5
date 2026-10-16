@@ -25,12 +25,20 @@ const record = (value: unknown): value is Record<string, unknown> =>
 const exact = (value: Record<string, unknown>, keys: readonly string[]) =>
   Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
 const validId = (value: unknown): value is string => typeof value === "string" && uuid.test(value);
+const fractionDigits = (value: string) =>
+  value.match(/\.(\d+)(?=Z|[+-]\d{2}:\d{2}$)/)?.[1] ?? "";
 const validTime = (value: unknown): value is string =>
-  typeof value === "string" && zonedTime.test(value) && Number.isFinite(Date.parse(value));
+  typeof value === "string" && zonedTime.test(value) && Number.isFinite(Date.parse(value)) &&
+  fractionDigits(value).length <= 6;
+/** PostgreSQL timestamptz uses microseconds; Date.parse alone truncates to milliseconds. */
 const earlierThan = (left: AdminReportCursor, right: AdminReportCursor): boolean => {
   const a = Date.parse(left.created_at);
   const b = Date.parse(right.created_at);
-  return a < b || (a === b && left.id.toLowerCase() < right.id.toLowerCase());
+  if (a !== b) return a < b;
+  const aMicros = Number(fractionDigits(left.created_at).padEnd(6, "0").slice(3));
+  const bMicros = Number(fractionDigits(right.created_at).padEnd(6, "0").slice(3));
+  if (aMicros !== bMicros) return aMicros < bMicros;
+  return left.id.toLowerCase() < right.id.toLowerCase();
 };
 const oneOf = <T extends string>(value: unknown, choices: readonly T[]): value is T =>
   typeof value === "string" && choices.includes(value as T);

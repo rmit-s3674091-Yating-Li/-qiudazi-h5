@@ -21,20 +21,26 @@ function validLocation(location){
   const latitude=Number(lat),longitude=Number(lng);
   return Number.isFinite(latitude)&&Number.isFinite(longitude)&&latitude>=-90&&latitude<=90&&longitude>=-180&&longitude<=180;
 }
+function normalizeCity(value){return String(value||"").normalize("NFKC").replace(/\s+/g,"").replace(/市$/u,"");}
 function childResults(parent){
   const children=Array.isArray(parent?.children)?parent.children:[];
-  return children.map(child=>({
-    uid:child?.uid||undefined,
-    name:[parent?.name,child?.show_name||child?.name].filter(Boolean).join(" "),
-    address:parent?.address||"",
-    location:child?.location||parent?.location,
-    province:parent?.province,
-    city:parent?.city,
-    district:parent?.district||parent?.area,
-    area:parent?.area||parent?.district,
-  })).filter(item=>item.name&&validLocation(item.location));
+  return children.map(child=>{
+    const differentProvince=Boolean(child?.province&&normalizeCity(child.province)!==normalizeCity(parent?.province));
+    return {
+      uid:child?.uid||undefined,
+      name:[parent?.name,child?.show_name||child?.name].filter(Boolean).join(" "),
+      // Child POIs may carry a different city/address than their parent POI.
+      // Prefer the child's own locality; never silently relabel an out-of-city child.
+      address:child?.address||(differentProvince?"":parent?.address||""),
+      // A child court is independently selectable only when Baidu supplies its own pin.
+      location:child?.location,
+      province:child?.province||parent?.province,
+      city:child?.city||(differentProvince?undefined:parent?.city),
+      district:child?.district||child?.area||parent?.district||parent?.area,
+      area:child?.area||child?.district||parent?.area||parent?.district,
+    };
+  }).filter(item=>item.name&&validLocation(item.location));
 }
-function normalizeCity(value){return String(value||"").normalize("NFKC").replace(/\s+/g,"").replace(/市$/u,"");}
 function inRequestedCity(item,region){
   const expected=normalizeCity(region);
   if(!expected||expected==="全国")return true;
@@ -48,11 +54,14 @@ function inRequestedCity(item,region){
 function mergeResults(region,...groups){
   const out=[],seen=new Set();
   for(const group of groups)for(const item of group){
-    if(!item||!item.name||!validLocation(item.location)||!inRequestedCity(item,region))continue;
-    const lat=Number(item.location?.lat),lng=Number(item.location?.lng);
-    const key=item.uid?`uid:${item.uid}`:`${String(item.name).trim()}|${lat.toFixed(6)}|${lng.toFixed(6)}`;
-    if(seen.has(key))continue;
-    seen.add(key);out.push(item);
+    if(!item||!item.name||!inRequestedCity(item,region))continue;
+    // Parent POIs may omit coordinates while their child courts have valid pins.
+    // A duplicate parent from another search variant may still expose new children.
+    if(validLocation(item.location)){
+      const lat=Number(item.location?.lat),lng=Number(item.location?.lng);
+      const key=item.uid?`uid:${item.uid}`:`${String(item.name).trim()}|${lat.toFixed(6)}|${lng.toFixed(6)}`;
+      if(!seen.has(key)){seen.add(key);out.push(item);}
+    }
     for(const child of childResults(item)){
       const childLat=Number(child.location?.lat),childLng=Number(child.location?.lng);
       const childKey=child.uid?`uid:${child.uid}`:`${String(child.name).trim()}|${childLat.toFixed(6)}|${childLng.toFixed(6)}`;
@@ -74,26 +83,33 @@ function queryVariants(query){
   return [...new Set(variants)].slice(0,5);
 }
 async function readJson(response){return response.json().catch(()=>null);}
+// The two Baidu endpoints are independent. One transport failure must not
+// discard a valid candidate from the other endpoint.
+async function fetchBaiduPlace(url){
+  try{
+    const response=await fetch(url,{headers:{"User-Agent":"qiudazi-h5/1.0"}});
+    const body=await readJson(response);
+    return {body,health:upstreamHealth(response,body)};
+  }catch{return {body:null,health:"network"};}
+}
 async function baiduV3(variant,region,ak){
   const common={query:variant,region,region_limit:"true",ret_coordtype:"gcj02ll",output:"json",ak};
   const suggestionParams=new URLSearchParams(common);
   const regionParams=new URLSearchParams({...common,scope:"2",page_num:"0",page_size:"20",address_result:"false"});
-  const [suggestionResponse,regionResponse]=await Promise.all([
-    fetch(`https://api.map.baidu.com/place/v3/suggestion?${suggestionParams.toString()}`,{headers:{"User-Agent":"qiudazi-h5/1.0"}}),
-    fetch(`https://api.map.baidu.com/place/v3/region?${regionParams.toString()}`,{headers:{"User-Agent":"qiudazi-h5/1.0"}}),
+  const [suggestion,regional]=await Promise.all([
+    fetchBaiduPlace(`https://api.map.baidu.com/place/v3/suggestion?${suggestionParams.toString()}`),
+    fetchBaiduPlace(`https://api.map.baidu.com/place/v3/region?${regionParams.toString()}`),
   ]);
-  const [suggestionBody,regionBody]=await Promise.all([readJson(suggestionResponse),readJson(regionResponse)]);
-  return {results:[...okResults(suggestionBody),...okResults(regionBody)],statuses:[suggestionBody?.status,regionBody?.status],health:[upstreamHealth(suggestionResponse,suggestionBody),upstreamHealth(regionResponse,regionBody)]};
+  return {results:[...okResults(suggestion.body),...okResults(regional.body)],statuses:[suggestion.body?.status,regional.body?.status],health:[suggestion.health,regional.health]};
 }
 async function baiduV2(variant,region,ak){
   const suggestionParams=new URLSearchParams({query:variant,region,city_limit:"true",output:"json",ak});
   const searchParams=new URLSearchParams({query:variant,region,city_limit:"true",scope:"2",page_num:"0",page_size:"20",output:"json",ak});
-  const [suggestionResponse,searchResponse]=await Promise.all([
-    fetch(`https://api.map.baidu.com/place/v2/suggestion?${suggestionParams.toString()}`,{headers:{"User-Agent":"qiudazi-h5/1.0"}}),
-    fetch(`https://api.map.baidu.com/place/v2/search?${searchParams.toString()}`,{headers:{"User-Agent":"qiudazi-h5/1.0"}}),
+  const [suggestion,search]=await Promise.all([
+    fetchBaiduPlace(`https://api.map.baidu.com/place/v2/suggestion?${suggestionParams.toString()}`),
+    fetchBaiduPlace(`https://api.map.baidu.com/place/v2/search?${searchParams.toString()}`),
   ]);
-  const [suggestionBody,searchBody]=await Promise.all([readJson(suggestionResponse),readJson(searchResponse)]);
-  return {results:[...okResults(suggestionBody),...okResults(searchBody)],statuses:[suggestionBody?.status,searchBody?.status],health:[upstreamHealth(suggestionResponse,suggestionBody),upstreamHealth(searchResponse,searchBody)]};
+  return {results:[...okResults(suggestion.body),...okResults(search.body)],statuses:[suggestion.body?.status,search.body?.status],health:[suggestion.health,search.health]};
 }
 
 export default async function handler(req,res){
@@ -119,7 +135,9 @@ export default async function handler(req,res){
       const primary=await baiduV3(variant,region,ak);
       statuses.push(...primary.statuses);health.push(...primary.health);
       if(primary.results.length)groups.push(primary.results);
-      if(!primary.results.length){
+      // Raw V3 hits outside the selected city or without usable pins must not
+      // suppress the bounded V2 fallback for a genuinely selectable venue.
+      if(!mergeResults(region,primary.results).length){
         const fallback=await baiduV2(variant,region,ak);
         statuses.push(...fallback.statuses);health.push(...fallback.health);
         if(fallback.results.length)groups.push(fallback.results);
@@ -132,6 +150,7 @@ export default async function handler(req,res){
       if(nonZero.length){res.status(502).json({error:"BAIDU_PLACE_UPSTREAM_ERROR",upstream_statuses:[...new Set(nonZero)].slice(0,4)});return;}
       if(health.includes("http")){res.status(502).json({error:"BAIDU_PLACE_HTTP_ERROR"});return;}
       if(health.includes("malformed")||malformedCoordinates){res.status(502).json({error:"BAIDU_PLACE_INVALID_RESPONSE"});return;}
+      if(health.includes("network")){res.status(502).json({error:"BAIDU_PLACE_NETWORK_ERROR"});return;}
     }
     res.status(200).json({status:0,message:"ok",results,total:results.length,result_type:"poi_type",query_type:"suggestion+region",query_variants:variants});
   }catch{
