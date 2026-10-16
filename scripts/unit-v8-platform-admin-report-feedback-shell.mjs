@@ -5,6 +5,10 @@ import ts from "typescript";
 const page = await readFile("src/pages/PlatformAdminPage.tsx", "utf8");
 assert.match(page, /import \{ PlatformAdminReportDirectory \} from "\.\.\/components\/PlatformAdminReportDirectory";/);
 assert.match(page, /import \{ PlatformAdminFeedbackDirectory \} from "\.\.\/components\/PlatformAdminFeedbackDirectory";/);
+assert.doesNotMatch(page, /This page is read-only until audited management actions are available|审计化管理操作上线前，此页面仅供查看模块范围/,
+  "admin shell must not misrepresent already available audited management actions as read-only");
+assert.match(page, /Only authorized management actions are enabled/);
+assert.match(page, /仅开放当前权限允许的管理操作/);
 assert.match(page, /\{status === "allowed" && <>[\s\S]*zh === "举报与反馈" \? <div>/,
   "report and feedback directories must only mount in an allowed admin session");
 assert.match(page, /<PlatformAdminReportDirectory key=\{`\$\{userId\}-reports`\} userId=\{userId!\} en=\{en\} \/>/);

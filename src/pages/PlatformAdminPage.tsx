@@ -31,7 +31,7 @@ function isAdminRole(value: unknown): value is AdminRole {
   return value === "reviewer" || value === "operator" || value === "super_admin";
 }
 
-/** Read-only, fail-closed shell. Future mutations must independently authorize server-side. */
+/** Fail-closed shell. Child mutation routes independently reauthorize and audit server-side. */
 export function PlatformAdminPage() {
   const { ready, session } = useAuth();
   const { language } = useLanguage();
@@ -78,7 +78,7 @@ export function PlatformAdminPage() {
       {status === "denied" && <div className="card" role="alert"><p>{en ? "This account does not have platform administrator access." : "当前账号没有平台管理员权限。"}</p></div>}
       {status === "unavailable" && <div className="card" role="alert"><p>{en ? "Administrator access could not be verified. No management functions are available. Try again later." : "暂时无法核验平台管理员权限，管理功能未开放。请稍后重试。"}</p></div>}
       {status === "allowed" && <>
-        <p className="muted small">{en ? `Access level: ${access.role}. This page is read-only until audited management actions are available.` : `权限级别：${access.role}。审计化管理操作上线前，此页面仅供查看模块范围。`}</p>
+        <p className="muted small">{en ? `Access level: ${access.role}. Only authorized management actions are enabled; each change is reauthorized and audited by the server.` : `权限级别：${access.role}。仅开放当前权限允许的管理操作，每项修改均由服务端重新鉴权并审计。`}</p>
         {AREAS.map(([zh, english]) => <section className="card" key={zh} aria-label={en ? english : zh}>
           <h2>{en ? english : zh}</h2>
           {zh === "操作审计" ? <PlatformAdminAuditHistory key={userId} userId={userId!} en={en} /> :
