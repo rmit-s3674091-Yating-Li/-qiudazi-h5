@@ -56,12 +56,16 @@ try {
   reset();
   assert.deepEqual(await invoke(), { status: 200, payload: { eligible: true } });
   assert.deepEqual(calls.map(x => x[0]), ["auth", "rpc", "select", "select"]);
+  reset({ match: { ...match, status: "not_started", scoring_mode: null } });
+  assert.deepEqual(await invoke(), { status: 200, payload: { eligible: true } });
   reset({ active: false });
   assert.deepEqual(await invoke(), { status: 200, payload: { eligible: false } });
   assert.deepEqual(calls.map(x => x[0]), ["auth", "rpc"]);
   for (const invalid of [
     { ...match, stage: "knockout" }, { ...match, scoring_mode: "direct" },
-    { ...match, status: "finished" }, { ...match, is_bye: true },
+    { ...match, status: "finished" }, { ...match, status: "cancelled" },
+    { ...match, status: "paused" }, { ...match, status: "unknown" },
+    { ...match, status: null }, { ...match, is_bye: true },
     { ...match, entry_a_id: null }, { ...match, event_id: uuidC },
   ]) {
     reset({ match: invalid });
@@ -85,7 +89,7 @@ try {
   reset();
   assert.deepEqual(await invoke(undefined, "Bearer good", "GET"), { status: 405, payload: { error: "METHOD_NOT_ALLOWED" } });
   assert.equal((await invoke(undefined, "Bearer good", "OPTIONS")).status, 200);
-  console.log("PASS V8 participant scoring eligibility Edge read-only contract (18 cases)");
+  console.log("PASS V8 participant scoring eligibility Edge read-only contract");
 } finally {
   delete globalThis.__testCreateClient;
   delete globalThis.Deno;

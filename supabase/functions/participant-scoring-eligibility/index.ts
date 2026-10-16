@@ -40,7 +40,6 @@ Deno.serve(async (request) => {
     const { data: { user }, error: authError } = await client.auth.getUser(token);
     if (authError || !user?.id) return json({ error: "AUTH_REQUIRED" }, 401);
 
-    // Actor ID is derived exclusively from the validated JWT; never accepted from the browser.
     const { data: active, error: eligibilityError } = await client.rpc("v8_active_match_participant", {
       p_event_id: args.event_id,
       p_match_id: args.match_id,
@@ -49,8 +48,6 @@ Deno.serve(async (request) => {
     if (eligibilityError) throw eligibilityError;
     if (active !== true) return json({ eligible: false });
 
-    // Mirror the current trusted Edge point-routing scope. This is a read-only hint;
-    // the atomic scoring RPC remains the final authorization and concurrency guard.
     const [eventResponse, matchResponse] = await Promise.all([
       client.from("events").select("id,format,status").eq("id", args.event_id).maybeSingle(),
       client.from("matches").select("id,event_id,stage,status,scoring_mode,is_bye,entry_a_id,entry_b_id")
@@ -61,12 +58,12 @@ Deno.serve(async (request) => {
     const eligible = Boolean(
       event?.id === args.event_id && event.status === "ongoing" && event.format === "round_robin" &&
       match?.id === args.match_id && match.event_id === args.event_id && match.stage === "round_robin" &&
-      match.status !== "finished" && match.scoring_mode !== "direct" && match.is_bye === false &&
+      (match.status === "not_started" || match.status === "ongoing") &&
+      match.scoring_mode !== "direct" && match.is_bye === false &&
       match.entry_a_id && match.entry_b_id,
     );
     return json({ eligible });
   } catch {
-    // No internal schema, membership, profile, event or Supabase error details leave this endpoint.
     return json({ error: "SERVICE_UNAVAILABLE" }, 503);
   }
 });

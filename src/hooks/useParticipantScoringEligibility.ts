@@ -64,17 +64,24 @@ export function useParticipantScoringEligibility({
       if (!supabase) throw new Error("SERVICE_UNAVAILABLE");
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
-      if (!session?.access_token) {
+      if (!session?.access_token || !session.user?.id) {
         if (active) setResult({ key, status: "ineligible" });
         return;
       }
+      const actorId = session.user.id;
       const { data, error } = await supabase.functions.invoke("participant-scoring-eligibility", {
         body: { event_id: eventId, match_id: matchId },
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (error) throw error;
       const eligible = parseParticipantEligibility(data);
       if (eligible === null) throw new Error("INVALID_ELIGIBILITY_RESPONSE");
-      if (active) setResult({ key, status: eligible ? "eligible" : "ineligible" });
+      const { data: { session: currentSession }, error: currentSessionError } = await supabase.auth.getSession();
+      if (currentSessionError) throw currentSessionError;
+      if (active) setResult({
+        key,
+        status: currentSession?.user?.id === actorId ? (eligible ? "eligible" : "ineligible") : "ineligible",
+      });
     })().catch(() => {
       if (active) setResult({ key, status: "unavailable" });
     });

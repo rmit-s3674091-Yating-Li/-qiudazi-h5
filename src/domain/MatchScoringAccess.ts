@@ -40,7 +40,10 @@ export function decideMatchScoringAccess(
     if (action === "begin" && match.status !== "not_started") {
       return { allowed: false, reason: "RESULT_LOCKED" };
     }
-    if (action === "point" && (match.status === "finished" || match.scoring_mode === "direct")) {
+    if (action === "point" && (
+      (match.status !== "not_started" && match.status !== "ongoing") ||
+      match.scoring_mode === "direct"
+    )) {
       return { allowed: false, reason: "SCORING_MODE_CONFLICT" };
     }
     return { allowed: true, actor: "organizer" };
@@ -59,7 +62,9 @@ export function decideMatchScoringAccess(
       ),
   );
   if (!participates) return { allowed: false, reason: "NOT_MATCH_PARTICIPANT" };
-  if (match.status === "finished") return { allowed: false, reason: "RESULT_LOCKED" };
+  if (match.status !== "not_started" && match.status !== "ongoing") {
+    return { allowed: false, reason: "RESULT_LOCKED" };
+  }
   // The trusted Edge + transactional RPC currently authorize participant points
   // only for round-robin matches. Do not advertise direct scores or other formats.
   if (action !== "point") return { allowed: false, reason: "ORGANIZER_ONLY" };

@@ -62,6 +62,13 @@ try {
   deny("alice", "score", "ORGANIZER_ONLY", { ...base, set_scores: [{ match_id: "match-1" }] });
   deny("alice", "score", "ORGANIZER_ONLY", { ...base, point_logs: [{ match_id: "match-1", voided_at: null }] });
   deny("alice", "score", "ORGANIZER_ONLY", { ...base, point_logs: [{ match_id: "match-1", voided_at: "2026-10-11T00:00:00Z" }] });
+  for (const status of ["finished", "cancelled", "paused", "unknown", null, undefined]) {
+    const snapshot = { ...base, matches: [{ ...matches[0], status }] };
+    deny("alice", "point", "RESULT_LOCKED", snapshot);
+    deny("owner", "point", "SCORING_MODE_CONFLICT", snapshot);
+  }
+  assert.deepEqual(check("alice", "point", { ...base, matches: [{ ...matches[0], status: "ongoing" }] }), { allowed: true, actor: "participant" });
+  assert.deepEqual(check("owner", "point", { ...base, matches: [{ ...matches[0], status: "ongoing" }] }), { allowed: true, actor: "organizer" });
   assert.deepEqual(check("charlie", "point", base, "match-2"), { allowed: true, actor: "participant" });
 
   const policySource = await readFile("src/domain/PointCommandConflict.ts", "utf8");
