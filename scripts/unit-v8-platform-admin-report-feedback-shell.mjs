@@ -27,4 +27,34 @@ const compiled = ts.transpileModule(page, {
   reportDiagnostics: true,
 });
 assert.equal(compiled.diagnostics?.length ?? 0, 0, "page TSX syntax");
-console.log("PASS: V8 admin report and feedback shell integration contract");
+// Report directory must reject stale/overlapping pages just like the feedback directory.
+const reportDomain = await readFile("src/domain/PlatformAdminReportDirectory.ts", "utf8");
+const reportCompiled = ts.transpileModule(reportDomain, {
+  fileName: "PlatformAdminReportDirectory.ts",
+  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
+  reportDiagnostics: true,
+});
+assert.equal(reportCompiled.diagnostics?.length ?? 0, 0, "report parser TypeScript syntax");
+const { parseAdminReportPage: parseReport } = await import(
+  `data:text/javascript;base64,${Buffer.from(reportCompiled.outputText).toString("base64")}`
+);
+const id = "a1111111-1111-4111-8111-111111111111";
+const olderId = "a1111111-1111-4111-8111-111111111110";
+const row = { id, target_kind: "event", target_id: id, category: "safety",
+  status: "open", version: 1, created_at: "2026-10-14T00:00:00+00:00" };
+const cursor = { created_at: row.created_at, id };
+const older = { ...row, id: olderId };
+assert.equal(parseReport({ items: [row], next_cursor: null }, "open")?.items.length, 1);
+assert.equal(parseReport({ items: [older], next_cursor: null }, "open", 20, cursor)?.items.length, 1);
+assert.equal(parseReport({ items: [row], next_cursor: null }, "open", 20, cursor), null,
+  "replayed cursor boundary must fail closed");
+assert.equal(parseReport({ items: [row, older], next_cursor: null }, "open")?.items.length, 2);
+assert.equal(parseReport({ items: [older, row], next_cursor: null }, "open"), null,
+  "out-of-order report rows must fail closed");
+assert.equal(parseReport({ items: [row], next_cursor: cursor }, "open", 1)?.nextCursor?.id, id);
+assert.equal(parseReport({ items: [row], next_cursor: null }, "open", 20,
+  { created_at: "invalid", id }), null, "invalid before cursor must fail closed");
+const reportUI = await readFile("src/components/PlatformAdminReportDirectory.tsx", "utf8");
+assert.match(reportUI, /parseAdminReportPage\(data,selected==="all"\?null:selected,20,before\)/,
+  "report page parser must receive the requested cursor");
+console.log("PASS: V8 admin report and feedback shell and report cursor boundary contract");

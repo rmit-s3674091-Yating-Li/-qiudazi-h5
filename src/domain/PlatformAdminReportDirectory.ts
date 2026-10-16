@@ -27,6 +27,11 @@ const exact = (value: Record<string, unknown>, keys: readonly string[]) =>
 const validId = (value: unknown): value is string => typeof value === "string" && uuid.test(value);
 const validTime = (value: unknown): value is string =>
   typeof value === "string" && zonedTime.test(value) && Number.isFinite(Date.parse(value));
+const earlierThan = (left: AdminReportCursor, right: AdminReportCursor): boolean => {
+  const a = Date.parse(left.created_at);
+  const b = Date.parse(right.created_at);
+  return a < b || (a === b && left.id.toLowerCase() < right.id.toLowerCase());
+};
 const oneOf = <T extends string>(value: unknown, choices: readonly T[]): value is T =>
   typeof value === "string" && choices.includes(value as T);
 
@@ -35,13 +40,17 @@ export function parseAdminReportPage(
   value: unknown,
   selectedStatus: AdminReportStatus | null,
   pageSize = 20,
+  before: AdminReportCursor | null = null,
 ): AdminReportPage | null {
   if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 50 ||
       (selectedStatus !== null && !oneOf(selectedStatus, statuses)) ||
+      (before !== null && (!record(before) || !exact(before, ["created_at", "id"]) ||
+        !validTime(before.created_at) || !validId(before.id))) ||
       !record(value) || !exact(value, ["items", "next_cursor"]) ||
       !Array.isArray(value.items) || value.items.length > pageSize) return null;
   const items: AdminReportRow[] = [];
   const seen = new Set<string>();
+  let previous: AdminReportCursor | null = before;
   for (const item of value.items) {
     if (!record(item) || !exact(item, fields) || !validId(item.id) ||
         !validId(item.target_id) || seen.has(item.id.toLowerCase()) ||
@@ -49,8 +58,11 @@ export function parseAdminReportPage(
         !oneOf(item.status, statuses) || (selectedStatus !== null && item.status !== selectedStatus) ||
         typeof item.version !== "number" || !Number.isSafeInteger(item.version) || item.version < 1 ||
         !validTime(item.created_at)) return null;
+    const current = { id: item.id, created_at: item.created_at };
+    if (previous && !earlierThan(current, previous)) return null;
     seen.add(item.id.toLowerCase());
     items.push(item as AdminReportRow);
+    previous = current;
   }
   if (value.next_cursor === null) return { items, nextCursor: null };
   const cursor = value.next_cursor;
