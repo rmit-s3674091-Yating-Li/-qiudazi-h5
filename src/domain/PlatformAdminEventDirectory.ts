@@ -61,3 +61,49 @@ export function parseAdminEventPage(value: unknown): AdminEventPage | null {
   if (value.next_cursor.id !== last.id || value.next_cursor.created_at !== last.created_at) return null;
   return { items, nextCursor: value.next_cursor };
 }
+
+/**
+ * Check descending (created_at, id) keyset order before merging pages.
+ * PostgreSQL timestamps can carry microseconds; Date.parse alone loses the last
+ * three digits, so compare those separately after normalizing timezone offsets.
+ */
+function compareEventCursor(left: AdminEventCursor, right: AdminEventCursor): number | null {
+  const parts = (value: string) => {
+    if (!validTime(value)) return null;
+    const fraction = value.match(/\.(\d+)(?=Z|[+-]\d{2}:\d{2}$)/)?.[1] ?? "";
+    if (fraction.length > 6) return null;
+    return { millis: Date.parse(value), microRemainder: Number(fraction.padEnd(6, "0").slice(3)) };
+  };
+  const a = parts(left.created_at), b = parts(right.created_at);
+  if (!a || !b) return null;
+  if (a.millis !== b.millis) return a.millis > b.millis ? 1 : -1;
+  if (a.microRemainder !== b.microRemainder) return a.microRemainder > b.microRemainder ? 1 : -1;
+  const aId = left.id.toLowerCase(), bId = right.id.toLowerCase();
+  return aId === bId ? 0 : aId > bId ? 1 : -1;
+}
+
+/** Reject repeated, out-of-order, or non-advancing pages rather than silently deduplicating. */
+export function validAdminEventPageBoundary(
+  page: AdminEventPage,
+  before: AdminEventCursor | null,
+  previous: readonly AdminEventRow[],
+): boolean {
+  if (before) {
+    const last = previous[previous.length - 1];
+    if (!last || last.id.toLowerCase() !== before.id.toLowerCase() || last.created_at !== before.created_at) return false;
+  } else if (previous.length) return false;
+  const seen = new Set(previous.map((row) => row.id.toLowerCase()));
+  let anchor = before;
+  for (const row of page.items) {
+    const id = row.id.toLowerCase();
+    if (seen.has(id)) return false;
+    const current = { id: row.id, created_at: row.created_at };
+    if (anchor) {
+      const order = compareEventCursor(current, anchor);
+      if (order === null || order >= 0) return false;
+    }
+    seen.add(id);
+    anchor = current;
+  }
+  return true;
+}

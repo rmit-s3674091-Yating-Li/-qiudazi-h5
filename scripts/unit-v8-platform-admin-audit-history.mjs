@@ -43,7 +43,7 @@ try {
   const ui = await readFile("src/components/PlatformAdminAuditHistory.tsx", "utf8");
   const shell = await readFile("src/pages/PlatformAdminPage.tsx", "utf8");
   assert.match(ui, /functions\.invoke\("platform-admin-audit"/, "audit must use dedicated Edge route");
-  assert.match(ui, /parseAdminAuditPage\(data\)/, "Edge responses must be validated");
+  assert.match(ui, /parseAdminAuditPage\(data, before, priorIds\)/, "Edge responses must be validated");
   assert.match(ui, /generation\.current !== epoch/, "stale requests must not update current account UI");
   assert.match(ui, /page_size: 20/, "audit queries must be bounded");
   assert.match(ui, /setState\("failed"\)/, "failed authorization must hide audit rows");
@@ -63,3 +63,4 @@ try {
 
 // Keep event directory UI tests in the existing admin UI unit test entry point.
 await import("./unit-v8-platform-admin-event-directory-ui.mjs");
+await import("./unit-v8-platform-admin-audit-pagination.mjs");

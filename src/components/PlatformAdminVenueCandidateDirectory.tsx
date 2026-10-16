@@ -23,9 +23,12 @@ export function PlatformAdminVenueCandidateDirectory({ userId, en }: { userId: s
         body: { page_size: 20, ...(before ? { before } : {}) },
       });
       if (error) throw new Error("VENUE_CANDIDATE_DIRECTORY_UNAVAILABLE");
-      const page = parseAdminVenueCandidatePage(data);
+      const page = parseAdminVenueCandidatePage(data, before);
       if (!page) throw new Error("INVALID_VENUE_CANDIDATE_RESPONSE");
       if (generation.current !== epoch) return;
+      if (!reset && page.items.some((row) => items.some((old) => old.event_id.toLowerCase() === row.event_id.toLowerCase()))) {
+        throw new Error("VENUE_CANDIDATE_PAGE_OVERLAP");
+      }
       setItems((previous) => reset ? page.items : [
         ...previous, ...page.items.filter((row) => !previous.some((old) => old.event_id === row.event_id)),
       ]);

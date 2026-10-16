@@ -25,12 +25,12 @@ export function PlatformAdminAuditHistory({ userId, en }: { userId: string; en: 
         body: { page_size: 20, ...(before ? { before } : {}) },
       });
       if (error) throw new Error("AUDIT_UNAVAILABLE");
-      const page = parseAdminAuditPage(data);
-      if (!page) throw new Error("INVALID_AUDIT_RESPONSE");
       if (generation.current !== epoch) return;
-      setItems((previous) => reset ? page.items : [
-        ...previous, ...page.items.filter((row) => !previous.some((old) => old.id === row.id)),
-      ]);
+      const priorIds = reset ? new Set<string>() : new Set(items.map((row) => row.id));
+      const page = parseAdminAuditPage(data, before, priorIds);
+      if (!page) throw new Error("INVALID_AUDIT_RESPONSE");
+      // Invalid/overlapping pages fail closed instead of being silently deduplicated.
+      setItems((previous) => reset ? page.items : [...previous, ...page.items]);
       setCursor(page.nextCursor);
       setState("ready");
     } catch {

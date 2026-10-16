@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { parseAdminUserPage } from "../domain/PlatformAdminUserDirectory";
+import { adminUserPageFollowsCursor, parseAdminUserPage } from "../domain/PlatformAdminUserDirectory";
 import type { AdminUserCursor, AdminUserRow } from "../domain/PlatformAdminUserDirectory";
 import { supabase } from "../repositories/supabase";
 
@@ -28,7 +28,9 @@ export function PlatformAdminUserDirectory({ userId, en }: { userId: string; en:
       });
       if (error) throw new Error("USER_DIRECTORY_UNAVAILABLE");
       const page = parseAdminUserPage(data);
-      if (!page) throw new Error("INVALID_USER_DIRECTORY_RESPONSE");
+      if (!page || !adminUserPageFollowsCursor(page, before)) {
+        throw new Error("INVALID_USER_DIRECTORY_RESPONSE");
+      }
       if (generation.current !== epoch) return;
       setItems((previous) => reset ? page.items : [
         ...previous, ...page.items.filter((row) => !previous.some((old) => old.id === row.id)),

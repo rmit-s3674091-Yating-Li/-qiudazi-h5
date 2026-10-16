@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { PlatformAdminEventCancelAction } from "./PlatformAdminEventCancelAction";
-import { parseAdminEventPage } from "../domain/PlatformAdminEventDirectory";
+import { parseAdminEventPage, validAdminEventPageBoundary } from "../domain/PlatformAdminEventDirectory";
 import type { AdminEventCursor, AdminEventRow, AdminEventStatus } from "../domain/PlatformAdminEventDirectory";
 import { rpc, supabase } from "../repositories/supabase";
 
@@ -83,9 +84,11 @@ export function PlatformAdminEventDirectory({ userId, en }: { userId: string; en
       const page = parseAdminEventPage(data);
       if (!page) throw new Error("INVALID_EVENT_DIRECTORY_RESPONSE");
       if (generation.current !== epoch) return;
-      setItems((previous) => reset ? page.items : [
-        ...previous, ...page.items.filter((row) => !previous.some((old) => old.id === row.id)),
-      ]);
+      const previous = reset ? [] : items;
+      if (!validAdminEventPageBoundary(page, before, previous)) {
+        throw new Error("INVALID_EVENT_DIRECTORY_PAGE_BOUNDARY");
+      }
+      setItems([...previous, ...page.items]);
       setCursor(page.nextCursor);
       setState("ready");
     } catch {
@@ -137,6 +140,7 @@ export function PlatformAdminEventDirectory({ userId, en }: { userId: string; en
           <p className="small muted">{item.event_mode === "quick" ? (en ? "Quick" : "快速开赛") : (en ? "Standard" : "常规赛事")} · {item.format} · {item.match_type}</p>
           <p className="small muted">{en ? "Event ID" : "赛事 ID"}: {item.id} · {en ? "Version" : "版本"}: {item.version}</p>
           <p className="small muted">{en ? "Organizer ID" : "创建者 ID"}: {item.owner_user_id}</p>
+          <Link className="text-button" to={`/platform-admin?score_event=${encodeURIComponent(item.id)}#platform-admin-score-exceptions`}>{en ? "Inspect score exceptions" : "查看比分异常"}</Link>
           {canCancel && (item.status === "signup" || item.status === "locked") && <>
             <button type="button" className="secondary" aria-expanded={selectedId === item.id}
               aria-controls={`platform-admin-event-cancel-${item.id}`}

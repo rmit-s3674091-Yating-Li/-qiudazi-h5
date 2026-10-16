@@ -1,18 +1,33 @@
-import { useState } from "react";
-import { normalizeScoreExceptionEventId } from "../domain/PlatformAdminScoreExceptionLookup";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { normalizeScoreExceptionEventId, scoreExceptionEventFromSearch } from "../domain/PlatformAdminScoreExceptionLookup";
 import { PlatformAdminScoreExceptions } from "./PlatformAdminScoreExceptions";
 
 /** Read-only event-scoped anomaly lookup; authorization remains entirely server-side. */
 export function PlatformAdminScoreExceptionLookup({ userId, en }: { userId: string; en: boolean }) {
+  const location = useLocation();
   const [input, setInput] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [attempted, setAttempted] = useState(false);
   const validId = normalizeScoreExceptionEventId(input);
 
-  return <div>
+  useEffect(() => {
+    const requested = new URLSearchParams(location.search).get("score_event");
+    const normalized = scoreExceptionEventFromSearch(location.search);
+    setInput(requested === null ? "" : normalized ?? requested.slice(0, 64));
+    setSelected(normalized);
+    setAttempted(requested !== null && normalized === null);
+    if (location.hash !== "#platform-admin-score-exceptions") return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("platform-admin-score-exceptions")?.scrollIntoView({ block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [location.key, location.search, location.hash]);
+
+  return <div id="platform-admin-score-exceptions">
     <p className="muted small">{en
-      ? "Copy an event ID from Events to review structural score anomalies. Results are read-only; an anomaly does not authorize score changes."
-      : "从赛事管理复制赛事 ID，可查看该赛事的结构性比分异常。查询仅供核查，不授权修改比分。"}</p>
+      ? "Choose Inspect score exceptions in Events, or enter an event ID below. Results are read-only and do not authorize score changes."
+      : "可从赛事管理直接点击“查看比分异常”，也可在下方输入赛事 ID。查询仅供核查，不授权修改比分。"}</p>
     <form onSubmit={(event) => {
       event.preventDefault();
       setAttempted(true);

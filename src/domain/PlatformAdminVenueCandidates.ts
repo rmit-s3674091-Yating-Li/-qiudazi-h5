@@ -23,7 +23,8 @@ const validTime = (v: unknown): v is string =>
   typeof v === "string" && zonedTime.test(v) && Number.isFinite(Date.parse(v));
 
 /** Strictly project the Edge contract; any extra private field fails closed. */
-export function parseAdminVenueCandidatePage(value: unknown): AdminVenueCandidatePage | null {
+export function parseAdminVenueCandidatePage(value: unknown, before: AdminVenueCandidateCursor | null = null): AdminVenueCandidatePage | null {
+  if (before && (!validTime(before.created_at) || !validId(before.event_id))) return null;
   if (!isRecord(value) || Object.keys(value).length !== 2 ||
       !Object.hasOwn(value, "items") || !Object.hasOwn(value, "next_cursor") ||
       !Array.isArray(value.items) || value.items.length > 20) return null;
@@ -38,6 +39,11 @@ export function parseAdminVenueCandidatePage(value: unknown): AdminVenueCandidat
         typeof item.event_version !== "number" || !Number.isSafeInteger(item.event_version) ||
         item.event_version < 1 || !validTime(item.created_at) ||
         item.verification_status !== "not_verified") return null;
+    if (before) {
+      const time = Date.parse(item.created_at), boundary = Date.parse(before.created_at);
+      if (time > boundary || (time === boundary &&
+          item.event_id.toLowerCase() >= before.event_id.toLowerCase())) return null;
+    }
     if (items.length) {
       const previous = items[items.length - 1];
       const time = Date.parse(item.created_at), priorTime = Date.parse(previous.created_at);
