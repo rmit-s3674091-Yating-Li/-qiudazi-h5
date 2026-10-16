@@ -34,6 +34,18 @@ try {
   assert.equal(parse(page([row(1, "2026-10-15T09:59:00Z")]), { ...before, created_at: "bad" }), null);
   assert.equal(parse(page([row(3, before.created_at)]))?.items.length, 1, "first page has no cursor boundary");
 
+  const microBefore = { created_at: "2026-10-15T10:00:00.123456Z", event_id: id(2) };
+  assert.equal(parse(page([row(3, "2026-10-15T10:00:00.123455Z")]), microBefore)?.items.length, 1,
+    "older microsecond row must pass despite larger UUID");
+  assert.equal(parse(page([row(1, "2026-10-15T10:00:00.123457Z")]), microBefore), null,
+    "newer microsecond row must fail despite smaller UUID");
+  assert.equal(parse(page([row(3, "2026-10-15T10:00:00.1234567Z")]), microBefore), null,
+    "precision beyond PostgreSQL microseconds must fail closed");
+  assert.equal(parse(page([row(4, "2026-10-15T10:00:00.123456Z"), row(3, "2026-10-15T10:00:00.123455Z")]))?.items.length, 2,
+    "descending rows in the same millisecond must pass");
+  assert.equal(parse(page([row(4, "2026-10-15T10:00:00.123456Z"), row(3, "2026-10-15T10:00:00.123457Z")])), null,
+    "ascending rows in the same millisecond must fail");
+
   const items = Array.from({ length: 20 }, (_, i) => row(i + 1, new Date(Date.UTC(2026, 9, 15, 9, 59 - i)).toISOString()));
   const last = items[items.length - 1];
   const next = { created_at: last.created_at, event_id: last.event_id };
@@ -43,7 +55,7 @@ try {
   const ui = await readFile("src/components/PlatformAdminVenueCandidateDirectory.tsx", "utf8");
   assert.match(ui, /parseAdminVenueCandidatePage\(data, before\)/);
   assert.match(ui, /VENUE_CANDIDATE_PAGE_OVERLAP/);
-  console.log("PASS V8 admin venue candidate cursor-boundary and overlap contract (11 checks)");
+  console.log("PASS V8 admin venue candidate microsecond cursor-boundary and overlap contract");
 } finally {
   await rm(temp, { recursive: true, force: true });
 }

@@ -12,13 +12,23 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" },
 });
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const isoWithZone = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const isoWithZone = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const validId = (value: unknown): value is string =>
   typeof value === "string" && uuid.test(value);
 const validTime = (value: unknown): value is string =>
   typeof value === "string" && isoWithZone.test(value) && Number.isFinite(Date.parse(value));
+/** Match PostgreSQL (created_at DESC, event_id DESC) at microsecond precision. */
+function venueCandidateTimestampMicros(value: string): bigint {
+  const fraction = /\.(\d{1,6})(?=Z|[+-]\d{2}:\d{2}$)/.exec(value)?.[1] ?? "";
+  return BigInt(Date.parse(value)) * 1000n + BigInt(fraction.padEnd(6, "0").slice(3, 6) || "0");
+}
+function venueCandidateOlder(left: { created_at: string; event_id: string }, right: { created_at: string; event_id: string }): boolean {
+  const a = venueCandidateTimestampMicros(left.created_at);
+  const b = venueCandidateTimestampMicros(right.created_at);
+  return a < b || (a === b && left.event_id.toLowerCase() < right.event_id.toLowerCase());
+}
 
 type Query = { pageSize: number; beforeCreatedAt: string | null; beforeEventId: string | null };
 function parseQuery(value: unknown): Query | null {
@@ -58,10 +68,7 @@ function sanitizePage(value: unknown, pageSize: number) {
         !validTime(row.created_at) || row.verification_status !== "not_verified") return null;
     if (items.length > 0) {
       const previous = items[items.length - 1];
-      const currentTime = Date.parse(row.created_at);
-      const previousTime = Date.parse(previous.created_at);
-      if (currentTime > previousTime ||
-          (currentTime === previousTime && row.event_id.toLowerCase() >= previous.event_id.toLowerCase())) return null;
+      if (!venueCandidateOlder(row as { created_at: string; event_id: string }, previous)) return null;
     }
     seen.add(row.event_id.toLowerCase());
     items.push({

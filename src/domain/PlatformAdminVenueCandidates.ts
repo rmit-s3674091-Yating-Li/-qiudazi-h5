@@ -14,13 +14,24 @@ export type AdminVenueCandidatePage = {
 };
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const zonedTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const zonedTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
 const fields = ["event_id", "venue_name", "city", "event_version", "created_at", "verification_status"];
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 const validId = (v: unknown): v is string => typeof v === "string" && uuid.test(v);
 const validTime = (v: unknown): v is string =>
   typeof v === "string" && zonedTime.test(v) && Number.isFinite(Date.parse(v));
+
+/** PostgreSQL keyset order is microsecond-precise; Date.parse truncates to milliseconds. */
+function venueCandidateTimestampMicros(value: string): bigint {
+  const fraction = /\.(\d{1,6})(?=Z|[+-]\d{2}:\d{2}$)/.exec(value)?.[1] ?? "";
+  return BigInt(Date.parse(value)) * 1000n + BigInt(fraction.padEnd(6, "0").slice(3, 6) || "0");
+}
+function venueCandidateOlder(left: AdminVenueCandidateCursor, right: AdminVenueCandidateCursor): boolean {
+  const a = venueCandidateTimestampMicros(left.created_at);
+  const b = venueCandidateTimestampMicros(right.created_at);
+  return a < b || (a === b && left.event_id.toLowerCase() < right.event_id.toLowerCase());
+}
 
 /** Strictly project the Edge contract; any extra private field fails closed. */
 export function parseAdminVenueCandidatePage(value: unknown, before: AdminVenueCandidateCursor | null = null): AdminVenueCandidatePage | null {
@@ -39,16 +50,11 @@ export function parseAdminVenueCandidatePage(value: unknown, before: AdminVenueC
         typeof item.event_version !== "number" || !Number.isSafeInteger(item.event_version) ||
         item.event_version < 1 || !validTime(item.created_at) ||
         item.verification_status !== "not_verified") return null;
-    if (before) {
-      const time = Date.parse(item.created_at), boundary = Date.parse(before.created_at);
-      if (time > boundary || (time === boundary &&
-          item.event_id.toLowerCase() >= before.event_id.toLowerCase())) return null;
-    }
+    const current = { created_at: item.created_at, event_id: item.event_id };
+    if (before && !venueCandidateOlder(current, before)) return null;
     if (items.length) {
       const previous = items[items.length - 1];
-      const time = Date.parse(item.created_at), priorTime = Date.parse(previous.created_at);
-      if (time > priorTime || (time === priorTime &&
-          item.event_id.toLowerCase() >= previous.event_id.toLowerCase())) return null;
+      if (!venueCandidateOlder(current, previous)) return null;
     }
     seen.add(item.event_id.toLowerCase());
     items.push(item as AdminVenueCandidate);
