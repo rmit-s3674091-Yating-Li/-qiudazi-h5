@@ -17,3 +17,4 @@ try{
   identity.markLoginRequired(storage);assert.equal(identity.isLoginRequired(storage),true);identity.clearLoginRequired(storage);assert.equal(identity.isLoginRequired(storage),false);
   console.log("✓ identity sign-out storage isolation and explicit-login boundary");
 }finally{await rm(tmp,{recursive:true,force:true})}
+await import("./unit-v8-point-command-identity.mjs");

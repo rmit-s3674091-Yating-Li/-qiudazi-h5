@@ -2,6 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 import type { Event, EventConfig, Player, Profile, Snapshot } from "../domain/types";
 import type { Filters, TournamentRepository } from "./contracts";
 import { TournamentCommandError } from "../domain/PointCommandConflict";
+import { bindPointOperationIdentity, type PointOperationIdentity } from "../domain/PointOperationIdentity";
+const pointOperationIdentities = new Map<string, PointOperationIdentity>();
 const url=(import.meta.env.VITE_SUPABASE_URL as string|undefined)??"https://rtmjzmgrhifjzxaliltm.supabase.co";const key=(import.meta.env.VITE_SUPABASE_ANON_KEY as string|undefined)??"sb_publishable_vM47k7tVER77x3bpGSkDdw_dowVImzn";export const configured=!!(url&&key);export const supabase=configured?createClient(url!,key!,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}}):null;
 const isEnglish=()=>typeof localStorage!=="undefined"&&localStorage.getItem("qiudazi-language")==="en";
 function client(){if(!supabase)throw new Error(isEnglish()?"The online database is not configured yet. Please try again later.":"在线数据库暂未配置，请稍后再试。");return supabase;}
@@ -12,9 +14,19 @@ const fallback=(english:boolean)=>english?"This action could not be completed. P
 export function explainError(error:unknown){const english=isEnglish();const directCode=typeof error==="object"&&error&&"code" in error?String(error.code):"";if(directCode){const mapped=english?(enMessages[directCode]||enRuleMessages[directCode]):messages[directCode];if(mapped)return mapped;}const message=error instanceof Error?error.message:typeof error==="object"&&error&&"message" in error?String(error.message):(typeof error==="string"?error:fallback(english));const code=[...new Set([...Object.keys(messages),...Object.keys(enRuleMessages)])].find(k=>message.includes(k));if(code){if(english)return enMessages[code]||enRuleMessages[code]||fallback(true);return messages[code]||fallback(false);}if(directCode&&(/^(PGRST|PG|HTTP|JWT|AUTH|FUNCTION|EDGE|SQL|DB)/i.test(directCode)||/^[0-9A-Z]{5}$/i.test(directCode)))return fallback(english);const lower=message.toLowerCase();if(lower.includes("failed to fetch")||lower.includes("load failed")||lower.includes("network")||lower.includes("fetch failed"))return english?"The request did not complete. Check your connection and try again.":"请求没有完成，请检查网络后重试。";if(lower.includes("timeout")||lower.includes("timed out"))return english?"The connection timed out. Please try again later.":"连接超时了，请稍后重试。";if(lower.includes("jwt")||lower.includes("session")||lower.includes("refresh token"))return english?"Your sign-in state needs to be restored. Refresh the page and try again.":"登录状态需要重新恢复，请刷新页面后再试。";if(lower.includes("supabase")||lower.includes("postgrest")||lower.includes("postgres")||lower.includes("edge function")||lower.includes("function returned")||lower.includes("rpc")||lower.includes("sql")||lower.includes("column reference")||lower.includes(" is ambiguous")||lower.includes("syntax error")||lower.includes("does not exist")||lower.includes("violates")||/^[A-Z][A-Z0-9_]{2,}$/.test(message.trim()))return fallback(english);return message.length>120?fallback(english):message;}
 export async function rpc<T>(name:string,args:Record<string,unknown>={}):Promise<T>{const{data,error}=await client().rpc(name,args);if(error)throw new Error(explainError(error));return data as T;}export const repository:TournamentRepository={profile:()=>rpc<Profile>("ensure_profile"),completeProfile:(name,avatar)=>rpc<Profile>("complete_profile",{p_name:name,p_avatar_path:avatar}),async players(){const{data,error}=await client().from("players").select("*").order("created_at");if(error)throw new Error(explainError(error));return data as Player[];},savePlayer:(id,name,avatar,version)=>rpc<Player>("save_player",{p_id:id,p_name:name,p_avatar_path:avatar,p_version:version??null}),deletePlayer:id=>rpc<void>("delete_player",{p_id:id}),events:(filters:Filters={})=>rpc<Event[]>("list_events",{p_mine:!!filters.mine,p_filters:filters}),event:id=>rpc<Snapshot>("get_event_snapshot",{p_event_id:id}),saveEvent:(id,config,version)=>rpc<Event>("save_event",{p_id:id,p_config:config,p_version:version??null}),deleteEvent:(id,version)=>rpc<void>("delete_event",{p_id:id,p_version:version})};export function assetUrl(path:string|null|undefined,bucket="avatars"){if(!path||!supabase)return undefined;return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;}export async function uploadAsset(blob:Blob,bucket:string,path:string){const{error}=await client().storage.from(bucket).upload(path,blob,{contentType:blob.type,upsert:false});if(error)throw new Error(explainError(error));return path;}export async function command(eventId:string,action:Record<string,unknown>){
   const c=client();
-  const{data:sessionData}=await c.auth.getSession();
-  if(!sessionData.session)throw new Error(isEnglish()?"Restore your signed-in identity first.":"请先恢复登录身份");
-  const{data,error}=await c.functions.invoke("tournament-command",{body:{event_id:eventId,...action}});
+  const{data:sessionData,error:sessionError}=await c.auth.getSession();
+  const session=sessionData.session;
+  if(sessionError||!session?.access_token)throw new Error(isEnglish()?"Restore your signed-in identity first.":"请先恢复登录身份");
+  const operationId=action.type==="point"&&typeof action.operation_id==="string"?action.operation_id:null;
+  if(operationId){
+    const identity={authUserId:session.user.id,eventId,matchId:typeof action.match_id==="string"?action.match_id:"",side:typeof action.side==="string"?action.side:""};
+    if(!bindPointOperationIdentity(pointOperationIdentities,operationId,identity)){
+      throw new TournamentCommandError(isEnglish()?"Your account or point request changed. Review the current match before scoring again.":"记分期间账号或操作内容已变化，请核对当前比赛后重新记分。","POINT_RETRY_IDENTITY_CONFLICT",409);
+    }
+  }
+  // Pin this request to the session that owns the operation_id. The Edge still
+  // verifies the JWT and derives the actor; the browser never supplies actor ID.
+  const{data,error}=await c.functions.invoke("tournament-command",{body:{event_id:eventId,...action},headers:{Authorization:`Bearer ${session.access_token}`}});
   if(error){
     let message=error.message;
     let code:string|null=null,status:number|null=null;
@@ -28,6 +40,15 @@ export async function rpc<T>(name:string,args:Record<string,unknown>={}):Promise
       }
     }catch{}
     throw new TournamentCommandError(explainError({code,message}),code,status);
+  }
+  if(operationId){
+    const{data:currentSession,error:currentSessionError}=await c.auth.getSession();
+    if(currentSessionError||currentSession.session?.user.id!==session.user.id){
+      // A response from the old account must not be shown as the new account's score.
+      // Preserve the operation binding for fail-closed handling of later retries.
+      throw new TournamentCommandError(isEnglish()?"Your account changed while scoring. Reload the match before continuing.":"记分期间登录账号已变化，请重新加载比赛后继续。","POINT_RETRY_IDENTITY_CONFLICT",409);
+    }
+    pointOperationIdentities.delete(operationId);
   }
   return data as Snapshot;
 }
