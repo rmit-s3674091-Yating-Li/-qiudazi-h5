@@ -41,6 +41,18 @@ const schema = z.object({
 });
 type Command = z.infer<typeof schema>;
 
+/** Normalize only validated point-command UUIDs before DB lookups and replay checks.
+ * PostgreSQL UUID columns canonicalize case; JavaScript equality does not. */
+function normalizePointCommandIds(cmd: Command): Command {
+  if (cmd.type !== "point") return cmd;
+  return {
+    ...cmd,
+    event_id: cmd.event_id.toLowerCase(),
+    match_id: cmd.match_id?.toLowerCase(),
+    operation_id: cmd.operation_id?.toLowerCase(),
+  };
+}
+
 async function findPointOperation(client: ReturnType<typeof createClient>, cmd: Command, actorAuthUserId: string) {
   if (cmd.type !== "point" || !cmd.operation_id) return null;
   const { data, error } = await client.from("point_logs").select("id,match_id,winner_side").eq("id", cmd.operation_id).maybeSingle();
@@ -133,7 +145,7 @@ Deno.serve(async (req) => {
   const url = Deno.env.get("SUPABASE_URL"), key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !key) return json({ error: "Supabase服务配置缺失" }, 503);
   const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-  const cmd = parsed.data;
+  const cmd = normalizePointCommandIds(parsed.data);
   try {
     const { data: { user }, error: authError } = await client.auth.getUser(token);
     if (authError || !user) return json({ error: "身份已失效，请刷新页面恢复登录" }, 401);

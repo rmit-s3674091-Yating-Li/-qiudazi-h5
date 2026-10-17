@@ -20,7 +20,8 @@ function parseRequest(value: unknown): { event_id: string; match_id: string } | 
   const body = value as Record<string, unknown>;
   if (Object.keys(body).length !== 2 || !uuid.test(String(body.event_id ?? "")) || !uuid.test(String(body.match_id ?? ""))) return null;
   if (typeof body.event_id !== "string" || typeof body.match_id !== "string") return null;
-  return { event_id: body.event_id, match_id: body.match_id };
+  // PostgreSQL UUIDs are case-insensitive; normalize before comparing returned IDs.
+  return { event_id: body.event_id.toLowerCase(), match_id: body.match_id.toLowerCase() };
 }
 
 Deno.serve(async (request) => {

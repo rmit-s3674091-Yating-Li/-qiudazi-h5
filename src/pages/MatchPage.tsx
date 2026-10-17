@@ -15,15 +15,22 @@ import { advancePointQueueScope, pointQueueScopeKey, samePointQueueScope } from 
 type PendingPoint={side:Side;operationId:string;lastAttempt?:PointAttemptVersions};
 
 export function MatchPage({mode="detail"}:{mode?:"detail"|"direct"|"live"}){
+  const {session}=useAuth();
+  return <MatchPageForActor key={session?.user.id??"signed-out"} mode={mode}/>;
+}
+
+function MatchPageForActor({mode="detail"}:{mode?:"detail"|"direct"|"live"}){
   const{id,matchId}=useParams(),navigate=useNavigate();
   const {session}=useAuth();
   const routeKey=pointQueueScopeKey((id??"")+"/"+(matchId??""),session?.user.id);
   const pointScope=useRef({route:routeKey,generation:0});
   pointScope.current=advancePointQueueScope(pointScope.current,routeKey);
   const{language,t}=useLanguage(),en=language==="en";
-  const q=useQuery("match-"+id+"-"+matchId,()=>repository.event(id!),10000);
+  const q=useQuery("match-"+id+"-"+matchId+"-"+(session?.user.id??"signed-out"),()=>repository.event(id!),10000);
   const[confirmText,setConfirmText]=useState(""),[error,setError]=useState(""),[busy,setBusy]=useState(false),[confirm,setConfirm]=useState<(()=>void)|null>(null),[inputs,setInputs]=useState<{a:string;b:string;ta:string;tb:string}[]>([]),[formVersion,setFormVersion]=useState<number>(),[editing,setEditing]=useState(false),[optimisticPoints,setOptimisticPoints]=useState<PendingPoint[]>([]);
   const loaded=useRef(""),pointQueue=useRef<PendingPoint[]>([]),pointFlush=useRef<number|null>(null),latestSnapshot=useRef<Snapshot|null>(null);
+  // A keyed account remount must invalidate the old instance's in-flight flush.
+  useEffect(()=>()=>{pointScope.current={...pointScope.current,generation:pointScope.current.generation+1};pointQueue.current=[];},[]);
   const s=q.data?.event.id===id?q.data:null,m=s?.matches.find(x=>x.id===matchId);
   const participantEligibility=useParticipantScoringEligibility({eventId:s?.event.id,matchId:m?.id,eventVersion:s?.event.version,matchVersion:m?.version,enabled:!!s&&!!m&&s.viewer_role!=="owner"&&mode!=="direct"&&s.event.status==="ongoing"&&s.event.format==="round_robin"&&m.stage==="round_robin"&&(m.status==="not_started"||m.status==="ongoing")&&!m.is_bye&&!!m.entry_a_id&&!!m.entry_b_id&&m.scoring_mode!=="direct"});
 
@@ -85,7 +92,23 @@ export function MatchPage({mode="detail"}:{mode?:"detail"|"direct"|"live"}){
             pointQueue.current=[];setOptimisticPoints([]);throw new Error(conflictMessage);
           }else{
             // Only a transient/unknown failure with unchanged versions gets one replay.
-            next=await command(reconciled.event.id,{type:"point",event_version:observed.eventVersion,match_id:currentMatch.id,match_version:observed.matchVersion,side:pending.side,operation_id:pending.operationId});
+            try{
+              next=await command(reconciled.event.id,{type:"point",event_version:observed.eventVersion,match_id:currentMatch.id,match_version:observed.matchVersion,side:pending.side,operation_id:pending.operationId});
+            }catch(retryError){
+              if(!active())return;
+              // A failed replay may have committed. Reconcile once more, but never send a third request automatically.
+              const finalSnapshot=await q.refresh();
+              if(!active())return;
+              latestSnapshot.current=finalSnapshot;
+              const finalMatch=finalSnapshot.matches.find(x=>x.id===matchId);
+              const finalCommitted=finalSnapshot.point_logs.some(log=>log.id===pending.operationId&&log.match_id===matchId&&log.winner_side===pending.side);
+              const finalVersions=finalMatch?{eventVersion:finalSnapshot.event.version,matchVersion:finalMatch.version}:null;
+              const finalDisposition=pointRetryDisposition(retryError,observed,finalVersions,finalCommitted);
+              if(finalDisposition==="committed")next=finalSnapshot;
+              else if(finalDisposition==="conflict"){
+                pointQueue.current=[];setOptimisticPoints([]);throw new Error(conflictMessage);
+              }else throw retryError;
+            }
           }
         }
         if(!active())return;

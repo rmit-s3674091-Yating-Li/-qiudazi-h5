@@ -8,6 +8,16 @@ export class TournamentCommandError extends Error {
   }
 }
 
+/** Explicit Edge/authorization rejections remain terminal even if transport status is missing. */
+const terminalPointCodes = new Set([
+  "VERSION_CONFLICT", "POINT_SNAPSHOT_CONFLICT", "OPERATION_CONFLICT",
+  "POINT_RETRY_IDENTITY_CONFLICT", "NOT_MATCH_PARTICIPANT",
+  "PARTICIPANT_POINT_NOT_ALLOWED", "FORBIDDEN", "AUTH_REQUIRED",
+  "PROFILE_REQUIRED", "EVENT_NOT_FOUND", "MATCH_NOT_FOUND",
+  "INVALID_POINT_COMMAND", "DIRECT_SCORE_MODE", "MATCH_FINISHED",
+  "SCORING_STATE",
+]);
+
 /** Never silently rebase a point onto a changed score or retry a rejected request. */
 export function pointRetryDisposition(
   error: unknown,
@@ -20,7 +30,7 @@ export function pointRetryDisposition(
     return "conflict";
   }
   if (error instanceof TournamentCommandError) {
-    if (["VERSION_CONFLICT", "POINT_SNAPSHOT_CONFLICT", "OPERATION_CONFLICT"].includes(error.code ?? "")) {
+    if (error.code && terminalPointCodes.has(error.code)) {
       return "conflict";
     }
     // A timeout or rate limit does not prove the point was rejected. Preserve
