@@ -26,6 +26,7 @@ const row = {
   match_type: "singles", format: "round_robin", city: "Beijing",
   event_date: "2026-10-20", created_at: "2026-10-12T01:00:00+00:00",
 };
+const olderRow = { ...row, id: "b2222222-2222-4222-8222-222222222222", created_at: "2026-10-12T00:59:59+00:00" };
 let handler;
 let rpcResult = { data: { items: [row], next_cursor: null }, error: null };
 let lastArgs;
@@ -77,10 +78,19 @@ assert.equal(lastArgs.p_actor_auth_user_id, actor);
 assert.equal(lastArgs.p_page_size, 5);
 assert.equal(lastArgs.p_status, "signup");
 assert.equal(lastArgs.p_before_id, null);
+assert.equal((await call({ before: { created_at: row.created_at, id: eventId } })).status, 503, "cursor boundary row must fail closed");
+rpcResult = { data: { items: [olderRow], next_cursor: null }, error: null };
 assert.equal((await call({ before: { created_at: row.created_at, id: eventId } })).status, 200);
 assert.equal(lastArgs.p_before_id, eventId);
 assert.equal(lastArgs.p_before_created_at, row.created_at);
 rpcResult = { data: { items: [row], next_cursor: { created_at: row.created_at, id: eventId } }, error: null };
+assert.equal((await call({})).status, 503, "short page must not emit a next cursor");
+const fullPage = Array.from({ length: 20 }, (_, index) => ({
+  ...row,
+  id: `${String(index + 1).padStart(8, "0")}-1111-4111-8111-111111111111`,
+  created_at: `2026-10-11T${String(23 - index).padStart(2, "0")}:00:00+00:00`,
+}));
+rpcResult = { data: { items: fullPage, next_cursor: { created_at: fullPage[19].created_at, id: fullPage[19].id } }, error: null };
 assert.equal((await call({})).status, 200);
 rpcResult = { data: { items: [{ ...row, private_email: "sensitive@example.invalid" }], next_cursor: null }, error: null };
 assert.deepEqual((await call({})).body, { code: "EVENT_DIRECTORY_UNAVAILABLE" });
