@@ -4,7 +4,7 @@ import vm from "node:vm";
 import ts from "typescript";
 const source = await readFile("supabase/functions/platform-admin-score-exceptions/index.ts", "utf8");
 assert.match(source, /client\.auth\.getUser\(token\)/);
-assert.match(source, /p_actor_auth_user_id: user\.id/);
+assert.match(source, /p_actor_auth_user_id:\s*user\.id/);
 assert.match(source, /client\.rpc\("platform_admin_list_score_exceptions"/);
 assert.doesNotMatch(source, /\.(insert|update|delete|upsert)\(/);
 const runnable = source.replace(/^import \{ createClient \} from "npm:@supabase\/supabase-js@2\.112\.4";\n/, "");

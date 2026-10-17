@@ -5,7 +5,7 @@ import ts from "typescript";
 
 const source = await readFile("supabase/functions/platform-admin-report-resolution/index.ts", "utf8");
 assert.match(source, /client\.auth\.getUser\(token\)/, "JWT must be verified by trusted Edge");
-assert.match(source, /p_actor_auth_user_id: user\.id/, "actor must derive from verified JWT");
+assert.match(source, /p_actor_auth_user_id:\s*user\.id/, "actor must derive from verified JWT");
 assert.match(source, /client\.rpc\("platform_admin_resolve_report"/, "only dedicated audited transaction");
 assert.doesNotMatch(source, /\.(insert|update|delete|upsert)\(/, "Edge must not split business and audit writes");
 const runnable = source.replace(/^import \{ createClient \} from "npm:@supabase\/supabase-js@2\.112\.4";\n/, "");

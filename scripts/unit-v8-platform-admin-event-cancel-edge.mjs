@@ -5,9 +5,9 @@ import ts from "typescript";
 
 const source = readFileSync("supabase/functions/platform-admin-event-cancel/index.ts", "utf8");
 assert.match(source, /client\.auth\.getUser\(token\)/);
-assert.match(source, /p_actor_auth_user_id: user\.id/);
+assert.match(source, /p_actor_auth_user_id:\s*user\.id/);
 assert.match(source, /client\.rpc\("platform_admin_cancel_unstarted_event"/);
-assert.doesNotMatch(source, /p_actor_auth_user_id: (?:command|body|req)\./);
+assert.doesNotMatch(source, /p_actor_auth_user_id:\s*(?:command|body|req)\./);
 assert.doesNotMatch(source, /client\.from\(|client\.insert\(|client\.update\(|client\.delete\(|client\.upsert\(/);
 const stripped = source.replace(/^import \{ createClient \} from "npm:@supabase\/supabase-js@2\.112\.4";\n/, "");
 assert.notEqual(stripped, source);
