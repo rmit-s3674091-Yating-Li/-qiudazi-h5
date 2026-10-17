@@ -84,10 +84,12 @@ begin
   exception when others then v_blocked:=(sqlerrm='OPERATION_CONFLICT'); end;
   if not v_blocked then raise exception 'OPERATION_REPLAY_CONFLICT_NOT_REJECTED'; end if;
 
+  -- A signup-only identity must fail membership on a fresh operation id.
   v_blocked:=false;
   begin
     perform public.v8_commit_participant_round_robin_point(v_event,v_match,
-      'c3333333-3333-4333-8333-333333333333',1,1,v_op,'A',v_next);
+      'c3333333-3333-4333-8333-333333333333',2,2,
+      'c3333333-ffff-4fff-8fff-ffffffffffff','A',v_next);
   exception when others then v_blocked:=(sqlerrm='NOT_MATCH_PARTICIPANT'); end;
   if not v_blocked then raise exception 'SIGNUP_ONLY_GRANTED'; end if;
 
