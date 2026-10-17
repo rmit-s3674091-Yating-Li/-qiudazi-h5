@@ -1,0 +1,35 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+
+const audit=await readFile("src/domain/PlatformAdminAuditHistory.ts","utf8");
+const users=await readFile("src/domain/PlatformAdminUserDirectory.ts","utf8");
+const userUi=await readFile("src/components/PlatformAdminUserDirectory.tsx","utf8");
+const feedback=await readFile("src/domain/PlatformAdminFeedbackDirectory.ts","utf8");
+const feedbackEdge=await readFile("supabase/functions/platform-admin-feedback/index.ts","utf8");
+const scoreEdge=await readFile("supabase/functions/platform-admin-score-exceptions/index.ts","utf8");
+const photos=await readFile("src/domain/PlatformAdminPhotoDirectory.ts","utf8");
+const photoUi=await readFile("src/components/PlatformAdminPhotoDirectory.tsx","utf8");
+const venueEdge=await readFile("supabase/functions/platform-admin-venue-candidates/index.ts","utf8");
+const usersEdge=await readFile("supabase/functions/platform-admin-users/index.ts","utf8");
+const reportResolution=await readFile("supabase/functions/platform-admin-report-resolution/index.ts","utf8");
+const eventCancel=await readFile("supabase/functions/platform-admin-event-cancel/index.ts","utf8");
+
+assert.match(audit,/exactFields\(value, \["items", "next_cursor"\]\)/);
+assert.match(audit,/\\d\{1,6\}/);
+assert.match(users,/previousIds/);
+assert.match(userUi,/new Set\(items\.map\(\(row\) => row\.id\)\)/);
+assert.doesNotMatch(userUi,/page\.items\.filter/);
+assert.match(feedback,/timestampMicros/);
+assert.match(feedbackEdge,/timestampMicros/);
+assert.match(scoreEdge,/strictlyOlder/);
+assert.match(scoreEdge,/items\.length !== query\.pageSize/);
+assert.match(photos,/validAdminPhotoPageBoundary/);
+assert.match(photoUi,/validAdminPhotoPageBoundary\(page,before,previous\)/);
+assert.match(venueEdge,/sanitizePage\(data,query\.pageSize,before\)/);
+assert.match(usersEdge,/sanitizePage\(data,query\)/);
+assert.match(usersEdge,/Object\.keys\(value\)\.length!==2/);
+assert.match(reportResolution,/reportId:value\.report_id\.toLowerCase\(\)/);
+assert.match(reportResolution,/requestId:value\.request_id\.toLowerCase\(\)/);
+assert.match(eventCancel,/eventId:value\.event_id\.toLowerCase\(\)/);
+assert.match(eventCancel,/requestId:value\.request_id\.toLowerCase\(\)/);
+console.log("PASS: consolidated V8 Platform Admin handoff contracts");

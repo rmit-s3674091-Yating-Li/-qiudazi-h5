@@ -1,0 +1,169 @@
+/* V8 venue picker v3 — keep search and confirmation visible, simplify creation-page map affordance. */
+
+.venue-picker-v3.venue-map-panel {
+  grid-template-rows: 64px clamp(150px, 19dvh, 172px) minmax(0, 1fr);
+}
+
+.venue-picker-v3 .venue-picker-map {
+  z-index: 1;
+  overflow: hidden;
+}
+
+.venue-picker-v3 .venue-picker-sheet {
+  z-index: 20;
+  margin-top: -6px;
+  padding: 10px 14px max(14px, env(safe-area-inset-bottom));
+  overflow: auto;
+}
+
+.venue-picker-v3 .venue-picker-search {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 -2px 8px;
+  box-shadow: 0 5px 16px rgba(39, 48, 41, .055);
+}
+
+.venue-picker-v3 .venue-picker-current {
+  min-height: 34px;
+  margin: 0 0 6px;
+  background: #f3f5ef;
+  color: #5e6b54;
+  border-color: #dfe4d8;
+}
+
+.venue-picker-v3 .venue-picker-results {
+  max-height: min(52dvh, 520px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.venue-picker-v3 .venue-picker-results-meta {
+  padding: 2px 4px 7px;
+  color: #7d8578;
+  font-size: 12px;
+}
+
+.venue-picker-v3 .venue-picker-result {
+  text-align: left;
+  padding-block: 10px;
+}
+
+.venue-picker-v3 .venue-picker-selected-row {
+  padding: 8px 2px 5px;
+}
+
+.venue-picker-v3 .venue-map-selection:not(.is-selected) .venue-picker-radio {
+  background: #eef0e9;
+  color: #75806b;
+}
+
+.venue-picker-v3 .venue-picker-confirm {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-top: 8px;
+  box-shadow: 0 -8px 16px #fffefa;
+}
+
+.venue-picker-v3 .leaflet-control-attribution {
+  font-size: 9px;
+  opacity: .72;
+}
+
+/* The creation form should present map location as a secondary helper, not a large technical block. */
+.event-form-page .venue-location-card {
+  padding: 0;
+  margin: 12px 0 16px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  gap: 8px;
+}
+
+.event-form-page .venue-location-card > .row.between {
+  padding: 13px 14px;
+  border: 1px solid var(--line, #dfe2d8);
+  border-radius: 13px;
+  background: #fafbf7;
+  align-items: center;
+}
+
+.event-form-page .venue-location-card > .row.between > div > strong {
+  font-size: 14px;
+  margin: 0;
+}
+
+.event-form-page .venue-location-card > .row.between > div > p {
+  display: none;
+}
+
+.event-form-page .venue-location-card > .row.between > button.secondary {
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 0;
+  background: transparent;
+  color: #667451;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.event-form-page .venue-location-actions {
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 0;
+}
+
+.event-form-page .venue-location-actions > button {
+  min-height: 44px;
+  background: #e8ece3;
+  color: #56644b;
+}
+
+.event-form-page .venue-location-card > p.muted.small {
+  display: none;
+}
+
+.event-form-page .venue-location-confirmed {
+  margin: 0;
+  padding: 11px 12px;
+  background: #f3f5ef;
+  border: 0;
+}
+
+.event-form-page .venue-location-confirmed strong {
+  font-size: 12px;
+}
+
+.event-form-page .venue-location-card > .text-button {
+  margin: -2px 0 0;
+  justify-self: flex-start;
+}
+
+@media (max-width: 390px) {
+  .venue-picker-v3.venue-map-panel {
+    grid-template-rows: 60px clamp(138px, 18dvh, 158px) minmax(0, 1fr);
+  }
+
+  .venue-picker-v3 .venue-picker-search {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .venue-picker-v3 .venue-picker-search button {
+    grid-column: auto;
+    min-height: 42px;
+    padding-inline: 9px;
+  }
+
+  .event-form-page .venue-location-card > .row.between {
+    align-items: center;
+  }
+
+  .event-form-page .venue-location-card > .row.between > button.secondary {
+    max-width: none;
+  }
+
+  .event-form-page .venue-location-actions {
+    grid-template-columns: 1fr;
+  }
+}

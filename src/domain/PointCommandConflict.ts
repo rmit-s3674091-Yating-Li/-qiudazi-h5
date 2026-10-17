@@ -1,0 +1,42 @@
+/** Conflict-aware point retry contract shared by organizer and participant scoring. */
+export type PointAttemptVersions = { eventVersion: number; matchVersion: number };
+
+export class TournamentCommandError extends Error {
+  constructor(message: string, readonly code: string | null, readonly status: number | null) {
+    super(message);
+    this.name = "TournamentCommandError";
+  }
+}
+
+/** Explicit Edge/authorization rejections remain terminal even if transport status is missing. */
+const terminalPointCodes = new Set([
+  "VERSION_CONFLICT", "POINT_SNAPSHOT_CONFLICT", "OPERATION_CONFLICT",
+  "POINT_RETRY_IDENTITY_CONFLICT", "NOT_MATCH_PARTICIPANT",
+  "PARTICIPANT_POINT_NOT_ALLOWED", "FORBIDDEN", "AUTH_REQUIRED",
+  "PROFILE_REQUIRED", "EVENT_NOT_FOUND", "MATCH_NOT_FOUND",
+  "INVALID_POINT_COMMAND", "DIRECT_SCORE_MODE", "MATCH_FINISHED",
+  "SCORING_STATE",
+]);
+
+/** Never silently rebase a point onto a changed score or retry a rejected request. */
+export function pointRetryDisposition(
+  error: unknown,
+  attempted: PointAttemptVersions,
+  observed: PointAttemptVersions | null,
+  committed: boolean,
+): "committed" | "conflict" | "retry" {
+  if (committed) return "committed";
+  if (!observed || attempted.eventVersion !== observed.eventVersion || attempted.matchVersion !== observed.matchVersion) {
+    return "conflict";
+  }
+  if (error instanceof TournamentCommandError) {
+    if (error.code && terminalPointCodes.has(error.code)) {
+      return "conflict";
+    }
+    // A timeout or rate limit does not prove the point was rejected. Preserve
+    // operation_id for one safe replay; version drift is already checked above.
+    if (error.status === 408 || error.status === 429) return "retry";
+    if (error.status !== null && error.status >= 400 && error.status < 500) return "conflict";
+  }
+  return "retry";
+}
