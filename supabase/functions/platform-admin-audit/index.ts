@@ -18,9 +18,55 @@ type AuditQuery = {
   beforeId: string | null;
 };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const isoWithZone = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const isoWithZone = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+const validTime = (value: unknown): value is string =>
+  typeof value === "string" && isoWithZone.test(value) && Number.isFinite(Date.parse(value));
+const validId = (value: unknown): value is string => typeof value === "string" && uuid.test(value);
+const shortText = (value: unknown, max: number): value is string =>
+  typeof value === "string" && value.length > 0 && value.length <= max;
+const auditFields = ["id", "actor_auth_user_id", "action", "target_kind", "target_id", "reason", "risk_level", "created_at"];
+const exactFields = (value: Record<string, unknown>, fields: readonly string[]): boolean =>
+  Object.keys(value).length === fields.length && fields.every((field) => Object.hasOwn(value, field));
+const micros = (value: string): bigint => {
+  const fraction = /\.(\d{1,6})(?=Z|[+-]\d{2}:\d{2}$)/.exec(value)?.[1] ?? "";
+  return BigInt(Date.parse(value)) * 1000n + BigInt(fraction.padEnd(6, "0").slice(3, 6) || "0");
+};
+const older = (a: { created_at: string; id: string }, b: { created_at: string; id: string }) =>
+  micros(a.created_at) < micros(b.created_at) ||
+  (micros(a.created_at) === micros(b.created_at) && a.id.toLowerCase() < b.id.toLowerCase());
+
+function sanitizeAuditPage(value: unknown, query: AuditQuery) {
+  if (!record(value) || !exactFields(value, ["items", "next_cursor"]) ||
+      !Array.isArray(value.items) || value.items.length > query.pageSize ||
+      !(value.next_cursor === null || record(value.next_cursor))) return null;
+  const items: Record<string, unknown>[] = [];
+  const seen = new Set<string>();
+  let previous: { created_at: string; id: string } | null = query.beforeCreatedAt && query.beforeId
+    ? { created_at: query.beforeCreatedAt, id: query.beforeId } : null;
+  for (const row of value.items) {
+    if (!record(row) || !exactFields(row, auditFields) || !validId(row.id) ||
+        !validId(row.actor_auth_user_id) || !shortText(row.action, 80) ||
+        !shortText(row.target_kind, 80) || !shortText(row.target_id, 128) ||
+        !shortText(row.reason, 1000) ||
+        (row.risk_level !== "low" && row.risk_level !== "high") ||
+        !validTime(row.created_at) || seen.has(row.id.toLowerCase())) return null;
+    const current = { created_at: row.created_at, id: row.id };
+    if (previous && !older(current, previous)) return null;
+    seen.add(row.id.toLowerCase());
+    previous = current;
+    items.push(Object.fromEntries(auditFields.map((field) => [field, row[field]])));
+  }
+  const cursor = value.next_cursor;
+  if (cursor === null) return { items, next_cursor: null };
+  if (!record(cursor) || !exactFields(cursor, ["created_at", "id"]) ||
+      !validTime(cursor.created_at) || !validId(cursor.id) ||
+      items.length !== query.pageSize ||
+      cursor.created_at !== previous?.created_at ||
+      cursor.id.toLowerCase() !== previous?.id.toLowerCase()) return null;
+  return { items, next_cursor: { created_at: cursor.created_at, id: cursor.id } };
+}
 
 function parseAuditQuery(value: unknown): AuditQuery | null {
   if (!record(value) || Object.keys(value).some((key) => key !== "page_size" && key !== "before")) return null;
@@ -32,8 +78,7 @@ function parseAuditQuery(value: unknown): AuditQuery | null {
   if (!record(value.before) || Object.keys(value.before).length !== 2 ||
       !Object.hasOwn(value.before, "created_at") || !Object.hasOwn(value.before, "id")) return null;
   const { created_at: createdAt, id } = value.before;
-  if (typeof createdAt !== "string" || !isoWithZone.test(createdAt) || !Number.isFinite(Date.parse(createdAt)) ||
-      typeof id !== "string" || !uuid.test(id)) return null;
+  if (!validTime(createdAt) || !validId(id)) return null;
   return { pageSize, beforeCreatedAt: createdAt, beforeId: id };
 }
 
@@ -43,7 +88,6 @@ Deno.serve(async (req) => {
   const token = (req.headers.get("Authorization") || "").match(/^Bearer (\S+)$/)?.[1];
   if (!token) return json({ code: "AUTH_REQUIRED" }, 401);
 
-  // A bounded request body prevents accidental unbounded JSON parsing.
   let query: AuditQuery | null;
   try {
     const raw = await req.text();
@@ -62,8 +106,6 @@ Deno.serve(async (req) => {
   try {
     const { data: { user }, error: authError } = await client.auth.getUser(token);
     if (authError || !user) return json({ code: "AUTH_REQUIRED" }, 401);
-    // The SQL RPC rechecks active platform_ops.admin_members on EVERY request.
-    // This read-only Edge route does not trust a client-supplied admin role.
     const { data, error } = await client.rpc("platform_admin_list_audit", {
       p_actor_auth_user_id: user.id,
       p_page_size: query.pageSize,
@@ -76,13 +118,10 @@ Deno.serve(async (req) => {
       }
       throw new Error("AUDIT_READ_FAILED");
     }
-    if (!record(data) || !Array.isArray(data.items) ||
-        !(data.next_cursor === null || record(data.next_cursor))) {
-      throw new Error("INVALID_AUDIT_RESPONSE");
-    }
-    return json({ items: data.items, next_cursor: data.next_cursor });
+    const page = sanitizeAuditPage(data, query);
+    if (!page) throw new Error("INVALID_AUDIT_RESPONSE");
+    return json(page);
   } catch {
-    // Do not leak SQL errors, JWTs, internal identifiers, or service-role details.
     return json({ code: "AUDIT_READ_UNAVAILABLE" }, 503);
   }
 });

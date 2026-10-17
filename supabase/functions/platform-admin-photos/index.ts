@@ -12,12 +12,23 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" },
 });
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const isoWithZone = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const isoWithZone = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
 const record = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 const validId = (v: unknown): v is string => typeof v === "string" && uuid.test(v);
 const validTime = (v: unknown): v is string =>
   typeof v === "string" && isoWithZone.test(v) && Number.isFinite(Date.parse(v));
+const timestampMicros = (value: string): bigint => {
+  const fraction = /\.(\d{1,6})(?=Z|[+-]\d{2}:\d{2}$)/.exec(value)?.[1] ?? "";
+  return BigInt(Date.parse(value)) * 1000n + BigInt(fraction.padEnd(6, "0").slice(3) || "0");
+};
+const strictlyOlder = (
+  left: { uploaded_at: string; id: string },
+  right: { uploaded_at: string; id: string },
+) => {
+  const a = timestampMicros(left.uploaded_at), b = timestampMicros(right.uploaded_at);
+  return a < b || (a === b && left.id.toLowerCase() < right.id.toLowerCase());
+};
 
 type PhotoQuery = {
   eventId: string;
@@ -48,13 +59,22 @@ function sanitizePage(value: unknown, query: PhotoQuery) {
       !Array.isArray(value.items) || value.items.length > query.pageSize ||
       !(value.next_cursor === null || record(value.next_cursor))) return null;
   const items: Array<{ id: string; event_id: string; version: number; uploaded_at: string }> = [];
+  const seen = new Set<string>();
+  let previous: { uploaded_at: string; id: string } | null =
+    query.beforeUploadedAt && query.beforeId
+      ? { uploaded_at: query.beforeUploadedAt, id: query.beforeId }
+      : null;
   for (const row of value.items) {
     if (!record(row) || Object.keys(row).length !== 4 ||
         Object.keys(row).some((key) => !["id", "event_id", "version", "uploaded_at"].includes(key)) ||
         !validId(row.id) || !validId(row.event_id) ||
         row.event_id.toLowerCase() !== query.eventId.toLowerCase() ||
         typeof row.version !== "number" || !Number.isSafeInteger(row.version) || row.version < 1 ||
-        !validTime(row.uploaded_at)) return null;
+        !validTime(row.uploaded_at) || seen.has(row.id.toLowerCase())) return null;
+    const current = { uploaded_at: row.uploaded_at, id: row.id };
+    if (previous && !strictlyOlder(current, previous)) return null;
+    seen.add(row.id.toLowerCase());
+    previous = current;
     items.push({ id: row.id, event_id: row.event_id, version: row.version, uploaded_at: row.uploaded_at });
   }
   const cursor = value.next_cursor;

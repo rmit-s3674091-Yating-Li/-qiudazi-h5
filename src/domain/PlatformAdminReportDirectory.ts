@@ -14,6 +14,14 @@ export type AdminReportRow = {
 export type AdminReportCursor = { created_at: string; id: string };
 export type AdminReportPage = { items: AdminReportRow[]; nextCursor: AdminReportCursor | null };
 
+/** Cross-page duplicates indicate a broken keyset contract; never silently discard them. */
+export function hasAdminReportPageOverlap(
+  previous: readonly AdminReportRow[], incoming: readonly AdminReportRow[],
+): boolean {
+  const seen = new Set(previous.map((row) => row.id.toLowerCase()));
+  return incoming.some((row) => seen.has(row.id.toLowerCase()));
+}
+
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const zonedTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 const fields = ["id", "target_kind", "target_id", "category", "status", "version", "created_at"] as const;

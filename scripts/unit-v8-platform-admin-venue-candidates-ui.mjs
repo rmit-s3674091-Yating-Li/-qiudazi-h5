@@ -25,6 +25,12 @@ try {
   const cursor = { created_at: row.created_at, event_id: row.event_id };
   assert.deepEqual(parse({ items: [row], next_cursor: null }), { items: [row], nextCursor: null });
   assert.deepEqual(parse({ items: [], next_cursor: null }), { items: [], nextCursor: null });
+  assert.equal(parse({ items: [row], next_cursor: null }, cursor), null,
+    "the last item of the previous page cannot repeat");
+  const olderRow = { ...row, event_id: "a1111111-1111-4111-8111-111111111111",
+    created_at: "2026-10-14T08:00:00+00:00" };
+  assert.equal(parse({ items: [olderRow], next_cursor: null }, cursor)?.items[0]?.event_id,
+    olderRow.event_id, "a strictly older page remains valid");
   const rows = Array.from({ length: 20 }, (_, i) => ({
     ...row, event_id: `${(i+1).toString(16).padStart(8,"0")}-1111-4111-8111-111111111111`,
     created_at: `2026-10-14T${String(20-i).padStart(2,"0")}:00:00Z`,
@@ -56,7 +62,10 @@ try {
   });
   assert.equal(jsx.diagnostics?.length ?? 0, 0);
   assert.match(ui, /functions\.invoke\("platform-admin-venue-candidates"/, "dedicated JWT Edge route");
-  assert.match(ui, /parseAdminVenueCandidatePage\(data\)/, "strict response contract");
+  assert.match(ui, /parseAdminVenueCandidatePage\(data, before\)/, "strict cursor-bound response contract");
+  assert.match(ui, /VENUE_CANDIDATE_PAGE_OVERLAP/, "cross-page duplicates fail closed");
+  assert.match(ui, /old\.event_id\.toLowerCase\(\) === row\.event_id\.toLowerCase\(\)/,
+    "overlap comparison must be UUID case-insensitive");
   assert.match(ui, /generation\.current !== epoch/, "ignore old responses");
   assert.match(ui, /\[userId\]/, "account change invalidates state");
   assert.match(ui, /setItems\(\[\]\)/, "authorization failure clears rows");
