@@ -49,7 +49,7 @@ begin
   if public.v8_active_match_participant(event_id,'beeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',actor_id) then
     raise exception 'MISSING_MATCH_GRANTED';
   end if;
-  if public.v8_active_match_participant(event_id,match_id,'bffffffff-ffff-4fff-8fff-ffffffffffff') then
+  if public.v8_active_match_participant(event_id,match_id,'bfffffff-ffff-4fff-8fff-ffffffffffff') then
     raise exception 'UNKNOWN_IDENTITY_GRANTED';
   end if;
 
