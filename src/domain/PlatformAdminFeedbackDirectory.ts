@@ -12,7 +12,7 @@ export type AdminFeedbackRow = {
 export type AdminFeedbackPage = { items: AdminFeedbackRow[]; nextCursor: AdminFeedbackCursor | null };
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const zonedTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const zonedTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
 const statuses: readonly AdminFeedbackStatus[] = ["open", "in_review", "resolved", "dismissed"];
 const categories: readonly AdminFeedbackCategory[] = ["bug", "experience", "accessibility", "other"];
 const fields = ["id", "category", "status", "version", "created_at"] as const;
@@ -25,9 +25,14 @@ const validTime = (value: unknown): value is string =>
   typeof value === "string" && zonedTime.test(value) && Number.isFinite(Date.parse(value));
 const oneOf = <T extends string>(value: unknown, choices: readonly T[]): value is T =>
   typeof value === "string" && choices.includes(value as T);
+/** Preserve PostgreSQL's microsecond keyset ordering, including timezone offsets. */
+const timestampMicros = (value: string): bigint => {
+  const fraction = /\.(\d{1,6})(?=Z|[+-]\d{2}:\d{2}$)/.exec(value)?.[1] ?? "";
+  return BigInt(Date.parse(value)) * 1000n + BigInt(fraction.padEnd(6, "0").slice(3));
+};
 const earlierThan = (left: AdminFeedbackCursor, right: AdminFeedbackCursor): boolean => {
-  const a = Date.parse(left.created_at);
-  const b = Date.parse(right.created_at);
+  const a = timestampMicros(left.created_at);
+  const b = timestampMicros(right.created_at);
   return a < b || (a === b && left.id.toLowerCase() < right.id.toLowerCase());
 };
 

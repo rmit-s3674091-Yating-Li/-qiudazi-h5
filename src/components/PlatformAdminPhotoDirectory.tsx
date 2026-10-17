@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { parseAdminPhotoPage } from "../domain/PlatformAdminPhotoDirectory";
+import { parseAdminPhotoPage, validAdminPhotoPageBoundary } from "../domain/PlatformAdminPhotoDirectory";
 import { PlatformAdminPhotoPreview } from "./PlatformAdminPhotoPreview";
 import { PlatformAdminPhotoRemovalAction } from "./PlatformAdminPhotoRemovalAction";
 import type { AdminPhotoCursor, AdminPhotoRow } from "../domain/PlatformAdminPhotoDirectory";
@@ -64,9 +64,9 @@ export function PlatformAdminPhotoDirectory({ userId, eventId, en }: {
       const page = parseAdminPhotoPage(data, eventId, 20);
       if (!page) throw new Error("INVALID_PHOTO_DIRECTORY_RESPONSE");
       if (generation.current !== epoch) return;
-      setItems((previous) => reset ? page.items : [
-        ...previous, ...page.items.filter((row) => !previous.some((old) => old.id === row.id)),
-      ]);
+      const previous=reset?[]:items;
+      if(!validAdminPhotoPageBoundary(page,before,previous)) throw new Error("INVALID_PHOTO_DIRECTORY_PAGE_BOUNDARY");
+      setItems(reset?page.items:[...previous,...page.items]);
       setCursor(page.nextCursor);
       setState("ready");
     } catch {
@@ -113,18 +113,12 @@ export function PlatformAdminPhotoDirectory({ userId, eventId, en }: {
           <p className="small">{en ? "Photo ID" : "照片 ID"}: {item.id}</p>
           <p className="small muted">{en ? "Version" : "版本"}: {item.version}</p>
           <p className="small muted">{en ? "Uploaded" : "上传时间"}: <time dateTime={item.uploaded_at}>{new Date(item.uploaded_at).toLocaleString(en ? "en-US" : "zh-CN")}</time></p>
-          <button type="button" className="secondary"
-            aria-expanded={selectedPhotoId === item.id}
-            aria-controls={`platform-admin-photo-preview-${item.id}`}
-            onClick={() => setSelectedPhotoId((current) => current === item.id ? null : item.id)}>
+          <button type="button" className="secondary" aria-expanded={selectedPhotoId === item.id} aria-controls={`platform-admin-photo-preview-${item.id}`} onClick={() => setSelectedPhotoId((current) => current === item.id ? null : item.id)}>
             {selectedPhotoId === item.id ? (en ? "Hide preview" : "收起预览") : (en ? "Review photo" : "审核预览")}
           </button>
           {selectedPhotoId === item.id && <div id={`platform-admin-photo-preview-${item.id}`}>
             <PlatformAdminPhotoPreview key={item.id} userId={userId} eventId={eventId} photoId={item.id} en={en} />
-            {superAdmin && <PlatformAdminPhotoRemovalAction
-              key={`${userId}:${eventId}:${item.id}:${item.version}`} userId={userId}
-              eventId={eventId} photoId={item.id} version={item.version} en={en}
-              onRemoved={() => void loadPage(null, true, ++generation.current)} />}
+            {superAdmin && <PlatformAdminPhotoRemovalAction key={`${userId}:${eventId}:${item.id}:${item.version}`} userId={userId} eventId={eventId} photoId={item.id} version={item.version} en={en} onRemoved={() => void loadPage(null, true, ++generation.current)} />}
           </div>}
         </li>)}
       </ol>

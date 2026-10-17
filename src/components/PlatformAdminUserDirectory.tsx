@@ -28,18 +28,15 @@ export function PlatformAdminUserDirectory({ userId, en }: { userId: string; en:
       });
       if (error) throw new Error("USER_DIRECTORY_UNAVAILABLE");
       const page = parseAdminUserPage(data);
-      if (!page || !adminUserPageFollowsCursor(page, before)) {
+      if (!page || !adminUserPageFollowsCursor(page, before, new Set(items.map((row) => row.id)))) {
         throw new Error("INVALID_USER_DIRECTORY_RESPONSE");
       }
       if (generation.current !== epoch) return;
-      setItems((previous) => reset ? page.items : [
-        ...previous, ...page.items.filter((row) => !previous.some((old) => old.id === row.id)),
-      ]);
+      setItems((previous) => reset ? page.items : [...previous, ...page.items]);
       setCursor(page.nextCursor);
       setState("ready");
     } catch {
       if (generation.current !== epoch) return;
-      // A failed request can indicate revoked permissions: discard cached rows.
       setItems([]);
       setCursor(null);
       setState("failed");
@@ -77,9 +74,7 @@ export function PlatformAdminUserDirectory({ userId, en }: { userId: string; en:
           <p className="small muted"><time dateTime={item.created_at}>{new Date(item.created_at).toLocaleString(en ? "en-US" : "zh-CN")}</time></p>
         </li>)}
       </ol>
-      {cursor && <button type="button" className="secondary" disabled={busy} onClick={() => void loadPage(cursor, false, generation.current)}>
-        {busy ? (en ? "Loading…" : "加载中…") : (en ? "Load more" : "加载更多")}
-      </button>}
+      {cursor && <button type="button" className="secondary" disabled={busy} onClick={() => void loadPage(cursor, false, generation.current)}>{busy ? (en ? "Loading…" : "加载中…") : (en ? "Load more" : "加载更多")}</button>}
       {!cursor && items.length > 0 && <p className="muted small">{en ? "End of user directory." : "已显示全部用户。"}</p>}
       <button type="button" className="text-button" disabled={busy} onClick={() => void loadPage(null, true, generation.current)}>{en ? "Refresh users" : "刷新用户"}</button>
     </>}

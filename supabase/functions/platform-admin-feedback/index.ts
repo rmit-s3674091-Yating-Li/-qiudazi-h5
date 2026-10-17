@@ -12,7 +12,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" },
 });
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const zonedTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const zonedTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
 const categories = ["bug", "experience", "accessibility", "other"] as const;
 const statuses = ["open", "in_review", "resolved", "dismissed"] as const;
 const record = (value: unknown): value is Record<string, unknown> =>
@@ -22,6 +22,14 @@ const validTime = (value: unknown): value is string =>
   typeof value === "string" && zonedTime.test(value) && Number.isFinite(Date.parse(value));
 const oneOf = (value: unknown, allowed: readonly string[]): value is string =>
   typeof value === "string" && allowed.includes(value);
+const timestampMicros = (value: string): bigint => {
+  const fraction = /\.(\d{1,6})(?=Z|[+-]\d{2}:\d{2}$)/.exec(value)?.[1] ?? "";
+  return BigInt(Date.parse(value)) * 1000n + BigInt(fraction.padEnd(6, "0").slice(3));
+};
+const earlierThan = (left: { id: string; created_at: string }, right: { id: string; created_at: string }) => {
+  const a = timestampMicros(left.created_at), b = timestampMicros(right.created_at);
+  return a < b || (a === b && left.id.toLowerCase() < right.id.toLowerCase());
+};
 
 type Query = {
   pageSize: number;
@@ -35,17 +43,13 @@ function parseQuery(value: unknown): Query | null {
   if (typeof pageSize !== "number" || !Number.isInteger(pageSize) || pageSize < 1 || pageSize > 50) return null;
   const status = value.status === undefined || value.status === null ? null : value.status;
   if (status !== null && !oneOf(status, statuses)) return null;
-  if (value.before === undefined || value.before === null) {
-    return { pageSize, status, beforeCreatedAt: null, beforeId: null };
-  }
+  if (value.before === undefined || value.before === null) return { pageSize, status, beforeCreatedAt: null, beforeId: null };
   if (!record(value.before) || Object.keys(value.before).length !== 2 ||
       !Object.hasOwn(value.before, "created_at") || !Object.hasOwn(value.before, "id") ||
       !validTime(value.before.created_at) || !validId(value.before.id)) return null;
   return { pageSize, status, beforeCreatedAt: value.before.created_at, beforeId: value.before.id };
 }
 
-// Strictly project the five allowlisted fields. Reject unexpected keys rather
-// than accidentally exposing future columns containing private feedback text.
 function sanitizePage(value: unknown, query: Query) {
   if (!record(value) || Object.keys(value).length !== 2 ||
       !Object.hasOwn(value, "items") || !Object.hasOwn(value, "next_cursor") ||
@@ -54,6 +58,7 @@ function sanitizePage(value: unknown, query: Query) {
   const items: Array<{ id: string; category: string; status: string; version: number; created_at: string }> = [];
   let previous: { id: string; created_at: string } | null = null;
   const seen = new Set<string>();
+  const before = query.beforeCreatedAt && query.beforeId ? { created_at: query.beforeCreatedAt, id: query.beforeId } : null;
   for (const row of value.items) {
     if (!record(row) || Object.keys(row).length !== 5 ||
         Object.keys(row).some((key) => !["id", "category", "status", "version", "created_at"].includes(key)) ||
@@ -61,16 +66,12 @@ function sanitizePage(value: unknown, query: Query) {
         (query.status !== null && row.status !== query.status) ||
         typeof row.version !== "number" || !Number.isSafeInteger(row.version) || row.version < 1 ||
         !validTime(row.created_at) || seen.has(row.id.toLowerCase())) return null;
-    if (previous && (Date.parse(row.created_at) > Date.parse(previous.created_at) ||
-        (Date.parse(row.created_at) === Date.parse(previous.created_at) &&
-          row.id.toLowerCase() >= previous.id.toLowerCase()))) return null;
-    if (query.beforeCreatedAt && (Date.parse(row.created_at) > Date.parse(query.beforeCreatedAt) ||
-        (Date.parse(row.created_at) === Date.parse(query.beforeCreatedAt) &&
-          row.id.toLowerCase() >= query.beforeId!.toLowerCase()))) return null;
+    const current = { id: row.id, created_at: row.created_at };
+    if (previous && !earlierThan(current, previous)) return null;
+    if (before && !earlierThan(current, before)) return null;
     seen.add(row.id.toLowerCase());
-    items.push({ id: row.id, category: row.category, status: row.status,
-      version: row.version, created_at: row.created_at });
-    previous = { id: row.id, created_at: row.created_at };
+    items.push({ id: row.id, category: row.category, status: row.status, version: row.version, created_at: row.created_at });
+    previous = current;
   }
   const cursor = value.next_cursor;
   if (cursor === null) return { items, next_cursor: null };
@@ -92,12 +93,9 @@ Deno.serve(async (req) => {
     const raw = await req.text();
     if (raw.length > 2048) return json({ code: "INVALID_FEEDBACK_QUERY" }, 413);
     query = parseQuery(JSON.parse(raw));
-  } catch {
-    return json({ code: "INVALID_FEEDBACK_QUERY" }, 400);
-  }
+  } catch { return json({ code: "INVALID_FEEDBACK_QUERY" }, 400); }
   if (!query) return json({ code: "INVALID_FEEDBACK_QUERY" }, 400);
-  const url = Deno.env.get("SUPABASE_URL");
-  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const url = Deno.env.get("SUPABASE_URL"), key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !key) return json({ code: "SERVICE_UNAVAILABLE" }, 503);
   const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
   try {
@@ -112,15 +110,11 @@ Deno.serve(async (req) => {
       p_status: query.status,
     });
     if (error) {
-      if (String(error.message).includes("PLATFORM_ADMIN_FORBIDDEN")) {
-        return json({ code: "PLATFORM_ADMIN_FORBIDDEN" }, 403);
-      }
+      if (String(error.message).includes("PLATFORM_ADMIN_FORBIDDEN")) return json({ code: "PLATFORM_ADMIN_FORBIDDEN" }, 403);
       throw new Error("FEEDBACK_DIRECTORY_READ_FAILED");
     }
     const page = sanitizePage(data, query);
     if (!page) throw new Error("INVALID_FEEDBACK_DIRECTORY_RESPONSE");
     return json(page);
-  } catch {
-    return json({ code: "FEEDBACK_DIRECTORY_UNAVAILABLE" }, 503);
-  }
+  } catch { return json({ code: "FEEDBACK_DIRECTORY_UNAVAILABLE" }, 503); }
 });

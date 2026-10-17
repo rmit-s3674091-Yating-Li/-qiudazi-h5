@@ -12,13 +12,16 @@ export type AuditRow = {
 };
 export type AuditPage = { items: AuditRow[]; nextCursor: AuditCursor | null };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const isoWithZone = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const isoWithZone = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+const auditFields = ["id", "actor_auth_user_id", "action", "target_kind", "target_id", "reason", "risk_level", "created_at"];
+const exactFields = (value: Record<string, unknown>, fields: readonly string[]): boolean =>
+  Object.keys(value).length === fields.length && fields.every((field) => Object.hasOwn(value, field));
 const timestamp = (value: unknown): value is string =>
   typeof value === "string" && isoWithZone.test(value) && Number.isFinite(Date.parse(value));
 const validCursor = (value: unknown): value is AuditCursor =>
-  record(value) && timestamp(value.created_at) && typeof value.id === "string" && uuid.test(value.id);
+  record(value) && exactFields(value, ["created_at", "id"]) && timestamp(value.created_at) && typeof value.id === "string" && uuid.test(value.id);
 const shortText = (value: unknown, max: number): value is string =>
   typeof value === "string" && value.length > 0 && value.length <= max;
 
@@ -44,28 +47,29 @@ export function parseAdminAuditPage(
   before: AuditCursor | null = null,
   previousIds: ReadonlySet<string> = new Set(),
 ): AuditPage | null {
-  if (!record(value) || !Array.isArray(value.items) || value.items.length > 50) return null;
-  if (!Object.hasOwn(value, "next_cursor") ||
-      (value.next_cursor !== null && !validCursor(value.next_cursor)) ||
+  if (!record(value) || !exactFields(value, ["items", "next_cursor"]) ||
+      !Array.isArray(value.items) || value.items.length > 50) return null;
+  if ((value.next_cursor !== null && !validCursor(value.next_cursor)) ||
       (before !== null && !validCursor(before))) return null;
   const items: AuditRow[] = [];
-  const seen = new Set(previousIds);
+  const seen = new Set([...previousIds].map((id) => id.toLowerCase()));
   let previous = before;
   for (const row of value.items) {
-    if (!record(row) || typeof row.id !== "string" || !uuid.test(row.id) ||
+    if (!record(row) || !exactFields(row, auditFields) ||
+        typeof row.id !== "string" || !uuid.test(row.id) ||
         typeof row.actor_auth_user_id !== "string" || !uuid.test(row.actor_auth_user_id) ||
         !shortText(row.action, 80) || !shortText(row.target_kind, 80) ||
         !shortText(row.target_id, 128) || !shortText(row.reason, 1000) ||
         (row.risk_level !== "low" && row.risk_level !== "high") ||
-        !timestamp(row.created_at) || seen.has(row.id)) return null;
+        !timestamp(row.created_at) || seen.has(row.id.toLowerCase())) return null;
     const position = { created_at: row.created_at, id: row.id };
     if (previous && !strictlyBefore(previous, position)) return null;
-    seen.add(row.id);
+    seen.add(row.id.toLowerCase());
     previous = position;
     items.push(row as AuditRow);
   }
   const cursor = value.next_cursor as AuditCursor | null;
   if (cursor !== null && (items.length === 0 ||
-      cursor.id !== previous?.id || cursor.created_at !== previous.created_at)) return null;
+      cursor.id.toLowerCase() !== previous?.id.toLowerCase() || cursor.created_at !== previous.created_at)) return null;
   return { items, nextCursor: cursor };
 }

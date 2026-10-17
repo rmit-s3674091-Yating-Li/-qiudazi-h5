@@ -10,7 +10,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" },
 });
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const zonedTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const zonedTime = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
 const anomalyCodes = ["FINISHED_WITHOUT_WINNER", "UNFINISHED_WITH_WINNER", "WINNER_NOT_IN_MATCH", "DIRECT_WITH_ACTIVE_POINTS"] as const;
 const stages = ["round_robin", "group", "knockout"] as const;
 const statuses = ["not_started", "ongoing", "finished"] as const;
@@ -20,6 +20,14 @@ const validId = (v: unknown): v is string => typeof v === "string" && uuid.test(
 const validTime = (v: unknown): v is string => typeof v === "string" && zonedTime.test(v) && Number.isFinite(Date.parse(v));
 const oneOf = (v: unknown, options: readonly string[]): v is string => typeof v === "string" && options.includes(v);
 const version = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= 1;
+const timestampMicros = (value: string): bigint => {
+  const fraction = /\.(\d{1,6})(?=Z|[+-]\d{2}:\d{2}$)/.exec(value)?.[1] ?? "";
+  return BigInt(Date.parse(value)) * 1000n + BigInt(fraction.padEnd(6, "0").slice(3));
+};
+const strictlyOlder = (left: { created_at: string; id: string }, right: { created_at: string; id: string }) => {
+  const a = timestampMicros(left.created_at), b = timestampMicros(right.created_at);
+  return a < b || (a === b && left.id.toLowerCase() < right.id.toLowerCase());
+};
 
 type Query = { eventId: string; pageSize: number; beforeCreatedAt: string | null; beforeId: string | null };
 function parseQuery(value: unknown): Query | null {
@@ -35,14 +43,20 @@ function parseQuery(value: unknown): Query | null {
 function sanitizePage(value: unknown, query: Query) {
   if (!record(value) || Object.keys(value).length !== 2 || !Object.hasOwn(value, "items") || !Object.hasOwn(value, "next_cursor") || !Array.isArray(value.items) || value.items.length > query.pageSize || !(value.next_cursor === null || record(value.next_cursor))) return null;
   const allowed = ["match_id", "event_id", "stage", "round_no", "status", "scoring_mode", "version", "anomaly_code", "created_at"];
-  const items = [];
+  const items: Record<string, unknown>[] = [];
+  const seen = new Set<string>();
+  let previous: { created_at: string; id: string } | null = query.beforeCreatedAt && query.beforeId ? { created_at: query.beforeCreatedAt, id: query.beforeId } : null;
   for (const row of value.items) {
-    if (!record(row) || Object.keys(row).length !== allowed.length || allowed.some((key) => !Object.hasOwn(row, key)) || !validId(row.match_id) || row.event_id !== query.eventId || !oneOf(row.stage, stages) || !Number.isSafeInteger(row.round_no) || (row.round_no as number) < 1 || !oneOf(row.status, statuses) || !(row.scoring_mode === null || oneOf(row.scoring_mode, modes)) || !version(row.version) || !oneOf(row.anomaly_code, anomalyCodes) || !validTime(row.created_at)) return null;
+    if (!record(row) || Object.keys(row).length !== allowed.length || allowed.some((key) => !Object.hasOwn(row, key)) || !validId(row.match_id) || String(row.event_id).toLowerCase() !== query.eventId.toLowerCase() || !oneOf(row.stage, stages) || !Number.isSafeInteger(row.round_no) || (row.round_no as number) < 1 || !oneOf(row.status, statuses) || !(row.scoring_mode === null || oneOf(row.scoring_mode, modes)) || !version(row.version) || !oneOf(row.anomaly_code, anomalyCodes) || !validTime(row.created_at) || seen.has(String(row.match_id).toLowerCase())) return null;
+    const current = { created_at: String(row.created_at), id: String(row.match_id) };
+    if (previous && !strictlyOlder(current, previous)) return null;
+    seen.add(current.id.toLowerCase());
+    previous = current;
     items.push(Object.fromEntries(allowed.map((key) => [key, row[key]])));
   }
   const cursor = value.next_cursor;
   if (cursor === null) return { items, next_cursor: null };
-  if (!record(cursor) || Object.keys(cursor).length !== 2 || !validTime(cursor.created_at) || !validId(cursor.id) || items.length === 0 || cursor.created_at !== items[items.length - 1].created_at || cursor.id !== items[items.length - 1].match_id) return null;
+  if (!record(cursor) || Object.keys(cursor).length !== 2 || !Object.hasOwn(cursor, "created_at") || !Object.hasOwn(cursor, "id") || !validTime(cursor.created_at) || !validId(cursor.id) || items.length !== query.pageSize || cursor.created_at !== items[items.length - 1].created_at || cursor.id.toLowerCase() !== String(items[items.length - 1].match_id).toLowerCase()) return null;
   return { items, next_cursor: { created_at: cursor.created_at, id: cursor.id } };
 }
 
