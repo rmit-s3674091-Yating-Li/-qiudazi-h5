@@ -13,6 +13,7 @@ async function run(label, mapResponse, {authOk=true, query='网球中心'}={}) {
   globalThis.fetch = async (input) => {
     const url = String(input);
     if(url.includes('/auth/v1/user')) return ok({id: 'actor'}, authOk ? 200 : 401);
+    assert.equal(new URL(url).searchParams.get('ret_coordtype'), 'gcj02ll', 'all Baidu POI endpoints must return GCJ-02');
     mapCalls++;
     return mapResponse(url, mapCalls);
   };

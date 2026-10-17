@@ -37,6 +37,7 @@ function requires(source, patterns, label) {
 }
 
 try {
+  await import("./unit-v8-venue-location-merge.mjs");
   await compile("src/domain/types.ts", "types.js");
   const rulesSource = await compile("src/domain/EventRules.ts", "EventRules.js");
   const mapSource = await compile("src/utils/mapProvider.ts", "mapProvider.js");
@@ -68,13 +69,12 @@ try {
 
   requires(formSource, [
     /添加场馆定位/, /使用当前位置/, /VenueMapPicker/, /confirmMapLocation/,
-    /venue_latitude:latitude/, /venue_longitude:longitude/,
-    /venue_provider:place\?\.provider\|\|"openstreetmap"/,
+    /mergeVenueLocation\(f,\{latitude,longitude,provider:"openstreetmap"\}/,
+    /mergeVenueLocation\(f,location,place,"device"\)/,
     /地图选点/, /比赛场馆（可选）/, /场馆定位（可选）/,
     /场馆地址/, /具体场地（可选）/,
     /地图会优先根据“城市 \+ 比赛场馆”定位到附近位置/,
-    /setVenueLocationOpen/, /venue_address:place\?\.address/,
-    /venue_name:!f\.venue_name&&place\?\.name/,
+    /setVenueLocationOpen/, /place\?\.name\?\.trim\(\)\?"explicit_poi":"pin"/,
     /initialCity=\{form\.city\}/, /initialVenueName=\{form\.venue_name\}/,
     /initialAddress=\{form\.venue_address\}/,
   ], "standard event venue form");
