@@ -54,13 +54,13 @@ export function PlatformAdminFeedbackResolutionAction({ userId, feedbackId, vers
       feedbackId, version, decision, reason, requestId: crypto.randomUUID(),
     });
     if (!operation || (!existing && !canSubmit)) return;
-    // Preserve operation UUID and immutable payload before the first network call.
     inFlight.current = true;
     const epoch = generation.current;
     setAttempt(operation);
     setResult("sending");
-    const outcome = supabase
-      ? await submitFeedbackResolution((name, options) => supabase.functions.invoke(name, options), operation)
+    const client = supabase;
+    const outcome = client
+      ? await submitFeedbackResolution((name, options) => client.functions.invoke(name, options), operation)
       : { kind: "uncertain" as const };
     if (epoch !== generation.current) return;
     inFlight.current = false;
@@ -69,7 +69,6 @@ export function PlatformAdminFeedbackResolutionAction({ userId, feedbackId, vers
       setAttempt(null);
       onRefresh();
     } else if (outcome.kind === "uncertain") {
-      // May have committed despite a lost response; never mint another request_id for retry.
       setResult("uncertain");
     } else {
       setResult(outcome.kind);
