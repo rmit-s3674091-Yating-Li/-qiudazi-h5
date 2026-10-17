@@ -47,7 +47,7 @@ try {
   assert.equal(transpiled.diagnostics?.length ?? 0, 0);
   assert.match(ui, /functions\.invoke\("platform-admin-photo-preview"/, "only trusted Edge route");
   assert.match(ui, /body: \{ event_id: eventId, photo_id: photoId \}/, "scope IDs only");
-  assert.match(ui, /parseAdminPhotoPreview\(data, supabase\.supabaseUrl\)/, "strict origin-bound parser");
+  assert.match(ui, /parseAdminPhotoPreview\(data,\s*supabaseUrl\)/, "strict origin-bound parser");
   assert.match(ui, /generation\.current !== epoch/, "ignore stale requests");
   assert.match(ui, /loadedScope !== scope/, "do not render old account or photo");
   assert.match(ui, /\[userId, eventId, photoId\]/, "reset when scope changes");
