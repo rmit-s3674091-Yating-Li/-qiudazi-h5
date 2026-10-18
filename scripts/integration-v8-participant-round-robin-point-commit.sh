@@ -73,6 +73,35 @@ begin
     or (select count(*) from public.point_logs where match_id=v_match)<>1
   then raise exception 'REPLAY_NOT_IDEMPOTENT'; end if;
 
+  -- A lost response for the last point must remain idempotent after the
+  -- match and event reach their terminal states. The DB replay path must not
+  -- reapply the point or bypass the original actor binding.
+  update public.matches
+     set status='finished', winner_entry_id='caaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+   where id=v_match;
+  update public.events
+     set status='finished', finished_at=now()
+   where id=v_event;
+  v_result := public.v8_commit_participant_round_robin_point(
+    v_event,v_match,v_actor,1,1,v_op,'A',v_next);
+  if v_result->'event'->>'status'<>'finished'
+    or v_result->'matches'->0->>'status'<>'finished'
+    or (select count(*) from public.point_logs where match_id=v_match)<>1
+    or (select count(*) from scoring_ops.participant_point_actor_binding
+        where operation_id=v_op and actor_auth_user_id=v_actor)<>1
+  then raise exception 'FINISHED_POINT_REPLAY_NOT_IDEMPOTENT'; end if;
+
+  v_blocked:=false;
+  begin
+    perform public.v8_commit_participant_round_robin_point(v_event,v_match,
+      'c1111111-1111-4111-8111-111111111111',1,1,v_op,'A',v_next);
+  exception when others then v_blocked:=(sqlerrm='OPERATION_CONFLICT'); end;
+  if not v_blocked then raise exception 'FINISHED_POINT_REPLAY_ACTOR_NOT_BOUND'; end if;
+
+  -- Restore the fixture for subsequent stale-version and membership checks.
+  update public.events set status='ongoing', finished_at=null where id=v_event;
+  update public.matches set status='ongoing', winner_entry_id=null where id=v_match;
+
   -- The opponent is a valid participant, but cannot claim the original scorer's operation.
   v_blocked:=false;
   begin
@@ -149,3 +178,4 @@ SQL
 )"
 if [ "$result" != "ok" ]; then echo "FAIL: V8 participant round-robin point transaction"; exit 1; fi
 echo "PASS: V8 participant round-robin point transaction"
+bash "$(dirname "$0")/integration-v8-participant-point-concurrency.sh"
