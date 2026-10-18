@@ -86,13 +86,25 @@ async function tryParticipantRoundRobinPoint(
   if (!eventOwner) return json({ error: "赛事不存在", code: "EVENT_NOT_FOUND" }, 404);
   if (eventOwner.owner_user_id === actorProfileId) return null;
 
-  // Recheck active match membership even for idempotent replays. The atomic
-  // scoring RPC independently repeats authorization under the event lock.
-  const { data: eligible, error: eligibilityError } = await client.rpc("v8_active_match_participant", {
-    p_event_id: cmd.event_id, p_match_id: cmd.match_id, p_actor_auth_user_id: actorAuthUserId,
-  });
-  if (eligibilityError) throw eligibilityError;
-  if (eligible !== true) return json({ error: "当前账号不是该场比赛的实际参赛者", code: "NOT_MATCH_PARTICIPANT" }, 403);
+  // A committed final point may finish the match/event, so the live scoring
+  // preflight can legitimately return false on replay. Inspect operation identity
+  // first; the atomic RPC remains the final actor-binding and membership gate.
+  const { data: prior, error: priorError } = await client.from("point_logs")
+    .select("id,match_id,winner_side").eq("id", cmd.operation_id).maybeSingle();
+  if (priorError) throw priorError;
+  if (prior && (prior.match_id !== cmd.match_id || prior.winner_side !== cmd.side)) {
+    return json({ error: "operation_id 已用于另一条得分操作", code: "OPERATION_CONFLICT" }, 409);
+  }
+
+  // Fresh points must pass the active-match preflight. Replays instead rely on
+  // the locked RPC, which rechecks current membership and the bound JWT actor.
+  if (!prior) {
+    const { data: eligible, error: eligibilityError } = await client.rpc("v8_active_match_participant", {
+      p_event_id: cmd.event_id, p_match_id: cmd.match_id, p_actor_auth_user_id: actorAuthUserId,
+    });
+    if (eligibilityError) throw eligibilityError;
+    if (eligible !== true) return json({ error: "当前账号不是该场比赛的实际参赛者", code: "NOT_MATCH_PARTICIPANT" }, 403);
+  }
 
   const { data, error } = await client.rpc("get_event_snapshot", { p_event_id: cmd.event_id });
   if (error) throw error;
@@ -102,13 +114,6 @@ async function tryParticipantRoundRobinPoint(
   if (!match) return json({ error: "比赛不存在", code: "MATCH_NOT_FOUND" }, 404);
   if (current.event.format !== "round_robin" || match.stage !== "round_robin") {
     return json({ error: "当前赛制尚未开放参赛者逐分记分", code: "PARTICIPANT_POINT_NOT_ALLOWED" }, 403);
-  }
-
-  const { data: prior, error: priorError } = await client.from("point_logs")
-    .select("id,match_id,winner_side").eq("id", cmd.operation_id).maybeSingle();
-  if (priorError) throw priorError;
-  if (prior && (prior.match_id !== cmd.match_id || prior.winner_side !== cmd.side)) {
-    return json({ error: "operation_id 已用于另一条得分操作", code: "OPERATION_CONFLICT" }, 409);
   }
 
   let firstId = true;

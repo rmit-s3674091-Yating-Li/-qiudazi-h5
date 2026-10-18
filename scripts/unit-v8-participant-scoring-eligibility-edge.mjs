@@ -95,3 +95,6 @@ try {
   delete globalThis.Deno;
   await rm(dir, { recursive: true, force: true });
 }
+
+// Always run the final-point replay safety contract in the default unit gate.
+await import("./unit-v8-participant-final-point-replay.mjs");
