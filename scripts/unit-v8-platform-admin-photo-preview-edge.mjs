@@ -136,6 +136,7 @@ signError = { message: "private storage details" };
 assert.equal((await send()).status, 503);
 signError = null;
 for (const unsafe of ["https://evil.invalid/storage/v1/object/sign/event-photos/a?token=x",
+  "https://example.invalid/storage/v1/object/sign/event-photos/owner/event/other-watermarked.jpg?token=x",
   "https://example.invalid/storage/v1/object/public/event-photos/a?token=x",
   "https://example.invalid/storage/v1/object/sign/other-bucket/a?token=x",
   "https://example.invalid/storage/v1/object/sign/event-photos/a",

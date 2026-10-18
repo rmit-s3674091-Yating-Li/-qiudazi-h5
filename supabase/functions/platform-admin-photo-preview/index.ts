@@ -40,13 +40,13 @@ function safePreviewSource(value: unknown, eventId: string, photoId: string): st
   return value.watermarked_path;
 }
 
-function safeSignedUrl(value: unknown, supabaseUrl: string): value is string {
+function safeSignedUrl(value: unknown, supabaseUrl: string, authorizedPath: string): value is string {
   if (typeof value !== "string") return false;
   try {
     const signed = new URL(value);
     const backend = new URL(supabaseUrl);
     return signed.protocol === "https:" && signed.origin === backend.origin &&
-      signed.pathname.startsWith("/storage/v1/object/sign/event-photos/") &&
+      signed.pathname === `/storage/v1/object/sign/event-photos/${authorizedPath}` &&
       signed.searchParams.has("token") && !signed.username && !signed.password && !signed.hash;
   } catch {
     return false;
@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
     if (!path) throw new Error("INVALID_PHOTO_PREVIEW_SOURCE");
     const { data: signed, error: signError } = await client.storage.from("event-photos")
       .createSignedUrl(path, previewTtlSeconds);
-    if (signError || !safeSignedUrl(signed?.signedUrl, url)) throw new Error("PHOTO_PREVIEW_SIGN_FAILED");
+    if (signError || !safeSignedUrl(signed?.signedUrl, url, path)) throw new Error("PHOTO_PREVIEW_SIGN_FAILED");
     return json({ url: signed.signedUrl, expires_in: previewTtlSeconds });
   } catch {
     return json({ code: "PHOTO_PREVIEW_UNAVAILABLE" }, 503);
