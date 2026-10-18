@@ -5,12 +5,16 @@ set -euo pipefail
 
 host="${PGHOST:-127.0.0.1}"
 port="${PGPORT:-54322}"
-if [[ "$host" != "127.0.0.1" && "$host" != "localhost" ]] || [[ "$port" != "54322" ]]; then
+db_name="${PGDATABASE:-postgres}"
+if [[ "$host" != "127.0.0.1" && "$host" != "localhost" && "$host" != "::1" ]] \
+  || [[ "$port" != "54322" || -n "${PGHOSTADDR:-}" || -n "${PGSERVICE:-}" \
+     || -n "${PGSERVICEFILE:-}" || -n "${PGSYSCONFDIR:-}" \
+     || ! "$db_name" =~ ^[A-Za-z0-9_-]+$ ]]; then
   echo "FAIL: concurrency fixture may only run against local Supabase on port 54322" >&2
   exit 1
 fi
 export PGPASSWORD="${PGPASSWORD:-postgres}"
-PSQL=(psql -h "$host" -p "$port" -U "${PGUSER:-postgres}" -d "${PGDATABASE:-postgres}" -X -v ON_ERROR_STOP=1 -At)
+PSQL=(psql -X -w -h "$host" -p "$port" -U "${PGUSER:-postgres}" -d "$db_name" -v ON_ERROR_STOP=1 -At)
 workdir="$(mktemp -d)"
 
 event='d9999999-9999-4999-8999-999999999999'
