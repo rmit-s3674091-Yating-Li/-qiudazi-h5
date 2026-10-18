@@ -10,6 +10,14 @@ import ts from "typescript";
 const dir = await mkdtemp(join(tmpdir(), "qiudazi-final-point-replay-"));
 try {
   const source = await readFile("supabase/functions/tournament-command/index.ts", "utf8");
+  // The Edge must reject impossible int4 versions before invoking the scoring RPC.
+  // The event and match versions both increment on a committed point.
+  const schemaSource = source.slice(source.indexOf("const schema = z.object("), source.indexOf("type Command ="));
+  assert.match(source, /const MAX_INCREMENTABLE_PG_VERSION = 2147483646;/);
+  assert.match(source, /const pgVersion = z\.number\(\)\.int\(\)\.min\(1\)\.max\(MAX_INCREMENTABLE_PG_VERSION\);/);
+  assert.match(schemaSource, /event_version: pgVersion,/);
+  assert.match(schemaSource, /match_version: pgVersion\.optional\(\),/);
+  assert.doesNotMatch(schemaSource, /event_version: z\.number\(\)\.int\(\)\.positive\(\)/);
   const start = source.indexOf("async function tryParticipantRoundRobinPoint(");
   const end = source.indexOf("\nDeno.serve(", start);
   assert.ok(start >= 0 && end > start, "participant point route must exist");

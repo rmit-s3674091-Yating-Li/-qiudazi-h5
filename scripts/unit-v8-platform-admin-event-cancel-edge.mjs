@@ -78,6 +78,8 @@ for (const bad of [
   { ...command, confirmed: "true" },
   { ...command, expected_version: 0 },
   { ...command, expected_version: 1.5 },
+  { ...command, expected_version: 2147483647 },
+  { ...command, expected_version: Number.MAX_SAFE_INTEGER },
   { ...command, event_id: "bad" },
   { ...command, request_id: "bad" },
   { ...command, reason: "short" },

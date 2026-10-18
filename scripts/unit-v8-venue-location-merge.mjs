@@ -33,6 +33,19 @@ try {
   assert.deepEqual(reopened, selected, "unchanged pin must preserve the selected POI");
   assert.deepEqual(mergeVenueLocation(selected, coords, null, "pin"), selected,
     "failed reverse lookup must not erase an unchanged POI");
+  // Saved manual/pin venues have no place ID. Reopening and confirming the
+  // same coordinates must not overwrite their address with a nearby business.
+  const savedPin = { ...selected, venue_name: "Community courts", venue_address: "Saved gate address",
+    venue_provider: "openstreetmap_nominatim", venue_place_id: null };
+  const nearbyHint = { name: "", address: "Nearby cafe", provider: "baidu", placeId: null };
+  assert.deepEqual(mergeVenueLocation(savedPin, coords, nearbyHint, "pin"), savedPin,
+    "unchanged manual pin must preserve the saved venue and address");
+  assert.deepEqual(mergeVenueLocation(savedPin, coords, null, "pin"), savedPin,
+    "reverse lookup failure must not clear a saved manual pin");
+  const movedPin = mergeVenueLocation(savedPin, { ...coords, longitude: 116.41 }, nearbyHint, "pin");
+  assert.equal(movedPin.venue_address, "Nearby cafe", "moving pin must accept the new address hint");
+  assert.equal(movedPin.venue_longitude, 116.41);
+  assert.equal(movedPin.venue_place_id, null);
   const replaced = mergeVenueLocation(selected, coords,
     { ...newPoi, name: "Replacement venue", placeId: "replacement-poi" }, "explicit_poi");
   assert.equal(replaced.venue_name, "Replacement venue", "explicit POI selection must still replace the venue");

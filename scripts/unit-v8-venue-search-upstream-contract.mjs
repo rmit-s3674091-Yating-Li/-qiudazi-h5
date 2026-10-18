@@ -45,9 +45,12 @@ const outsideCityFallback=await run('V3 off-city results must not suppress V2',(
 assert.equal(outsideCityFallback.status,200);assert.equal(outsideCityFallback.mapCalls,4);assert.deepEqual(outsideCityFallback.body.results.map(item=>item.uid),['venue-1']);
 const invalidV3Fallback=await run('V3 invalid coordinates must not suppress V2',(_,i)=>i===1?ok({status:0,results:[{...poi,uid:'bad-v3',location:{lat:91,lng:116.39}}]}):i===3?ok({status:0,results:[poi]}):ok(validEmpty));
 assert.equal(invalidV3Fallback.status,200);assert.equal(invalidV3Fallback.mapCalls,4);assert.deepEqual(invalidV3Fallback.body.results.map(item=>item.uid),['venue-1']);
+const zeroV3Fallback=await run('V3 zero-island pin must not suppress V2',(_,i)=>i===1?ok({status:0,results:[{...poi,uid:'zero-pin',location:{lat:0,lng:0}}]}):i===3?ok({status:0,results:[poi]}):ok(validEmpty));
+assert.equal(zeroV3Fallback.status,200);assert.equal(zeroV3Fallback.mapCalls,4);assert.deepEqual(zeroV3Fallback.body.results.map(item=>item.uid),['venue-1']);
 
 for (const [label, location] of [
   ['latitude outside range', {lat:91,lng:116.39}], ['longitude outside range', {lat:39.99,lng:181}],
+  ['zero island is not a Chinese POI', {lat:0,lng:0}], ['overseas pin with forged city', {lat:51.5,lng:-0.12}],
   ['missing latitude', {lng:116.39}], ['null latitude', {lat:null,lng:116.39}], ['blank latitude', {lat:' ',lng:116.39}],
   ['non-numeric latitude', {lat:'invalid',lng:116.39}], ['non-finite longitude', {lat:39.99,lng:'Infinity'}], ['boolean latitude', {lat:false,lng:116.39}],
 ]) {

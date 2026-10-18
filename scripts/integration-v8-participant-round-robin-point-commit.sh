@@ -180,3 +180,4 @@ SQL
 if [ "$result" != "ok" ]; then echo "FAIL: V8 participant round-robin point transaction"; exit 1; fi
 echo "PASS: V8 participant round-robin point transaction"
 bash "$(dirname "$0")/integration-v8-participant-point-concurrency.sh"
+bash "$(dirname "$0")/integration-v8-participant-both-entries-confirmed.sh"

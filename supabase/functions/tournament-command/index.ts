@@ -14,12 +14,17 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
   headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "no-store" },
 });
 
+// PostgreSQL integer versions are incremented in the same write transaction.
+// The maximum int4 value cannot be incremented safely.
+const MAX_INCREMENTABLE_PG_VERSION = 2147483646;
+const pgVersion = z.number().int().min(1).max(MAX_INCREMENTABLE_PG_VERSION);
+
 const schema = z.object({
   event_id: z.uuid(),
   type: z.enum(["draw", "unlock", "cancel", "withdraw", "exit", "start", "finish", "begin", "point", "undo", "score"]),
-  event_version: z.number().int().positive(),
+  event_version: pgVersion,
   match_id: z.uuid().optional(),
-  match_version: z.number().int().positive().optional(),
+  match_version: pgVersion.optional(),
   side: z.enum(["A", "B"]).optional(),
   operation_id: z.uuid().optional(),
   scores: z.array(z.object({

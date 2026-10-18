@@ -63,7 +63,20 @@ Deno.serve(async (request) => {
       match.scoring_mode !== "direct" && match.is_bye === false &&
       match.entry_a_id && match.entry_b_id,
     );
-    return json({ eligible });
+    if (!eligible) return json({ eligible: false });
+
+    // Discovery must not advertise scoring for a match whose opponent withdrew.
+    // This is read-only UX gating; the point RPC independently checks both entries
+    // under transaction locks before accepting a NEW operation.
+    const { data: matchEntries, error: entriesError } = await client.from("entries")
+      .select("id,status").eq("event_id", args.event_id)
+      .in("id", [match.entry_a_id, match.entry_b_id]);
+    if (entriesError) throw entriesError;
+    const confirmed = new Set((matchEntries ?? [])
+      .filter((entry) => entry.status === "confirmed")
+      .map((entry) => entry.id));
+    return json({ eligible: confirmed.size === 2 &&
+      confirmed.has(match.entry_a_id) && confirmed.has(match.entry_b_id) });
   } catch {
     return json({ error: "SERVICE_UNAVAILABLE" }, 503);
   }
