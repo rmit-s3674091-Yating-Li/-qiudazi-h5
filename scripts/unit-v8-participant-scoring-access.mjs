@@ -100,3 +100,10 @@ try {
 } finally {
   await rm(tmp, { recursive: true, force: true });
 }
+
+// Keep P1 actor isolation, eligibility, retry and Match UI contracts in the default unit gate.
+await import("./unit-v8-participant-scoring-eligibility-client.mjs");
+await import("./unit-v8-participant-point-route-isolation.mjs");
+await import("./unit-v8-point-command-identity.mjs");
+await import("./unit-v8-participant-match-point-entry.mjs");
+await import("./unit-v8-participant-handoff-consolidated.mjs");
