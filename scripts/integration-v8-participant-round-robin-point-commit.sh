@@ -1,7 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# This integration script inserts auth users and fixture rows. Never allow an
+# environment override to direct it at a non-local database, even when run alone.
+db_host="${PGHOST:-127.0.0.1}"
+db_port="${PGPORT:-54322}"
+case "$db_host" in
+  127.0.0.1|localhost|::1) ;;
+  *) echo "FAIL: participant point integration requires local Supabase" >&2; exit 2 ;;
+esac
+if [[ "$db_port" != "54322" || -n "${PGHOSTADDR:-}" || -n "${PGSERVICE:-}" || -n "${PGSERVICEFILE:-}" || -n "${PGSYSCONFDIR:-}" ]]; then
+  echo "FAIL: participant point integration requires a direct local connection on port 54322" >&2
+  exit 2
+fi
+
 export PGPASSWORD="${PGPASSWORD:-postgres}"
-PSQL=(psql -h "${PGHOST:-127.0.0.1}" -p "${PGPORT:-54322}" -U "${PGUSER:-postgres}" -d "${PGDATABASE:-postgres}" -v ON_ERROR_STOP=1 -At)
+PSQL=(psql -X -w -h "$db_host" -p "$db_port" -U "${PGUSER:-postgres}" -d "${PGDATABASE:-postgres}" -v ON_ERROR_STOP=1 -At)
 result="$("${PSQL[@]}" <<'SQL' | grep -E '^(ok|bad)$' | tail -n 1
 begin;
 insert into auth.users(id,email) values
