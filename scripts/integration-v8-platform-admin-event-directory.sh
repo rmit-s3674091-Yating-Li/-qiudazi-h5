@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# These integration fixtures INSERT into auth.users and admin tables.
+# Refuse non-local databases before starting the first SQL transaction.
+case "${PGHOST:-127.0.0.1}" in
+  127.0.0.1|localhost|::1) ;;
+  *) echo "FAIL: V8 admin integration requires local Supabase (PGHOST)" >&2; exit 1 ;;
+esac
+if [[ "${PGPORT:-54322}" != "54322" ]]; then
+  echo "FAIL: V8 admin integration requires local Supabase port 54322" >&2
+  exit 1
+fi
+
 export PGPASSWORD="${PGPASSWORD:-postgres}"
 PSQL=(psql -h "${PGHOST:-127.0.0.1}" -p "${PGPORT:-54322}" -U "${PGUSER:-postgres}" -d "${PGDATABASE:-postgres}" -v ON_ERROR_STOP=1 -At)
 
@@ -132,3 +143,6 @@ if [ "$result" != "ok" ]; then
   exit 1
 fi
 echo "PASS: Platform Admin event directory permission/pagination contract"
+
+# Event-derived venue candidates must be covered by the default integration gate.
+bash scripts/integration-v8-platform-admin-event-venue-candidates.sh

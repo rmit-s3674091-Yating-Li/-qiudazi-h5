@@ -1,6 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# This fixture writes to auth.users and public tables inside a transaction.
+# A direct invocation must be as safe as the default integration wrapper.
+case "${PGHOST:-127.0.0.1}" in
+  127.0.0.1|localhost|::1) ;;
+  *) echo "FAIL: venue candidate fixture requires local Supabase (PGHOST)" >&2; exit 1 ;;
+esac
+if [[ "${PGPORT:-54322}" != "54322" ]]; then
+  echo "FAIL: venue candidate fixture requires local Supabase port 54322" >&2
+  exit 1
+fi
+# libpq may connect to PGHOSTADDR even when psql is passed a safe -h value.
+case "${PGHOSTADDR:-}" in
+  ""|127.0.0.1|::1) ;;
+  *) echo "FAIL: venue candidate fixture rejects nonlocal PGHOSTADDR" >&2; exit 1 ;;
+esac
+# Prevent service files from overriding connection settings outside this guard.
+if [[ -n "${PGSERVICE:-}" || -n "${PGSERVICEFILE:-}" ]]; then
+  echo "FAIL: venue candidate fixture rejects libpq service overrides" >&2
+  exit 1
+fi
+
 export PGPASSWORD="${PGPASSWORD:-postgres}"
 PSQL=(psql -h "${PGHOST:-127.0.0.1}" -p "${PGPORT:-54322}" -U "${PGUSER:-postgres}" -d "${PGDATABASE:-postgres}" -v ON_ERROR_STOP=1 -At)
 
