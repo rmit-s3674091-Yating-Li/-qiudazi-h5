@@ -9,11 +9,11 @@ const { default: handler } = await import(pathToFileURL(resolve("api/venue-rever
 const ok = (body, status = 200) => ({ ok: status >= 200 && status < 300, json: async () => body });
 const valid = { status: 0, result: { formatted_address: "北京市朝阳区" } };
 
-async function run({ location = "39.99,116.39", method = "GET", auth = "Bearer test-token", upstream = () => ok(valid) } = {}) {
+async function run({ location = "39.99,116.39", method = "GET", auth = "Bearer test-token", authUpstream = null, upstream = () => ok(valid) } = {}) {
   let mapCalls = 0;
   globalThis.fetch = async (input) => {
     const url = String(input);
-    if (url.includes("/auth/v1/user")) return ok({ id: "actor" }, auth === "Bearer denied" ? 401 : 200);
+    if (url.includes("/auth/v1/user")) return authUpstream ? authUpstream(url) : ok({ id: "actor" }, auth === "Bearer denied" ? 401 : 200);
     mapCalls++;
     assert.match(url, /coordtype=wgs84ll/);
     assert.match(url, /extensions_poi=1/);
@@ -42,6 +42,24 @@ try {
   assert.equal((await run({ method: "POST" })).status, 405);
   assert.equal((await run({ auth: "" })).status, 401);
   assert.equal((await run({ auth: "Bearer denied" })).status, 401);
+  const authNetwork = await run({ authUpstream: () => { throw new Error("auth offline"); } });
+  assert.equal(authNetwork.status, 503);
+  assert.deepEqual(authNetwork.body, { error: "AUTH_CHECK_UNAVAILABLE" });
+  assert.equal(authNetwork.mapCalls, 0);
+  // Trigger the real 6500ms deadline without waiting; a hanging auth call is a timeout, not an outage.
+  const nativeSetTimeout = globalThis.setTimeout;
+  try {
+    globalThis.setTimeout = (callback, delay, ...args) => {
+      assert.equal(delay, 6500);
+      return nativeSetTimeout(callback, 0, ...args);
+    };
+    const authTimeout = await run({ authUpstream: () => new Promise(() => {}) });
+    assert.equal(authTimeout.status, 504);
+    assert.deepEqual(authTimeout.body, { error: "VENUE_REVERSE_TIMEOUT" });
+    assert.equal(authTimeout.mapCalls, 0);
+  } finally {
+    globalThis.setTimeout = nativeSetTimeout;
+  }
   const business = await run({ upstream: () => ok({ status: 302, message: "quota" }) });
   assert.equal(business.status, 502);
   assert.deepEqual(business.body, { error: "BAIDU_REVERSE_UPSTREAM_ERROR", upstream_status: 302 });
