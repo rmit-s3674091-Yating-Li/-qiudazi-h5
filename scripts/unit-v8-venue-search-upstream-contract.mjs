@@ -31,11 +31,15 @@ assert.equal(empty.status,200);assert.deepEqual(empty.body.results,[]);assert.eq
 const malformed = await run('malformed 200',()=>ok({message:'broken schema'}));assert.equal(malformed.status,502);assert.equal(malformed.body.error,'BAIDU_PLACE_INVALID_RESPONSE');
 const badJson = await run('HTTP 200 invalid JSON',()=>({ok:true,json:async()=>{throw new Error('invalid JSON')}}));assert.equal(badJson.status,502);assert.equal(badJson.body.error,'BAIDU_PLACE_INVALID_RESPONSE');
 const malformedResults = await run('status zero missing results',()=>ok({status:0}));assert.equal(malformedResults.status,502);assert.equal(malformedResults.body.error,'BAIDU_PLACE_INVALID_RESPONSE');
+const malformedItems = await run('status zero with malformed POI entries',()=>ok({status:0,results:[null,42,{uid:'nameless',location:{lat:39.99,lng:116.39}}]}));
+assert.equal(malformedItems.status,502);assert.equal(malformedItems.body.error,'BAIDU_PLACE_INVALID_RESPONSE');
 const quota = await run('business 302',()=>ok({status:302,message:'quota'}));assert.equal(quota.status,502);assert.equal(quota.body.error,'BAIDU_PLACE_UPSTREAM_ERROR');assert.deepEqual(quota.body.upstream_statuses,[302]);
 const partialHttp = await run('mixed success and HTTP failure',(_,i)=> i%2 ? ok(validEmpty) : ok({message:'gateway'},503));assert.equal(partialHttp.status,502);assert.equal(partialHttp.body.error,'BAIDU_PLACE_HTTP_ERROR');
 const mixedBusiness = await run('mixed empty and business failure',(_,i)=> i%2 ? ok(validEmpty) : ok({status:210,message:'bad parameter'}));assert.equal(mixedBusiness.status,502);assert.deepEqual(mixedBusiness.body.upstream_statuses,[210]);
 const poi={uid:'venue-1',name:'国家网球中心',address:'北京市朝阳区',city:'北京市',location:{lat:39.99,lng:116.39}};
 const success = await run('valid candidate',(_,i)=>i===1 ? ok({status:0,results:[poi]}) : ok({status:0,results:[]}));assert.equal(success.status,200);assert.equal(success.body.results.length,1);assert.equal(success.body.results[0].uid,'venue-1');assert.equal(success.mapCalls,2);
+const mixedItems = await run('valid POI survives malformed sibling',(_,i)=>i===1 ? ok({status:0,results:[null,poi]}) : ok(validEmpty));
+assert.equal(mixedItems.status,200);assert.deepEqual(mixedItems.body.results.map(item=>item.uid),['venue-1']);
 const outsideCity={...poi,uid:'shanghai-venue',city:'上海市',address:'上海市浦东新区'};
 const outsideCityFallback=await run('V3 off-city results must not suppress V2',(_,i)=>i===1?ok({status:0,results:[outsideCity]}):i===3?ok({status:0,results:[poi]}):ok(validEmpty));
 assert.equal(outsideCityFallback.status,200);assert.equal(outsideCityFallback.mapCalls,4);assert.deepEqual(outsideCityFallback.body.results.map(item=>item.uid),['venue-1']);

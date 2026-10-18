@@ -14,6 +14,14 @@ export function mergeVenueLocation(
   place: PlaceHint | null | undefined,
   source: SelectionSource,
 ): EventConfig {
+  // Opening an already selected POI starts the picker at its saved coordinates.
+  // A reverse-geocoded address is not a new choice: confirming without moving
+  // the pin must not erase the POI name, address, provider or place ID.
+  if (
+    source === "pin" && current.venue_place_id &&
+    current.venue_latitude === coordinates.latitude &&
+    current.venue_longitude === coordinates.longitude
+  ) return current;
   const explicitPoi = source === "explicit_poi" && Boolean(place?.name?.trim());
   return {
     ...current,

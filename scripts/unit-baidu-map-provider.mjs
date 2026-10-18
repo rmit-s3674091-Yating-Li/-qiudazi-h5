@@ -21,6 +21,14 @@ try{
   assert.deepEqual(await payloadProvider([]).searchPlaces("网球"),[],"a genuine empty POI array is not a provider failure");
   const mixed=await payloadProvider([{name:"valid",location:{lat:31.2,lng:121.5}},{name:"invalid",location:{lat:0,lng:0}}]).searchPlaces("网球");
   assert.equal(mixed.length,1,"invalid POIs must not hide a valid result");
+  const reverseProvider=(pois)=>createBaiduMapProvider({ak:"x",fetchImpl:async()=>({ok:true,json:async()=>({status:0,result:{formatted_address:"北京市朝阳区",pois}})})});
+  const reverseLocation={latitude:39.9,longitude:116.4};
+  const namedReverse=await reverseProvider([{uid:"unrelated-poi",name:""},{uid:"tennis-poi",name:"国家网球中心"}]).reverseGeocode(reverseLocation);
+  assert.equal(namedReverse?.name,"国家网球中心");
+  assert.equal(namedReverse?.placeId,"tennis-poi","reverse-geocoded POI ID must belong to the named POI, not the first anonymous result");
+  const addressOnlyReverse=await reverseProvider([{uid:"unrelated-poi",name:""}]).reverseGeocode(reverseLocation);
+  assert.equal(addressOnlyReverse?.name,"北京市朝阳区");
+  assert.equal(addressOnlyReverse?.placeId,null,"an address-only reverse hint must not claim an unrelated POI ID");
   const proxy=await readFile(new URL("api/venue-search.js",root),"utf8"),reverseProxy=await readFile(new URL("api/venue-reverse.js",root),"utf8");assert.match(proxy,/process\.env\.BAIDU_MAP_AK/);assert.match(proxy,/sb_publishable_/);assert.match(proxy,/\/auth\/v1\/user/);assert.match(proxy,/place\/v3\/region/);assert.match(proxy,/region_limit:"true"/);assert.match(proxy,/ret_coordtype:"gcj02ll"/);assert.doesNotMatch(proxy,/VITE_BAIDU_MAP_AK/);assert.match(reverseProxy,/reverse_geocoding\/v3/);assert.match(reverseProxy,/coordtype:"wgs84ll"/);assert.match(reverseProxy,/extensions_poi:"1"/);
   console.log("Baidu map provider unit tests passed.");
 }finally{await rm(tmp,{recursive:true,force:true})}

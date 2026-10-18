@@ -5,7 +5,7 @@ function createRequestDeadline(){const controller=new AbortController();let time
 function value(v){return Array.isArray(v)?v[0]:typeof v==="string"?v:"";}
 function resultArray(body){if(Array.isArray(body?.results))return body.results;if(Array.isArray(body?.result))return body.result;return null;}
 function okResults(body){return body?.status===0?resultArray(body)||[]:[];}
-function upstreamHealth(response,body){if(!response.ok)return"http";if(typeof body?.status==="number"&&body.status!==0)return"business";if(body?.status!==0||!resultArray(body))return"malformed";return null;}
+function upstreamHealth(response,body){if(!response.ok)return"http";if(typeof body?.status==="number"&&body.status!==0)return"business";const records=resultArray(body);if(body?.status!==0||!records||records.some(item=>!item||typeof item!=="object"||Array.isArray(item)||typeof item.name!=="string"||!item.name.trim()))return"malformed";return null;}
 function validLocation(location){if(!location||typeof location!=="object")return false;const{lat,lng}=location;if(![lat,lng].every(v=>(typeof v==="string"||typeof v==="number")&&String(v).trim()!==""))return false;const latitude=Number(lat),longitude=Number(lng);return Number.isFinite(latitude)&&Number.isFinite(longitude)&&latitude>=-90&&latitude<=90&&longitude>=-180&&longitude<=180;}
 function normalizeCity(value){return String(value||"").normalize("NFKC").replace(/\s+/g,"").replace(/市$/u,"");}
 function addressCity(value){const address=String(value||"").normalize("NFKC").replace(/\s+/g,"");const match=address.match(/(?:^|省|自治区|特别行政区)([^省市区县]{2,16})市/u);return match?normalizeCity(match[1]):"";}

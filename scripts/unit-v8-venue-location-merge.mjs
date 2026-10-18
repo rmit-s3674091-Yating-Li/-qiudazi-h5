@@ -26,6 +26,19 @@ try {
   assert.deepEqual({ name: selected.venue_name, address: selected.venue_address, id: selected.venue_place_id,
     provider: selected.venue_provider, lat: selected.venue_latitude, lng: selected.venue_longitude, court: selected.venue },
     { name: "New tennis venue", address: "New street", id: "new-poi", provider: "baidu", lat: 39.9, lng: 116.4, court: "Court 3" });
+  // Reopening an existing POI and confirming without moving the pin must not
+  // replace its verified identity/address with a nearby reverse-geocode hint.
+  const reopened = mergeVenueLocation(selected, coords,
+    { name: "", address: "Nearby cafe", provider: "openstreetmap_nominatim", placeId: null }, "pin");
+  assert.deepEqual(reopened, selected, "unchanged pin must preserve the selected POI");
+  assert.deepEqual(mergeVenueLocation(selected, coords, null, "pin"), selected,
+    "failed reverse lookup must not erase an unchanged POI");
+  const replaced = mergeVenueLocation(selected, coords,
+    { ...newPoi, name: "Replacement venue", placeId: "replacement-poi" }, "explicit_poi");
+  assert.equal(replaced.venue_name, "Replacement venue", "explicit POI selection must still replace the venue");
+  assert.equal(replaced.venue_place_id, "replacement-poi");
+  const sameLocationGps = mergeVenueLocation(selected, { ...coords, provider: "device_geolocation" }, null, "device");
+  assert.equal(sameLocationGps.venue_place_id, null, "GPS is not a POI confirmation even at the same coordinates");
   const dragged = mergeVenueLocation(selected, { ...coords, latitude: 39.8 },
     { name: "", address: "Nearby street", provider: "baidu", placeId: null }, "pin");
   assert.equal(dragged.venue_name, null, "old selected POI name must not remain after moving pin");
