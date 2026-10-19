@@ -42,3 +42,5 @@ try{
   const unauthorized=await request({authenticated:false});assert.equal(unauthorized.response.statusCode,401);
   console.log("Venue city-boundary and upstream-status tests passed.");
 }finally{globalThis.fetch=originalFetch;if(originalAk===undefined)delete process.env.BAIDU_MAP_AK;else process.env.BAIDU_MAP_AK=originalAk;}
+
+await import("./unit-v8-venue-location-privacy.mjs");

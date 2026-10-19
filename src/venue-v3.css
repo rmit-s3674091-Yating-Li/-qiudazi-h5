@@ -167,3 +167,9 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Venue position is an internal mapping fact, not a user-facing coordinate. */
+/* Keep the readable address while suppressing the legacy coordinate details. */
+.event-form-page .venue-location-confirmed > details {
+  display: none;
+}
