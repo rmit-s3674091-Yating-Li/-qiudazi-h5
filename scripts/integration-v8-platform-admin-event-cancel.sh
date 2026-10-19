@@ -49,6 +49,21 @@ begin
     or (select count(*) from platform_ops.admin_action_audit where request_id=v_request)<>1
   then raise exception 'ADMIN_CANCEL_REPLAY_BAD'; end if;
 
+  -- Reusing the same request_id with a different expected version is NOT a replay.
+  blocked := false;
+  begin
+    perform public.platform_admin_cancel_unstarted_event(v_actor,v_target,2,v_request,v_reason);
+  exception when others then blocked := sqlerrm='ADMIN_REQUEST_CONFLICT'; end;
+  if not blocked then raise exception 'ADMIN_CANCEL_REPLAY_VERSION_MISMATCH_ACCEPTED'; end if;
+
+  -- The int4 ceiling cannot be incremented by a cancellation transaction.
+  blocked := false;
+  begin
+    perform public.platform_admin_cancel_unstarted_event(v_actor,v_target,2147483647,
+      'd7777777-7777-4777-8777-777777777770',v_reason);
+  exception when others then blocked := sqlerrm='INVALID_ADMIN_CANCEL_COMMAND'; end;
+  if not blocked then raise exception 'ADMIN_CANCEL_VERSION_OVERFLOW_ACCEPTED'; end if;
+
   blocked := false;
   begin
     perform public.platform_admin_cancel_unstarted_event(v_actor,v_target,1,v_request,

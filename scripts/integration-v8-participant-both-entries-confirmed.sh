@@ -40,6 +40,26 @@ declare
   v_op uuid := 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
   v_blocked boolean;
 begin
+  -- No match may assign the same entry to both sides. This protects the
+  -- scoring transaction even if a malformed bracket bypasses the UI.
+  if not exists (
+    select 1 from pg_catalog.pg_constraint
+    where conrelid = 'public.matches'::regclass
+      and conname = 'v8_match_distinct_entries'
+      and convalidated
+  ) then raise exception 'DISTINCT_MATCH_ENTRY_CONSTRAINT_MISSING'; end if;
+  v_blocked := false;
+  begin
+    update public.matches set entry_b_id = entry_a_id where id = v_match;
+  exception when check_violation then
+    v_blocked := true;
+  end;
+  if not v_blocked then raise exception 'SAME_ENTRY_MATCH_ACCEPTED'; end if;
+  if (select entry_b_id from public.matches where id = v_match)
+    is distinct from 'dbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid then
+    raise exception 'REJECTED_SAME_ENTRY_MUTATED_MATCH';
+  end if;
+
   if not public.v8_active_match_participant(v_event,v_match,v_actor) then
     raise exception 'VALID_PAIR_DENIED';
   end if;
