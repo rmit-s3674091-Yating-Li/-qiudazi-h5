@@ -5,7 +5,7 @@ const originalFetch=globalThis.fetch;
 const originalAk=process.env.BAIDU_MAP_AK;
 process.env.BAIDU_MAP_AK="test-server-only-ak";
 
-function poi(name,city,address,number){return {uid:`poi-${number}`,name,city,address,location:{lat:39.9,lng:116.4}};}
+function poi(name,city,address,number){const location=/成都/.test(city+address)?{lat:30.67,lng:104.06}:/重庆/.test(city+address)?{lat:29.56,lng:106.55}:/上海/.test(city+address)?{lat:31.23,lng:121.47}:{lat:39.9,lng:116.4};return {uid:`poi-${number}`,name,city,address,location};}
 async function request({query="网球中心",region="北京",status=0,results=[],ak=true,authenticated=true}={}){
   process.env.BAIDU_MAP_AK=ak?"test-server-only-ak":"";
   const requested=[];
