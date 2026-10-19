@@ -39,6 +39,13 @@ try {
   assert.equal((await run({ location: "91,116" })).status, 400);
   assert.equal((await run({ location: "39,181" })).status, 400);
   assert.equal((await run({ location: "39,abc" })).status, 400);
+  // Reverse hints must not label an obvious overseas pin as a Chinese venue.
+  for (const location of ["0,0", "51.5,-0.12", "39.99,180", "-33.9,151.2"]) {
+    const outside = await run({ location });
+    assert.equal(outside.status, 400, location);
+    assert.deepEqual(outside.body, { error: "VENUE_LOCATION_OUTSIDE_CHINA" }, location);
+    assert.equal(outside.mapCalls, 0, "outside-China coordinates must not reach Baidu");
+  }
   assert.equal((await run({ method: "POST" })).status, 405);
   assert.equal((await run({ auth: "" })).status, 401);
   assert.equal((await run({ auth: "Bearer denied" })).status, 401);

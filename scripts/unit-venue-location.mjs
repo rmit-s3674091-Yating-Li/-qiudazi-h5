@@ -38,6 +38,7 @@ function requires(source, patterns, label) {
 
 try {
   await import("./unit-v8-venue-location-merge.mjs");
+  await import("./unit-v8-venue-reverse-language-fallback.mjs");
   await compile("src/domain/types.ts", "types.js");
   const rulesSource = await compile("src/domain/EventRules.ts", "EventRules.js");
   const mapSource = await compile("src/utils/mapProvider.ts", "mapProvider.js");
