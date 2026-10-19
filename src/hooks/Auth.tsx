@@ -8,6 +8,7 @@ import { repository, supabase, explainError } from "../repositories/supabase";
 import { clearQueryCache } from "./useQuery";
 import { useLanguage } from "../i18n";
 import { AuthAccountGeneration } from "../domain/AuthAccountGeneration";
+import { isCurrentNicknameLoginResponse } from "../domain/NicknameLoginAttempt";
 
 interface AuthState { session: Session | null; profile: Profile | null; ready: boolean; busy: boolean; error: string; loginRequired: boolean; start: (options?: { explicit?: boolean }) => Promise<Profile>; loginByNickname: (nickname: string) => Promise<Profile>; refresh: () => Promise<void>; signOut: () => Promise<void>; }
 const AuthContext = createContext<AuthState>(null!);
@@ -23,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null), [profile, setProfile] = useState<Profile | null>(null), [ready, setReady] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(""), [loginRequired, setLoginRequired] = useState(() => typeof localStorage !== "undefined" && isLoginRequired(localStorage));
   const flight = useRef<Promise<Profile> | null>(null);
   const identity = useRef(new AuthAccountGeneration());
+  const nicknameLoginAttempt = useRef(0);
   function observeSession(next: Session | null) {
     const { changed, generation } = identity.current.observe(next?.user.id ?? null);
     if (changed) {
@@ -110,18 +112,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
   async function loginByNickname(nickname:string){
     if(!supabase)throw new Error(isEnglish()?"Supabase is not configured yet.":"Supabase尚未配置");
+    const attempt=++nicknameLoginAttempt.current;
+    const startedGeneration=identity.current.version;
+    const supersededError=new Error("Nickname login superseded by a newer account");
+    let adoptedUserId:string|null=null,adoptedGeneration:number|null=null;
     setBusy(true);setError("");
     try{
       const exchange=await supabase.functions.invoke("test-identity-exchange",{body:{nickname}});
+      if(!isCurrentNicknameLoginResponse(attempt,nicknameLoginAttempt.current,startedGeneration,identity.current.version,identity.current.userId))throw supersededError;
       if(exchange.error)throw exchange.error;
       const payload=exchange.data as {token_hash?:unknown;otp_type?:unknown;error?:unknown}|null;
       if(!payload||typeof payload.token_hash!=="string"||payload.otp_type!=="email")throw new Error(typeof payload?.error==="string"?payload.error:(isEnglish()?"Nickname sign-in failed.":"昵称登录失败"));
       const verified=await supabase.auth.verifyOtp({token_hash:payload.token_hash,type:"email"});
       if(verified.error||!verified.data.session)throw verified.error||new Error(isEnglish()?"Nickname sign-in failed.":"昵称登录失败");
+      if(!isCurrentNicknameLoginResponse(attempt,nicknameLoginAttempt.current,startedGeneration,identity.current.version,identity.current.userId,verified.data.session.user.id))throw supersededError;
+      adoptedUserId=verified.data.session.user.id;
+      adoptedGeneration=observeSession(verified.data.session);
       clearQueryCache();clearIdentityClientStorage(localStorage);
       const p=await repository.profile();
-      setSession(verified.data.session);setProfile(p);writeCachedProfile(verified.data.session.user.id,p);clearLoginRequired(localStorage);setLoginRequired(false);return p;
-    }catch(e){setSession(null);setProfile(null);clearCachedProfile();markLoginRequired(localStorage);setLoginRequired(true);setError(explainError(e));throw e;}finally{setBusy(false);}
+      if(nicknameLoginAttempt.current!==attempt||!identity.current.isCurrent(adoptedUserId,adoptedGeneration))throw supersededError;
+      setProfile(p);writeCachedProfile(adoptedUserId,p);clearLoginRequired(localStorage);setLoginRequired(false);return p;
+    }catch(e){
+      const mayCleanUp=nicknameLoginAttempt.current===attempt&&
+        (identity.current.version===startedGeneration||
+          (adoptedUserId!==null&&adoptedGeneration!==null&&identity.current.isCurrent(adoptedUserId,adoptedGeneration)));
+      if(mayCleanUp){setSession(null);setProfile(null);clearCachedProfile();markLoginRequired(localStorage);setLoginRequired(true);}
+      if(e!==supersededError&&mayCleanUp)setError(explainError(e));
+      throw e;
+    }finally{if(nicknameLoginAttempt.current===attempt)setBusy(false);}
   }
   return <AuthContext.Provider value={{ session, profile, ready, busy, error, loginRequired, start, loginByNickname, refresh, signOut }}>{children}</AuthContext.Provider>;
 }

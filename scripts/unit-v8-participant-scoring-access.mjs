@@ -153,3 +153,4 @@ await import("./unit-v8-participant-point-route-isolation.mjs");
 await import("./unit-v8-point-command-identity.mjs");
 await import("./unit-v8-participant-match-point-entry.mjs");
 await import("./unit-v8-participant-handoff-consolidated.mjs");
+await import("./unit-v8-nickname-login-account-isolation.mjs");
