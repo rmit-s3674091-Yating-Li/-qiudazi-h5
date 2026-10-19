@@ -11,7 +11,7 @@ async function request({query="网球中心",region="北京",status=0,results=[]
   const requested=[];
   globalThis.fetch=async input=>{
     const url=new URL(input);requested.push(url);
-    if(url.pathname==="/auth/v1/user")return {ok:authenticated,json:async()=>({id:"test-user"})};
+    if(url.pathname==="/auth/v1/user")return {ok:authenticated,json:async()=>({id:"11111111-1111-4111-8111-111111111111"})};
     assert.equal(url.searchParams.get("region"),region);
     return {ok:true,json:async()=>({status,results:url.pathname.includes("suggestion")?results:[]})};
   };
