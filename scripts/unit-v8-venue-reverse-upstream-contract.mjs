@@ -13,7 +13,7 @@ async function run({ location = "39.99,116.39", method = "GET", auth = "Bearer t
   let mapCalls = 0;
   globalThis.fetch = async (input) => {
     const url = String(input);
-    if (url.includes("/auth/v1/user")) return authUpstream ? authUpstream(url) : ok({ id: "actor" }, auth === "Bearer denied" ? 401 : 200);
+    if (url.includes("/auth/v1/user")) return authUpstream ? authUpstream(url) : ok({ id: "11111111-1111-4111-8111-111111111111" }, auth === "Bearer denied" ? 401 : 200);
     mapCalls++;
     assert.match(url, /coordtype=wgs84ll/);
     assert.match(url, /extensions_poi=1/);
@@ -53,6 +53,17 @@ try {
   assert.equal(authNetwork.status, 503);
   assert.deepEqual(authNetwork.body, { error: "AUTH_CHECK_UNAVAILABLE" });
   assert.equal(authNetwork.mapCalls, 0);
+  // A 200 transport response is not proof of a verified identity. Never spend
+  // Baidu quota on a malformed /auth/v1/user response.
+  for (const response of [
+    ok({}), ok({ id: "" }), ok({ id: "actor" }), ok({ id: null }), ok([]),
+    { ok: true, json: async () => { throw new SyntaxError("invalid auth JSON"); } },
+  ]) {
+    const malformedAuth = await run({ authUpstream: () => response });
+    assert.equal(malformedAuth.status, 503);
+    assert.deepEqual(malformedAuth.body, { error: "AUTH_CHECK_UNAVAILABLE" });
+    assert.equal(malformedAuth.mapCalls, 0);
+  }
   // Trigger the real 6500ms deadline without waiting; a hanging auth call is a timeout, not an outage.
   const nativeSetTimeout = globalThis.setTimeout;
   try {

@@ -12,7 +12,7 @@ async function run(label, mapResponse, {authOk=true, query='网球中心'}={}) {
   let mapCalls = 0;
   globalThis.fetch = async (input) => {
     const url = String(input);
-    if(url.includes('/auth/v1/user')) return ok({id: 'actor'}, authOk ? 200 : 401);
+    if(url.includes('/auth/v1/user')) return ok({id: '11111111-1111-4111-8111-111111111111'}, authOk ? 200 : 401);
     assert.equal(new URL(url).searchParams.get('ret_coordtype'), 'gcj02ll', 'all Baidu POI endpoints must return GCJ-02');
     mapCalls++;
     return mapResponse(url, mapCalls);
@@ -70,6 +70,14 @@ const contradictoryChildProvince = await run('reject child with conflicting muni
 assert.equal(contradictoryChildProvince.status,200);assert.deepEqual(contradictoryChildProvince.body.results.map(item=>item.uid),['venue-1']);
 const validBeijingProvince = await run('retain consistent municipality province',(_,i)=>i===1 ? ok({status:0,results:[{...poi,province:'北京市'}]}) : ok(validEmpty));
 assert.equal(validBeijingProvince.status,200);assert.deepEqual(validBeijingProvince.body.results.map(item=>item.uid),['venue-1']);
+// The upstream region label is not proof that its coordinates belong to that city.
+// A Shanghai pin falsely labelled as Beijing must not become a Beijing venue.
+const forgedBeijingPin = {...poi,uid:'wrong-city-pin',province:'北京市',city:'北京市',address:'北京市朝阳区',location:{lat:31.2304,lng:121.4737}};
+const forgedLocation = await run('reject obvious cross-city coordinates despite forged city metadata',(_,i)=>i===1 ? ok({status:0,results:[forgedBeijingPin,poi]}) : ok(validEmpty));
+assert.equal(forgedLocation.status,200);assert.deepEqual(forgedLocation.body.results.map(item=>item.uid),['venue-1']);
+const suburbanBeijingPin = {...poi,uid:'beijing-suburb',province:'北京市',city:'北京市',location:{lat:40.8,lng:117.1}};
+const suburbanLocation = await run('retain distant but plausible Beijing suburban venue',(_,i)=>i===1 ? ok({status:0,results:[suburbanBeijingPin]}) : ok(validEmpty));
+assert.equal(suburbanLocation.status,200);assert.deepEqual(suburbanLocation.body.results.map(item=>item.uid),['beijing-suburb']);
 const localChild = await run('local child retains own address',(_,i)=>i===1 ? ok({status:0,results:[{...poi,children:[{uid:'local-child',name:'Court A',city:'北京市',address:'北京市朝阳区安立路',location:{lat:39.991,lng:116.391}}]}]}) : ok(validEmpty));assert.equal(localChild.body.results[1].address,'北京市朝阳区安立路');
 const invalidParentAndChild = await run('invalid parent and child fail visibly',(_,i)=>i===1 ? ok({status:0,results:[{...poi,uid:'parent-bad',location:{lat:null,lng:116.39},children:[{uid:'court-bad',name:'court A',location:{lat:91,lng:116.391}}]}]}) : ok(validEmpty));assert.equal(invalidParentAndChild.status,502);assert.equal(invalidParentAndChild.body.error,'BAIDU_PLACE_INVALID_RESPONSE');
 const suggestionSingular = await run('legacy suggestion result array',(_,i)=>i===1 ? ok({status:0,result:[poi]}) : ok({status:0,results:[]}));assert.equal(suggestionSingular.status,200);assert.equal(suggestionSingular.body.results.length,1);
