@@ -33,7 +33,9 @@ try {
   assert.match(atomic, /ep\.active is true and p\.linked_user_id=v_actor/);
   assert.match(atomic, /for share of en,ep,p/);
 
-  // Receipt validity is exercised separately by unit-v8-participant-point-edge-receipt.mjs.\n  // This isolated route test supplies that dependency to test replay and routing decisions.\n  const compiled = ts.transpileModule(`const isParticipantPointReceipt = () => true;\n${route}\nexport { tryParticipantRoundRobinPoint };`, {
+  // Receipt validity is exercised separately by unit-v8-participant-point-edge-receipt.mjs.
+  // This isolated route test supplies that dependency to test replay and routing decisions.
+  const compiled = ts.transpileModule(`const isParticipantPointReceipt = () => true;\n${route}\nexport { tryParticipantRoundRobinPoint };`, {
     fileName: "participant-route.ts",
     reportDiagnostics: true,
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
