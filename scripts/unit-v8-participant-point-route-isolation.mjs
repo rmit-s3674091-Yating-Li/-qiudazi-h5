@@ -52,6 +52,35 @@ try {
   assert.match(page, /if\(pointFlush\.current===scope\.generation\)pointFlush\.current=null/);
   assert.match(page, /q\.data\?\.event\.id===id\?q\.data:null/);
   assert.match(page, /pointQueue\.current=\[\];setOptimisticPoints\(\[\]\);latestSnapshot\.current=null/);
+  const auth = await readFile("src/hooks/Auth.tsx", "utf8");
+  assert.match(auth, /onAuthStateChange\(\(_event, next\) => \{ observeSession\(next\); \}\)/,
+    "all auth events must pass the same account invalidation gate");
+  assert.match(auth, /if \(changed\) \{[\s\S]*?clearQueryCache\(\);[\s\S]*?setProfile\(null\);/,
+    "account switch clears private query cache and old profile");
+  assert.match(auth, /identity\.current\.isCurrent\(userId, generation\)/,
+    "late initial profile responses must not cross account generations");
+  const accountSource = await readFile("src/domain/AuthAccountGeneration.ts", "utf8");
+  const accountCompiled = ts.transpileModule(accountSource, {
+    fileName: "AuthAccountGeneration.ts", reportDiagnostics: true,
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
+  });
+  assert.equal(accountCompiled.diagnostics?.length ?? 0, 0);
+  const accountPath = join(dir, "AuthAccountGeneration.mjs");
+  await writeFile(accountPath, accountCompiled.outputText, "utf8");
+  const { AuthAccountGeneration } = await import(pathToFileURL(accountPath).href);
+  const account = new AuthAccountGeneration();
+  const first = account.observe("actor-A");
+  assert.equal(first.changed, true);
+  assert.equal(account.observe("actor-A").changed, false, "JWT refresh keeps actor-scoped cache");
+  assert.equal(account.isCurrent("actor-A", first.generation), true);
+  const second = account.observe("actor-B");
+  assert.equal(second.changed, true);
+  assert.equal(account.isCurrent("actor-A", first.generation), false, "A profile response is stale after B login");
+  account.observe("actor-A");
+  assert.equal(account.isCurrent("actor-A", first.generation), false, "A-B-A cannot revive an old profile response");
+  const signedOut = account.observe(null);
+  assert.equal(signedOut.changed, true);
+  assert.equal(account.observe(null).changed, false, "repeated sign-out does not repeatedly clear cache");
   console.log("PASS: V8 point queue route/account isolation and stale async guard");
 } finally {
   await rm(dir, { recursive: true, force: true });

@@ -15,18 +15,20 @@ export function useQuery<T>(key:string,load:()=>Promise<T>,interval=0){
   const cached=cache.get(key);
   const[data,setData]=useState<T|null>(()=>(cached?.data as T|undefined)??null),[error,setError]=useState(""),[loading,setLoading]=useState(!cached);
   const requestId=useRef(0);
-  const replace=useCallback((next:T)=>{requestId.current++;cache.set(key,{data:next,updatedAt:Date.now()});setData(next);setError("");setLoading(false);return next;},[key]);
+  const replace=useCallback((next:T)=>{requestId.current++;inFlight.delete(key);cache.set(key,{data:next,updatedAt:Date.now()});setData(next);setError("");setLoading(false);return next;},[key]);
   const refresh=useCallback(async(force=true)=>{
     const id=++requestId.current;const existing=cache.get(key);const staleMs=interval||DEFAULT_STALE_MS;
     if(!force&&existing&&Date.now()-existing.updatedAt<staleMs){setData(existing.data as T);setLoading(false);return existing.data as T;}
     if(!existing)setLoading(true);
+    let pending:Promise<T>|undefined;
     try{
-      let pending=inFlight.get(key) as Promise<T>|undefined;
+      pending=inFlight.get(key) as Promise<T>|undefined;
       if(!pending){pending=ref.current();inFlight.set(key,pending);}
-      const result=await pending;cache.set(key,{data:result,updatedAt:Date.now()});
-      if(id===requestId.current){setData(result);setError("");}return result;
+      const result=await pending;
+      if(id===requestId.current){cache.set(key,{data:result,updatedAt:Date.now()});setData(result);setError("");}
+      return id===requestId.current?result:(cache.get(key)?.data as T|undefined)??result;
     }catch(e){if(id===requestId.current){setError(data===null?explainError(e):"");}throw e;}
-    finally{inFlight.delete(key);if(id===requestId.current)setLoading(false);}
+    finally{if(inFlight.get(key)===pending)inFlight.delete(key);if(id===requestId.current)setLoading(false);}
   },[key,interval]);
   useEffect(()=>{
     const existing=cache.get(key);if(existing){setData(existing.data as T);setLoading(false);}void refresh(false).catch(()=>{});
