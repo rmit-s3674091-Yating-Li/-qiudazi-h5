@@ -12,6 +12,7 @@ import { AuthAccountGeneration } from "../domain/AuthAccountGeneration";
 interface AuthState { session: Session | null; profile: Profile | null; ready: boolean; busy: boolean; error: string; loginRequired: boolean; start: (options?: { explicit?: boolean }) => Promise<Profile>; loginByNickname: (nickname: string) => Promise<Profile>; refresh: () => Promise<void>; signOut: () => Promise<void>; }
 const AuthContext = createContext<AuthState>(null!);
 export const useAuth = () => useContext(AuthContext);
+class SupersededAuthFlowError extends Error {}
 const isEnglish=()=>typeof localStorage!=="undefined"&&localStorage.getItem("qiudazi-language")==="en";
 
 function readCachedProfile(authUserId: string) { try { const raw = localStorage.getItem(PROFILE_CACHE_KEY); if (!raw) return null; const parsed = JSON.parse(raw) as { authUserId?: unknown; profile?: unknown }; if (parsed.authUserId !== authUserId || !parsed.profile || typeof parsed.profile !== "object") return null; return parsed.profile as Profile; } catch { return null; } }
@@ -88,7 +89,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     flight.current = (async () => {
       if (!supabase) throw new Error(isEnglish()?"Supabase is not configured yet.":"Supabase尚未配置");
       const explicit=options?.explicit===true;
+      const startGeneration = identity.current.version;
       const { data } = await supabase.auth.getSession(); let s = data.session;
+      if (identity.current.version !== startGeneration && (!s || identity.current.userId !== s.user.id)) throw new SupersededAuthFlowError();
       if (!s && !explicit && isLoginRequired(localStorage)) throw new Error(isEnglish()?"Please sign in to continue.":"请先登录后继续");
       if (!s) {
         let credentials: { email: string; password: string } | null = null;
@@ -97,8 +100,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!s) { const provision = await supabase.functions.invoke("guest-session", { body: {} }); if (provision.error) throw provision.error; const data = provision.data as { email?: unknown; password?: unknown; error?: unknown } | null; if (!data || typeof data.email !== "string" || typeof data.password !== "string") throw new Error(typeof data?.error === "string" ? data.error : (isEnglish()?"Could not create a guest test identity.":"游客身份创建失败")); credentials = { email: data.email, password: data.password }; localStorage.setItem(GUEST_CREDENTIALS_KEY, JSON.stringify(credentials)); const signInResult = await supabase.auth.signInWithPassword(credentials); if (signInResult.error) throw signInResult.error; s = signInResult.data.session; }
         if (!s) throw new Error(isEnglish()?"Could not create the guest test identity. Refresh the page and try again.":"游客身份创建失败，请刷新页面重试");
       }
-      setSession(s); const p = await repository.profile(); setProfile(p); writeCachedProfile(s.user.id, p); clearLoginRequired(localStorage);setLoginRequired(false); return p;
-    })().catch((e) => { setError(explainError(e)); throw e; }).finally(() => { setBusy(false); flight.current = null; });
+      if (identity.current.version !== startGeneration && identity.current.userId !== s.user.id) throw new SupersededAuthFlowError();
+      const generation = observeSession(s);
+      const p = await repository.profile();
+      if (!identity.current.isCurrent(s.user.id, generation)) throw new SupersededAuthFlowError();
+      setProfile(p); writeCachedProfile(s.user.id, p); clearLoginRequired(localStorage);setLoginRequired(false); return p;
+    })().catch((e) => { if (!(e instanceof SupersededAuthFlowError)) setError(explainError(e)); throw e; }).finally(() => { setBusy(false); flight.current = null; });
     return flight.current;
   }
   async function loginByNickname(nickname:string){

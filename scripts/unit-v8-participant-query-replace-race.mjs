@@ -71,4 +71,39 @@ assert.equal(freshLoads, 1, "old finally must not remove a newer in-flight reque
 after.resolve({ version: 4 });
 await Promise.all([fresh, shared]);
 assert.equal(render("participant-match-2", () => Promise.resolve(null)).data.version, 4);
-console.log("PASS: participant point snapshot replace/polling cache and in-flight race");
+// An account switch clears cache while an old request is still pending.
+// Without an account generation guard, its late response repopulates private cache.
+state.length = 0;
+refs.length = 0;
+const accountA = deferred();
+const oldAccount = render("private-event-cache", () => accountA.promise);
+const staleAccountRequest = oldAccount.refresh();
+module.exports.clearQueryCache();
+accountA.resolve({ actor: "A", version: 1 });
+await staleAccountRequest;
+assert.equal(render("private-event-cache", () => Promise.resolve(null)).data, null,
+  "an old account response must not repopulate cache after clearQueryCache");
+assert.equal(state[2], "", "an old account response must not set a stale error");
+
+// The same key must be usable by the new account after the old request settles.
+const accountB = deferred();
+const newAccount = render("private-event-cache", () => accountB.promise);
+const currentRequest = newAccount.refresh();
+accountB.resolve({ actor: "B", version: 1 });
+await currentRequest;
+assert.equal(render("private-event-cache", () => Promise.resolve(null)).data.actor, "B");
+
+// Rejected requests from a previous account must not paint an old error.
+state.length = 0;
+refs.length = 0;
+let rejectOldAccount;
+const rejectedOldAccount = new Promise((_, reject) => { rejectOldAccount = reject; });
+const failedOldAccount = render("private-error-cache", () => rejectedOldAccount);
+const oldAccountFailure = failedOldAccount.refresh();
+module.exports.clearQueryCache();
+rejectOldAccount(new Error("private error from actor A"));
+await assert.rejects(oldAccountFailure, /private error from actor A/);
+assert.equal(render("private-error-cache", () => Promise.resolve(null)).error, "",
+  "a prior account failure must not set the current account's query error");
+
+console.log("PASS: participant point snapshot replace/polling and account-clear cache race");

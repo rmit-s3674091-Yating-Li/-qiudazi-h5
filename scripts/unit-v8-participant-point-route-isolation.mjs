@@ -59,6 +59,16 @@ try {
     "account switch clears private query cache and old profile");
   assert.match(auth, /identity\.current\.isCurrent\(userId, generation\)/,
     "late initial profile responses must not cross account generations");
+  assert.match(auth, /class SupersededAuthFlowError extends Error/, "stale start errors must not contaminate the new actor");
+  assert.match(auth, /const startGeneration = identity\.current\.version/, "start must capture actor generation before session lookup");
+  assert.match(auth, /identity\.current\.version !== startGeneration && \(!s \|\| identity\.current\.userId !== s\.user\.id\)/,
+    "a late session lookup must not restore a superseded account");
+  assert.match(auth, /identity\.current\.version !== startGeneration && identity\.current\.userId !== s\.user\.id/,
+    "guest provisioning must not restore an actor superseded while signing in");
+  assert.match(auth, /const generation = observeSession\(s\);[\s\S]*?identity\.current\.isCurrent\(s\.user\.id, generation\)/,
+    "profile completion must check the generation observed for its own actor");
+  assert.match(auth, /if \(!\(e instanceof SupersededAuthFlowError\)\) setError\(explainError\(e\)\)/,
+    "superseded auth flows must not paint an old error over the new actor");
   const accountSource = await readFile("src/domain/AuthAccountGeneration.ts", "utf8");
   const accountCompiled = ts.transpileModule(accountSource, {
     fileName: "AuthAccountGeneration.ts", reportDiagnostics: true,
