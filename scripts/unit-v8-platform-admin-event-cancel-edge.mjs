@@ -115,6 +115,17 @@ rpcError = null;
 rpcData = { ...rpcData, id: "wrong-id" };
 assert.equal((await send()).status, 503);
 rpcData = { ...rpcData, id: command.event_id };
+// An unexpected version jump or malformed receipt is not a successful cancellation.
+rpcData = { ...rpcData, version: command.expected_version + 2 };
+res = await send();
+assert.equal(res.status, 503);
+assert.equal(res.data.code, "ADMIN_CANCEL_UNAVAILABLE");
+rpcData = { ...rpcData, version: command.expected_version + 1, cancelled_at: "not-a-timestamp" };
+res = await send();
+assert.equal(res.status, 503);
+assert.equal(res.data.code, "ADMIN_CANCEL_UNAVAILABLE");
+rpcData = { ...rpcData, cancelled_at: "2026-10-13T00:00:00Z" };
+assert.equal((await send()).status, 200);
 serviceAvailable = false;
 assert.equal((await send()).status, 503);
 console.log("V8 Platform Admin event-cancel Edge route tests passed");

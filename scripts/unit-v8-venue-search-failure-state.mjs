@@ -63,6 +63,13 @@ try {
     reportDiagnostics: true,
   });
   assert.equal(tsx.diagnostics?.length ?? 0, 0);
+  // A saved POI/pin is already an explicit selection; do not replace its
+  // visible label with a reverse-geocoded nearby business on reopening.
+  assert.match(ui, /if\(position\)\{if\(!\(initialVenueName\|\|initialAddress\)\)resolveReadablePlace\(position\)\}else/);
+  assert.match(ui, /const originalSelection=!!position&&position\.lat===initialLatitude&&position\.lng===initialLongitude/);
+  assert.match(ui, /place\?\.name\|\|\(originalSelection\?initialVenueName:""\)/);
+  assert.match(ui, /place\?\.address\|\|\(originalSelection\?initialAddress:""\)/);
+  assert.match(ui, /\[place,setPlace\]=useState<PickedPlace\|null>\(null\)/);
   assert.match(ui, /collectVenueSearch<VenuePlace>\(/);
   assert.match(ui, /if\(!found\.length&&hadFailure\)/);
   assert.match(ui, /!searching&&!error&&searchCompleted\?<p className="muted small">\{noResultsCopy\}/);
