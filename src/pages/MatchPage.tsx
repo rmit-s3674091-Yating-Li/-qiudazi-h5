@@ -35,7 +35,7 @@ function MatchPageForActor({mode="detail"}:{mode?:"detail"|"direct"|"live"}){
   const s=q.data?.event.id===id?q.data:null,m=s?.matches.find(x=>x.id===matchId);
   const participantEligibility=useParticipantScoringEligibility({eventId:s?.event.id,matchId:m?.id,eventVersion:s?.event.version,matchVersion:m?.version,enabled:!!s&&!!m&&s.viewer_role!=="owner"&&mode!=="direct"&&s.event.status==="ongoing"&&s.event.format==="round_robin"&&m.stage==="round_robin"&&(m.status==="not_started"||m.status==="ongoing")&&!m.is_bye&&!!m.entry_a_id&&!!m.entry_b_id&&m.scoring_mode!=="direct"});
 
-  useEffect(()=>{pointQueue.current=[];setOptimisticPoints([]);latestSnapshot.current=null;setError("");},[routeKey]);
+  useEffect(()=>{pointQueue.current=[];setOptimisticPoints([]);latestSnapshot.current=null;setError("");setBusy(false);setConfirm(null);},[routeKey]);
   useEffect(()=>{if(s)latestSnapshot.current=s},[s]);
   useEffect(()=>{if(!s||!m)return;const key=m.id+mode;const shouldInitialize=loaded.current!==key;const shouldResyncDirect=mode==="direct"&&!editing&&formVersion!==undefined&&m.version!==formVersion;if(!shouldInitialize&&!shouldResyncDirect)return;loaded.current=key;const sets=s.set_scores.filter(x=>x.match_id===m.id).sort((a,b)=>a.set_no-b.set_no);setInputs(Array.from({length:s.event.best_of},(_,i)=>({a:sets[i]?String(sets[i].a_games_or_points):"",b:sets[i]?String(sets[i].b_games_or_points):"",ta:sets[i]?.a_tiebreak_points!=null?String(sets[i].a_tiebreak_points):"",tb:sets[i]?.b_tiebreak_points!=null?String(sets[i].b_tiebreak_points):""})));setFormVersion(m.version);if(shouldInitialize)setEditing(false)},[s,m,mode,editing,formVersion]);
 
@@ -43,12 +43,16 @@ function MatchPageForActor({mode="detail"}:{mode?:"detail"|"direct"|"live"}){
 
   async function send(type:string,extra:Record<string,unknown>={},confirmed=false){
     if(!s||!m)return;
+    const scope=pointScope.current;
+    const active=()=>samePointQueueScope(pointScope.current,scope);
     setBusy(true);setError("");
     try{
       const next=await command(s.event.id,{type,event_version:s.event.version,match_id:m.id,match_version:type==="score"?formVersion:m.version,...extra,confirmed});
+      // A late organizer result must not mutate another match/account or navigate it away.
+      if(!active())return;
       latestSnapshot.current=next;q.replace(next);invalidateEventReads();setConfirm(null);
       if(type==="score")navigate("/events/"+id+"/matches/"+matchId,{replace:true});
-    }catch(e){setError(explainError(e))}finally{setBusy(false)}
+    }catch(e){if(active())setError(explainError(e))}finally{if(active())setBusy(false)}
   }
 
   async function flushPointQueue(){
