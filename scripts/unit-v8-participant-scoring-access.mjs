@@ -118,6 +118,35 @@ try {
   await rm(tmp, { recursive: true, force: true });
 }
 
+// A completed match result is a privileged correction, not an ordinary first score.
+// Exercise the actual score branch extracted from the domain source; UI confirmation alone is insufficient.
+const correctionSource = await readFile("src/application/TournamentService.ts", "utf8");
+const scoreBranch = correctionSource.split("\n").find((line) => line.includes('else if(command.type==="score")'));
+assert.ok(scoreBranch, "score branch must exist");
+const executeScoreBranch = new Function(
+  "command", "m", "ensure", "validateFinalScore", "e", "s", "rows", "c",
+  scoreBranch.trim().replace(/^else /, "") + "\nreturn m;",
+);
+function tryScoreCorrection(status, confirmed) {
+  const match = { id: "match-1", entry_a_id: "entry-a", entry_b_id: "entry-b", status, scoring_mode: "direct" };
+  const state = { set_scores: [], point_logs: [] };
+  const guard = (allowed, code) => {
+    if (!allowed) { const error = new Error(code); error.code = code; throw error; }
+  };
+  return executeScoreBranch(
+    { type: "score", scores: [{ a: 6, b: 3 }], confirmed }, match,
+    guard, () => "A", {}, state, () => [], { now: () => "2026-10-19T14:00:00Z" },
+  );
+}
+for (const confirmation of [undefined, false, 1]) {
+  assert.throws(() => tryScoreCorrection("finished", confirmation),
+    (error) => error.code === "CONFIRM_RESULT_CORRECTION",
+    "finished-result replacement must require explicit boolean confirmation");
+}
+assert.equal(tryScoreCorrection("finished", true).status, "finished");
+assert.equal(tryScoreCorrection("not_started", undefined).status, "finished",
+  "first-time result entry must not require correction confirmation");
+console.log("PASS: V8 organizer completed-score correction requires trusted-domain confirmation");
 // Keep P1 actor isolation, eligibility, retry and Match UI contracts in the default unit gate.
 await import("./unit-v8-participant-scoring-eligibility-client.mjs");
 await import("./unit-v8-participant-point-route-isolation.mjs");

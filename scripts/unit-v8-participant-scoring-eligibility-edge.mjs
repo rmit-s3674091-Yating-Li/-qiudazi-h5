@@ -128,3 +128,4 @@ try {
 
 // Always run the final-point replay safety contract in the default unit gate.
 await import("./unit-v8-participant-final-point-replay.mjs");
+await import("./unit-v8-participant-point-edge-receipt.mjs");

@@ -54,11 +54,15 @@ try {
     { operationId: "op-committed", side: "A" },
     { operationId: "op-pending", side: "B" },
   ];
-  const logs = [{ id: "op-committed", match_id: "match-1", voided_at: null }];
+  const logs = [{ id: "op-committed", match_id: "match-1", winner_side: "A", voided_at: null }];
   assert.deepEqual(uncommittedPointQueue(queue, logs, "match-1"), [queue[1]],
     "a point visible through polling must not be applied twice");
   assert.deepEqual(uncommittedPointQueue(queue, logs, "match-2"), queue,
     "other-match point logs must not hide this match's pending points");
+  assert.deepEqual(uncommittedPointQueue(queue, [{ ...logs[0], winner_side: "B" }], "match-1"), queue,
+    "a conflicting point side must not be mistaken for a committed pending point");
+  assert.deepEqual(uncommittedPointQueue(queue, [{ ...logs[0], match_id: "match-2" }], "match-1"), queue,
+    "same operation ID on a different match must not suppress pending points");
   assert.deepEqual(uncommittedPointQueue(queue, [{ ...logs[0], voided_at: "2026-10-19" }], "match-1"), [queue[1]],
     "an already committed operation must not be replayed optimistically after undo");
   assert.deepEqual(uncommittedPointQueue(queue, [], "match-1"), queue,

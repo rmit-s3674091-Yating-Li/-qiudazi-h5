@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.112.4";
 import { z } from "npm:zod@4.1.12";
 import { applyCommand } from "../../../src/application/TournamentService.ts";
 import { RuleError } from "../../../src/domain/types.ts";
+import { isParticipantPointReceipt } from "../../../src/domain/ParticipantPointReceipt.ts";
 import type { Snapshot } from "../../../src/domain/types.ts";
 
 const cors = {
@@ -140,6 +141,16 @@ async function tryParticipantRoundRobinPoint(
     p_snapshot: next,
   });
   if (result.error) throw result.error;
+  if (!isParticipantPointReceipt(result.data, {
+    eventId: cmd.event_id,
+    matchId: cmd.match_id,
+    operationId: cmd.operation_id,
+    side: cmd.side,
+    expectedEventVersion: cmd.event_version,
+    expectedMatchVersion: cmd.match_version,
+  })) {
+    return json({ error: "PARTICIPANT_POINT_RECEIPT_INVALID", code: "PARTICIPANT_POINT_RECEIPT_INVALID" }, 503);
+  }
   return json(result.data);
 }
 
