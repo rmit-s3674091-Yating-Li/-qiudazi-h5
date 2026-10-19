@@ -69,17 +69,17 @@ try {
   await writeFile(accountPath, accountCompiled.outputText, "utf8");
   const { AuthAccountGeneration } = await import(pathToFileURL(accountPath).href);
   const account = new AuthAccountGeneration();
-  const first = account.observe("actor-A");
-  assert.equal(first.changed, true);
+  const firstAccount = account.observe("actor-A");
+  assert.equal(firstAccount.changed, true);
   assert.equal(account.observe("actor-A").changed, false, "JWT refresh keeps actor-scoped cache");
-  assert.equal(account.isCurrent("actor-A", first.generation), true);
-  const second = account.observe("actor-B");
-  assert.equal(second.changed, true);
-  assert.equal(account.isCurrent("actor-A", first.generation), false, "A profile response is stale after B login");
+  assert.equal(account.isCurrent("actor-A", firstAccount.generation), true);
+  const secondAccount = account.observe("actor-B");
+  assert.equal(secondAccount.changed, true);
+  assert.equal(account.isCurrent("actor-A", firstAccount.generation), false, "A profile response is stale after B login");
   account.observe("actor-A");
-  assert.equal(account.isCurrent("actor-A", first.generation), false, "A-B-A cannot revive an old profile response");
-  const signedOut = account.observe(null);
-  assert.equal(signedOut.changed, true);
+  assert.equal(account.isCurrent("actor-A", firstAccount.generation), false, "A-B-A cannot revive an old profile response");
+  const signedOutAccount = account.observe(null);
+  assert.equal(signedOutAccount.changed, true);
   assert.equal(account.observe(null).changed, false, "repeated sign-out does not repeatedly clear cache");
   console.log("PASS: V8 point queue route/account isolation and stale async guard");
 } finally {
