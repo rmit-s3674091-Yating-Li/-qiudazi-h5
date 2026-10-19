@@ -24,7 +24,9 @@ try {
   assert.deepEqual(ok.command, { event_id: event.id, expected_version: 2, request_id: input.requestId,
     reason: "Serious rule violation", confirmed: true });
   assert.equal(prepare({ ...input, event: { ...event, status: "locked" } }).ok, true);
+  assert.equal(prepare({ ...input, event: { ...event, version: 2147483646 } }).ok, true);
   for (const bad of [
+    { event: { ...event, version: 2147483647 } }, { event: { ...event, version: 2147483648 } },
     { role: "operator" }, { role: "reviewer" }, { role: null },
     { event: { ...event, status: "ongoing" } }, { event: { ...event, status: "finished" } },
     { event: { ...event, status: "cancelled" } }, { event: { ...event, version: 0 } },
@@ -37,6 +39,7 @@ try {
   assert.deepEqual(parse(response, ok.command), response);
   assert.equal(parse({ ...response, replayed: true }, ok.command)?.replayed, true);
   for (const bad of [{ ...response, id: input.requestId }, { ...response, version: 2 },
+    { ...response, version: 4 }, { ...response, version: 2147483647 },
     { ...response, status: "ongoing" }, { ...response, cancelled_at: "not-a-date" },
     { ...response, leaked_email: "secret@example.invalid" }, { ...response, replayed: "true" }]) {
     assert.equal(parse(bad, ok.command), null);

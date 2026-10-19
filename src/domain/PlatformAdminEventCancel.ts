@@ -39,7 +39,7 @@ export function prepareAdminCancelRequest(input: {
 }): AdminCancelPreflight {
   if (input.role !== "super_admin") return { ok: false, reason: "ROLE_FORBIDDEN" };
   const event = input.event;
-  if (!uuid.test(event.id) || !Number.isSafeInteger(event.version) || event.version < 1 ||
+  if (!uuid.test(event.id) || !Number.isSafeInteger(event.version) || event.version < 1 || event.version >= 2147483647 ||
       (event.status !== "signup" && event.status !== "locked") ||
       !event.name || event.name.length > 80) return { ok: false, reason: "EVENT_UNAVAILABLE" };
   const reason = input.reason.replace(/^ +| +$/g, "");
@@ -61,7 +61,7 @@ export function parseAdminCancelResponse(value: unknown, request: AdminCancelReq
   if (!record(value) || Object.keys(value).length !== 5 ||
       Object.keys(value).some((key) => !["id", "status", "version", "cancelled_at", "replayed"].includes(key)) ||
       value.id !== request.event_id || value.status !== "cancelled" ||
-      !Number.isSafeInteger(value.version) || (value.version as number) <= request.expected_version ||
+      !Number.isSafeInteger(value.version) || value.version !== request.expected_version + 1 ||
       typeof value.cancelled_at !== "string" || !timestamp.test(value.cancelled_at) ||
       !Number.isFinite(Date.parse(value.cancelled_at)) || typeof value.replayed !== "boolean") return null;
   return value as AdminCancelResponse;

@@ -74,5 +74,15 @@ export function decideMatchScoringAccess(
   if (match.scoring_mode === "direct") {
     return { allowed: false, reason: "SCORING_MODE_CONFLICT" };
   }
+  // A withdrawn or missing opponent makes this match ineligible for new
+  // participant points. Mirror the Edge preflight and locked DB transaction;
+  // organizer correction remains a separate privileged path.
+  const bothEntriesConfirmed = match.entry_a_id !== match.entry_b_id &&
+    [match.entry_a_id, match.entry_b_id].every((entryId) =>
+      entries.some((entry) =>
+        entry.id === entryId && entry.event_id === event.id && entry.status === "confirmed",
+      ),
+    );
+  if (!bothEntriesConfirmed) return { allowed: false, reason: "MATCH_UNAVAILABLE" };
   return { allowed: true, actor: "participant" };
 }

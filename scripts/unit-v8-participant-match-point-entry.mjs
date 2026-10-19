@@ -29,3 +29,42 @@ assert.match(source, /disabled=\{!canScore\|\|busy\|\|!!validation/,
 assert.match(source, /mode==="detail"&&canScore&&<div className="stack">/,
   "organizer correction flow must remain available");
 console.log("PASS: V8 participant Match UI eligibility-gated point entry contract");
+
+// A fresh polling snapshot may include an operation before the Edge response
+// reaches the client. Display and next-point prediction must not add it again.
+assert.match(source, /uncommittedPointQueue\(pointQueue\.current,current\.point_logs,currentMatch\.id\)/);
+assert.match(source, /uncommittedPointQueue\(optimisticPoints,s\.point_logs,m\.id\)/);
+const helperSource = await readFile("src/domain/PointQueueReconciliation.ts", "utf8");
+const helperCompiled = ts.transpileModule(helperSource, {
+  fileName: "PointQueueReconciliation.ts",
+  reportDiagnostics: true,
+  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 },
+});
+assert.equal(helperCompiled.diagnostics?.length ?? 0, 0);
+const { mkdtemp, rm, writeFile } = await import("node:fs/promises");
+const { tmpdir } = await import("node:os");
+const { join } = await import("node:path");
+const { pathToFileURL } = await import("node:url");
+const tmp = await mkdtemp(join(tmpdir(), "qiudazi-v8-point-polling-"));
+try {
+  const helperPath = join(tmp, "PointQueueReconciliation.mjs");
+  await writeFile(helperPath, helperCompiled.outputText, "utf8");
+  const { uncommittedPointQueue } = await import(pathToFileURL(helperPath).href);
+  const queue = [
+    { operationId: "op-committed", side: "A" },
+    { operationId: "op-pending", side: "B" },
+  ];
+  const logs = [{ id: "op-committed", match_id: "match-1", voided_at: null }];
+  assert.deepEqual(uncommittedPointQueue(queue, logs, "match-1"), [queue[1]],
+    "a point visible through polling must not be applied twice");
+  assert.deepEqual(uncommittedPointQueue(queue, logs, "match-2"), queue,
+    "other-match point logs must not hide this match's pending points");
+  assert.deepEqual(uncommittedPointQueue(queue, [{ ...logs[0], voided_at: "2026-10-19" }], "match-1"), [queue[1]],
+    "an already committed operation must not be replayed optimistically after undo");
+  assert.deepEqual(uncommittedPointQueue(queue, [], "match-1"), queue,
+    "uncommitted points remain optimistic");
+  assert.equal(queue.length, 2, "reconciliation must not consume the retry queue");
+} finally {
+  await rm(tmp, { recursive: true, force: true });
+}
+console.log("PASS: V8 polling/optimistic point reconciliation prevents duplicate display");

@@ -25,18 +25,18 @@ export function pointRetryDisposition(
   observed: PointAttemptVersions | null,
   committed: boolean,
 ): "committed" | "conflict" | "retry" {
+  // A matching log proves that an operation_id exists, not that this actor
+  // was authorized to replay it. Explicit server denials take precedence.
+  if (error instanceof TournamentCommandError) {
+    if (error.code && terminalPointCodes.has(error.code)) return "conflict";
+    if (error.status !== null && error.status >= 400 && error.status < 500 &&
+        error.status !== 408 && error.status !== 429) return "conflict";
+  }
   if (committed) return "committed";
   if (!observed || attempted.eventVersion !== observed.eventVersion || attempted.matchVersion !== observed.matchVersion) {
     return "conflict";
   }
-  if (error instanceof TournamentCommandError) {
-    if (error.code && terminalPointCodes.has(error.code)) {
-      return "conflict";
-    }
-    // A timeout or rate limit does not prove the point was rejected. Preserve
-    // operation_id for one safe replay; version drift is already checked above.
-    if (error.status === 408 || error.status === 429) return "retry";
-    if (error.status !== null && error.status >= 400 && error.status < 500) return "conflict";
-  }
+  // A timeout or rate limit does not prove the point was rejected. Preserve
+  // operation_id for one safe replay; version drift is already checked above.
   return "retry";
 }

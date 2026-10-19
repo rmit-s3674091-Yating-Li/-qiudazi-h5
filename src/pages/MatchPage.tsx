@@ -11,6 +11,7 @@ import { useAuth } from "../hooks/Auth";
 import { useParticipantScoringEligibility } from "../hooks/useParticipantScoringEligibility";
 import { pointRetryDisposition, type PointAttemptVersions } from "../domain/PointCommandConflict";
 import { advancePointQueueScope, pointQueueScopeKey, samePointQueueScope } from "../domain/PointQueueScope";
+import { uncommittedPointQueue } from "../domain/PointQueueReconciliation";
 
 type PendingPoint={side:Side;operationId:string;lastAttempt?:PointAttemptVersions};
 
@@ -128,7 +129,7 @@ function MatchPageForActor({mode="detail"}:{mode?:"detail"|"direct"|"live"}){
     const current=latestSnapshot.current,currentMatch=current?.matches.find(x=>x.id===matchId);
     if(!current||!currentMatch||!canPoint||busy||currentMatch.scoring_mode==="direct"||(currentMatch.status!=="not_started"&&currentMatch.status!=="ongoing"))return;
     let predicted=replay(current.event,current.point_logs.filter(l=>l.match_id===currentMatch.id));
-    try{for(const queued of pointQueue.current){if(predicted.winner)return;predicted=addPoint(current.event,predicted,queued.side)}if(predicted.winner)return;addPoint(current.event,predicted,side)}catch{return}
+    try{for(const queued of uncommittedPointQueue(pointQueue.current,current.point_logs,currentMatch.id)){if(predicted.winner)return;predicted=addPoint(current.event,predicted,queued.side)}if(predicted.winner)return;addPoint(current.event,predicted,side)}catch{return}
     pointQueue.current.push({side,operationId:crypto.randomUUID()});setOptimisticPoints([...pointQueue.current]);void flushPointQueue();
   }
 
@@ -139,7 +140,7 @@ function MatchPageForActor({mode="detail"}:{mode?:"detail"|"direct"|"live"}){
   const canPoint=(canScore||participantEligibility.eligible)&&(m.status==="not_started"||m.status==="ongoing")&&m.scoring_mode!=="direct";
   const logs=s.point_logs.filter(l=>l.match_id===m.id),serverLive=replay(e,logs);
   let live=serverLive;
-  try{for(const pending of optimisticPoints){if(live.winner)break;live=addPoint(e,live,pending.side)}}catch{live=serverLive}
+  try{for(const pending of uncommittedPointQueue(optimisticPoints,s.point_logs,m.id)){if(live.winner)break;live=addPoint(e,live,pending.side)}}catch{live=serverLive}
   const display=displayPoints(e,live),scoringContext=contextFor(e,live),liveLabel=!en?display.label:live.winner?t("matchEnded"):scoringContext==="tiebreak"?t("tiebreak"):scoringContext==="point_set"?"Point race":live.points[0]>=3&&live.points[1]>=3?(live.points[0]===live.points[1]?"Deuce":"Advantage"):"Current point",sets=s.set_scores.filter(x=>x.match_id===m.id).sort((a,b)=>a.set_no-b.set_no),base=`/events/${id}/matches/${matchId}`;
   const scores:ScoreInput[]=inputs.filter(x=>x.a!==""||x.b!=="").map(x=>({a:x.a===""?NaN:Number(x.a),b:x.b===""?NaN:Number(x.b),ta:x.ta===""?null:Number(x.ta),tb:x.tb===""?null:Number(x.tb)}));
   let validation="";try{const last=inputs.reduce((n,x,i)=>x.a!==""||x.b!==""?i:n,-1);if(inputs.slice(0,last+1).some(x=>x.a===""||x.b===""))throw new Error(t("scoreSequenceError"));validateFinalScore(e,scores)}catch(err){validation=explainError(err)}

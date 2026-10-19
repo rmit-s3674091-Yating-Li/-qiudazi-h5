@@ -50,6 +50,12 @@ try {
   deny("alice", "undo", "ORGANIZER_ONLY");
   deny("alice", "begin", "ORGANIZER_ONLY");
   deny("alice", "point", "NOT_MATCH_PARTICIPANT", { ...base, entries: entries.map((e) => e.id === "entry-a" ? { ...e, status: "withdrawn" } : e) });
+  const opponentWithdrawn = { ...base, entries: entries.map((e) => e.id === "entry-b" ? { ...e, status: "withdrawn" } : e) };
+  deny("alice", "point", "MATCH_UNAVAILABLE", opponentWithdrawn);
+  deny("bob", "point", "NOT_MATCH_PARTICIPANT", opponentWithdrawn);
+  assert.deepEqual(check("owner", "point", opponentWithdrawn), { allowed: true, actor: "organizer" });
+  deny("alice", "point", "MATCH_UNAVAILABLE", { ...base, entries: entries.filter((e) => e.id !== "entry-b") });
+  deny("alice", "point", "MATCH_UNAVAILABLE", { ...base, matches: [{ ...matches[0], entry_b_id: "entry-a" }] });
   deny("alice", "point", "EVENT_CLOSED", { ...base, event: { ...event, status: "finished" } });
   deny("owner", "score", "EVENT_CLOSED", { ...base, event: { ...event, status: "cancelled" } });
   deny("alice", "point", "MATCH_UNAVAILABLE", base, "missing");
@@ -80,6 +86,17 @@ try {
   const attempt = { eventVersion: 8, matchVersion: 4 };
   const same = { ...attempt };
   assert.equal(pointRetryDisposition(null, attempt, same, true), "committed");
+  // A visible operation_id must not override an explicit actor/authorization denial.
+  for (const denied of [
+    new TournamentCommandError("replay actor mismatch", "OPERATION_CONFLICT", 409),
+    new TournamentCommandError("identity changed", "POINT_RETRY_IDENTITY_CONFLICT", 409),
+    new TournamentCommandError("membership revoked", "NOT_MATCH_PARTICIPANT", 503),
+    new TournamentCommandError("forbidden", null, 403),
+  ]) {
+    assert.equal(pointRetryDisposition(denied, attempt, same, true), "conflict");
+  }
+  assert.equal(pointRetryDisposition(new TournamentCommandError("timeout", null, 408), attempt, same, true), "committed");
+  assert.equal(pointRetryDisposition(new TournamentCommandError("server error", null, 503), attempt, same, true), "committed");
   assert.equal(pointRetryDisposition(null, attempt, null, false), "conflict");
   assert.equal(pointRetryDisposition(null, attempt, { eventVersion: 9, matchVersion: 4 }, false), "conflict");
   assert.equal(pointRetryDisposition(null, attempt, { eventVersion: 8, matchVersion: 5 }, false), "conflict");
