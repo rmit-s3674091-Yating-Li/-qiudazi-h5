@@ -67,9 +67,22 @@ export function parseAdminCancelResponse(value: unknown, request: AdminCancelReq
   return value as AdminCancelResponse;
 }
 
+/** A known rejection stays terminal even if the transport loses its HTTP status. */
+const terminalCancelCodes = new Set([
+  "AUTH_REQUIRED", "PLATFORM_ADMIN_FORBIDDEN", "EVENT_NOT_FOUND",
+  "VERSION_CONFLICT", "ADMIN_REQUEST_CONFLICT", "EVENT_CANCEL_STATE_CONFLICT",
+  "EVENT_ALREADY_STARTED", "INVALID_CANCEL_REQUEST", "INVALID_CANCEL_REASON",
+  "METHOD_NOT_ALLOWED",
+]);
+
 /** Only transport/server-unavailable errors may be manually retried with the SAME request_id. */
 export function adminCancelFailure(status: number | null, code: string | null): "retry_same_request" | "refresh_required" {
-  if (status === null || status >= 500 || code === "SERVICE_UNAVAILABLE" || code === "ADMIN_CANCEL_UNAVAILABLE") {
+  if (code && terminalCancelCodes.has(code)) return "refresh_required";
+  if (status !== null && status >= 400 && status < 500 && status !== 408 && status !== 429) {
+    return "refresh_required";
+  }
+  if (status === null || status >= 500 || status === 408 || status === 429 ||
+      code === "SERVICE_UNAVAILABLE" || code === "ADMIN_CANCEL_UNAVAILABLE") {
     return "retry_same_request";
   }
   return "refresh_required";

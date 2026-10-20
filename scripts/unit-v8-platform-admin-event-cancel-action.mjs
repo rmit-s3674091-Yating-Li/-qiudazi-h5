@@ -48,6 +48,23 @@ try {
   assert.equal(failure(null, null), "retry_same_request");
   assert.equal(failure(409, "VERSION_CONFLICT"), "refresh_required");
   assert.equal(failure(403, "PLATFORM_ADMIN_FORBIDDEN"), "refresh_required");
+  // An Edge denial must not become a retry just because HTTP status was lost
+  // (or a proxy incorrectly reported 5xx). Keep the same request_id only for
+  // genuinely uncertain outcomes such as network failures or 408/429/5xx.
+  for (const code of [
+    "AUTH_REQUIRED", "PLATFORM_ADMIN_FORBIDDEN", "EVENT_NOT_FOUND",
+    "VERSION_CONFLICT", "ADMIN_REQUEST_CONFLICT", "EVENT_CANCEL_STATE_CONFLICT",
+    "EVENT_ALREADY_STARTED", "INVALID_CANCEL_REQUEST", "INVALID_CANCEL_REASON",
+    "METHOD_NOT_ALLOWED",
+  ]) {
+    assert.equal(failure(null, code), "refresh_required", `lost HTTP status: ${code}`);
+    assert.equal(failure(503, code), "refresh_required", `misleading 5xx: ${code}`);
+  }
+  assert.equal(failure(403, "SERVICE_UNAVAILABLE"), "refresh_required");
+  assert.equal(failure(408, null), "retry_same_request");
+  assert.equal(failure(429, null), "retry_same_request");
+  assert.equal(failure(503, null), "retry_same_request");
+  assert.equal(failure(null, "ADMIN_CANCEL_UNAVAILABLE"), "retry_same_request");
   const ui = await readFile("src/components/PlatformAdminEventCancelAction.tsx", "utf8");
   const tsx = ts.transpileModule(ui, { fileName: "PlatformAdminEventCancelAction.tsx",
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022, jsx: ts.JsxEmit.ReactJSX },

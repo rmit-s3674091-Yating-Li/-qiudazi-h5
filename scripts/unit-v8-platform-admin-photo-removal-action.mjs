@@ -33,6 +33,20 @@ assert.equal(logic.photoRemovalOperation(first, "user:event:photo:1:reason", mak
 assert.equal(created, 1, "network retry must reuse the exact operation ID");
 assert.notEqual(logic.photoRemovalOperation(first, "user:event:photo:2:reason", makeId).id, first.id);
 
+for (const code of ["AUTH_REQUIRED", "PLATFORM_ADMIN_FORBIDDEN", "PHOTO_NOT_FOUND",
+  "PHOTO_REMOVE_CONFLICT", "INVALID_PHOTO_REMOVAL", "METHOD_NOT_ALLOWED"]) {
+  for (const status of [null, 0, 503]) {
+    assert.equal(logic.photoRemovalFailure(status, code), "terminal", `${code} must never be retried`);
+  }
+}
+for (const status of [400, 401, 403, 404, 409, 422]) {
+  assert.equal(logic.photoRemovalFailure(status, null), "terminal", `HTTP ${status} is a definitive rejection`);
+}
+for (const [status, code] of [[null, null], [0, null], [408, null], [429, null],
+  [500, null], [503, "PHOTO_REMOVAL_UNAVAILABLE"], [null, "SERVICE_UNAVAILABLE"]]) {
+  assert.equal(logic.photoRemovalFailure(status, code), "retry_same_request", "transient outcome must preserve request ID");
+}
+
 const component = readFileSync("src/components/PlatformAdminPhotoRemovalAction.tsx", "utf8");
 const directory = readFileSync("src/components/PlatformAdminPhotoDirectory.tsx", "utf8");
 for (const [name, source] of [["action", component], ["directory", directory]]) {
@@ -51,6 +65,11 @@ assert.match(component, /functions\.invoke\("platform-admin-photo-remove"/);
 assert.match(component, /photoRemovalOperation\(operation\.current, payloadKey/);
 assert.match(component, /request_id: requestId, reason: trimmed, confirmed: true/);
 assert.match(component, /parsePhotoRemovalResult\(data, eventId, photoId\)/);
+assert.match(component, /photoRemovalFailure\(context\?\.status \?\? null, code\)/);
+assert.match(component, /operation\.current = null;\s*setTerminal\(true\)/);
+assert.match(component, /inFlight\.current \|\| terminal \|\| !confirmed/);
+assert.match(component, /disabled=\{busy \|\| terminal \|\| !confirmed/);
+
 assert.match(component, /!confirmed \|\| !validPhotoRemovalReason\(reason\)/);
 assert.match(component, /generation\.current !== epoch/);
 assert.doesNotMatch(component + directory, /\.from\(|\.insert\(|\.update\(|\.delete\(|\.upsert\(|\.storage\./);

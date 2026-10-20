@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { parsePhotoRemovalResult, photoRemovalOperation, validPhotoRemovalReason } from "../domain/PlatformAdminPhotoRemoval";
+import { parsePhotoRemovalResult, photoRemovalFailure, photoRemovalOperation, validPhotoRemovalReason } from "../domain/PlatformAdminPhotoRemoval";
 import { supabase } from "../repositories/supabase";
 
 /** High-risk operation: UI is only a guardrail; Edge and SQL reauthorize every request. */
@@ -10,6 +10,7 @@ export function PlatformAdminPhotoRemovalAction({ userId, eventId, photoId, vers
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [terminal, setTerminal] = useState(false);
   const generation = useRef(0);
   const inFlight = useRef(false);
   const operation = useRef<{ payloadKey: string; id: string } | null>(null);
@@ -22,6 +23,7 @@ export function PlatformAdminPhotoRemovalAction({ userId, eventId, photoId, vers
     setConfirmed(false);
     setBusy(false);
     setError("");
+    setTerminal(false);
     const invalidate = () => { generation.current++; setConfirmed(false); };
     const onVisibility = () => { if (document.visibilityState !== "visible") invalidate(); };
     window.addEventListener("focus", invalidate);
@@ -34,7 +36,7 @@ export function PlatformAdminPhotoRemovalAction({ userId, eventId, photoId, vers
   }, [userId, eventId, photoId, version]);
 
   async function remove() {
-    if (inFlight.current || !confirmed || !validPhotoRemovalReason(reason) || !Number.isSafeInteger(version) || version < 1) return;
+    if (inFlight.current || terminal || !confirmed || !validPhotoRemovalReason(reason) || !Number.isSafeInteger(version) || version < 1) return;
     const trimmed = reason.replace(/^ +| +$/g, "");
     const payloadKey = `${userId}:${eventId}:${photoId}:${version}:${trimmed}`;
     operation.current = photoRemovalOperation(operation.current, payloadKey, () => crypto.randomUUID());
@@ -51,7 +53,24 @@ export function PlatformAdminPhotoRemovalAction({ userId, eventId, photoId, vers
           request_id: requestId, reason: trimmed, confirmed: true,
         },
       });
-      if (invokeError) throw new Error("PHOTO_REMOVAL_UNCONFIRMED");
+      if (invokeError) {
+        const context = (invokeError as { context?: Response }).context;
+        let code: string | null = null;
+        try {
+          const body: unknown = await context?.clone().json();
+          if (body && typeof body === "object" && "code" in body && typeof body.code === "string") code = body.code;
+        } catch { /* Network failures may have no JSON response. */ }
+        if (generation.current !== epoch) return;
+        if (photoRemovalFailure(context?.status ?? null, code) === "terminal") {
+          operation.current = null;
+          setTerminal(true);
+          setError(en
+            ? "Removal was rejected or the photo changed. Refresh the photo list and recheck access before trying again."
+            : "移除操作被拒绝或照片记录已变化。请刷新照片列表并重新核验权限后再操作。");
+          return;
+        }
+        throw new Error("PHOTO_REMOVAL_UNCONFIRMED");
+      }
       const result = parsePhotoRemovalResult(data, eventId, photoId);
       if (!result) throw new Error("INVALID_PHOTO_REMOVAL_RESPONSE");
       if (generation.current !== epoch) return;
@@ -80,7 +99,7 @@ export function PlatformAdminPhotoRemovalAction({ userId, eventId, photoId, vers
     <label><input type="checkbox" checked={confirmed} disabled={busy} onChange={(event) => setConfirmed(event.target.checked)} />
       {en ? "I reviewed the evidence and confirm removal." : "我已核实证据，并确认移除该照片。"}
     </label>
-    <button type="button" className="secondary" disabled={busy || !confirmed || !validPhotoRemovalReason(reason)}
+    <button type="button" className="secondary" disabled={busy || terminal || !confirmed || !validPhotoRemovalReason(reason)}
       onClick={() => void remove()}>{busy ? (en ? "Removing…" : "处理中…") : (en ? "Remove event photo" : "移除赛事照片")}</button>
     {error && <p role="alert" className="error">{error}</p>}
   </section>;

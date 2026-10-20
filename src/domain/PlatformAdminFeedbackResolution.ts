@@ -64,6 +64,22 @@ function statusFromError(error: unknown): number | null {
   return typeof status === "number" && Number.isInteger(status) ? status : null;
 }
 
+/** Supabase FunctionsHttpError exposes the trusted Edge code in Response JSON.
+ * Read a clone only: parsing must never consume the original response. */
+async function edgeFailureCode(error: unknown): Promise<string | null> {
+  if (!record(error) || !record(error.context)) return null;
+  try {
+    const context = error.context;
+    if (typeof context.clone !== "function") return null;
+    const response: unknown = context.clone();
+    if (!record(response) || typeof response.json !== "function") return null;
+    const body: unknown = await response.json();
+    return record(body) && typeof body.code === "string" ? body.code : null;
+  } catch {
+    return null;
+  }
+}
+
 /** An unknown transport/5xx failure may occur after commit: retain the SAME request_id. */
 export async function submitFeedbackResolution(
   invoke: FeedbackResolutionInvoke,
@@ -73,10 +89,15 @@ export async function submitFeedbackResolution(
     const { data, error } = await invoke("platform-admin-feedback-resolution", { body: attempt });
     if (error) {
       const status = statusFromError(error);
-      if (status === 401 || status === 403) return { kind: "forbidden" };
-      if (status === 404) return { kind: "not_found" };
-      if (status === 409) return { kind: "conflict" };
-      if (status === 400 || status === 413) return { kind: "invalid" };
+      const code = await edgeFailureCode(error);
+      if (code === "AUTH_REQUIRED" || code === "PLATFORM_ADMIN_FORBIDDEN" ||
+          status === 401 || status === 403) return { kind: "forbidden" };
+      if (code === "FEEDBACK_NOT_FOUND" || status === 404) return { kind: "not_found" };
+      if (code === "FEEDBACK_CONFLICT" || status === 409) return { kind: "conflict" };
+      if (code === "INVALID_FEEDBACK_RESOLUTION" || code === "METHOD_NOT_ALLOWED" ||
+          (status !== null && status >= 400 && status < 500 && status !== 408 && status !== 429)) {
+        return { kind: "invalid" };
+      }
       return { kind: "uncertain" };
     }
     const receipt = parseFeedbackResolutionReceipt(data, attempt);

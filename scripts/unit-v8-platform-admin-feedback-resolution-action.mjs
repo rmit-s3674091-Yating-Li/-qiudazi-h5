@@ -54,6 +54,45 @@ try {
     [409, "conflict"], [400, "invalid"], [503, "uncertain"]]) {
     assert.deepEqual(await submit(async () => ({ data: null, error: { context: { status } } }), attempt), { kind });
   }
+  // A terminal Edge JSON denial remains terminal even if HTTP status is missing.
+  // Response.clone() must be used so the original error body remains readable.
+  const edgeError = (code, status = null) => {
+    const body = new Response(JSON.stringify({ code }), { status: 403 });
+    return { context: {
+      ...(status === null ? {} : { status }),
+      clone: () => body.clone(),
+    } };
+  };
+  for (const [code, kind] of [
+    ["AUTH_REQUIRED", "forbidden"],
+    ["PLATFORM_ADMIN_FORBIDDEN", "forbidden"],
+    ["FEEDBACK_NOT_FOUND", "not_found"],
+    ["FEEDBACK_CONFLICT", "conflict"],
+    ["INVALID_FEEDBACK_RESOLUTION", "invalid"],
+    ["METHOD_NOT_ALLOWED", "invalid"],
+    ["SERVICE_UNAVAILABLE", "uncertain"],
+    ["FEEDBACK_RESOLUTION_UNAVAILABLE", "uncertain"],
+  ]) {
+    for (const status of [null, 0]) {
+      const error = edgeError(code, status);
+      assert.deepEqual(await submit(async () => ({ data: null, error }), attempt), { kind },
+        `${code} status=${status}`);
+      assert.deepEqual(await error.context.clone().json(), { code }, "do not consume response body");
+    }
+  }
+  for (const [status, kind] of [[405, "invalid"], [422, "invalid"],
+    [408, "uncertain"], [429, "uncertain"], [503, "uncertain"]]) {
+    assert.deepEqual(await submit(async () => ({ data: null, error: { context: { status } } }), attempt),
+      { kind }, `HTTP ${status}`);
+  }
+  for (const context of [
+    { clone: () => { throw new Error("clone failed"); } },
+    { clone: () => ({ json: async () => { throw new Error("invalid JSON"); } }) },
+    { clone: () => ({ json: async () => ({ unexpected: true }) }) },
+  ]) {
+    assert.deepEqual(await submit(async () => ({ data: null, error: { context } }), attempt),
+      { kind: "uncertain" }, "unreadable or unknown Edge error remains uncertain");
+  }
   assert.deepEqual(await submit(async () => ({ data: { ...receipt, reason: "secret" }, error: null }), attempt),
     { kind: "uncertain" }, "malformed success could follow a commit; preserve UUID");
   const ui = await readFile("src/components/PlatformAdminFeedbackResolutionAction.tsx", "utf8");

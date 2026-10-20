@@ -9,6 +9,19 @@ export function validPhotoRemovalReason(value: string): boolean {
   return length >= 10 && length <= 1000;
 }
 
+/** A trusted rejection is final even if its HTTP status was lost in transit.
+ * Only an uncertain outcome may reuse the original request_id. */
+const terminalPhotoRemovalCodes = new Set([
+  "AUTH_REQUIRED", "PLATFORM_ADMIN_FORBIDDEN", "PHOTO_NOT_FOUND",
+  "PHOTO_REMOVE_CONFLICT", "INVALID_PHOTO_REMOVAL", "METHOD_NOT_ALLOWED",
+]);
+export function photoRemovalFailure(status: number | null, code: string | null): "terminal" | "retry_same_request" {
+  if (code && terminalPhotoRemovalCodes.has(code)) return "terminal";
+  if (status !== null && Number.isInteger(status) && status >= 400 && status < 500 &&
+      status !== 408 && status !== 429) return "terminal";
+  return "retry_same_request";
+}
+
 export type PhotoRemovalOperation = { payloadKey: string; id: string };
 
 export function photoRemovalOperation(
