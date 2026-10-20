@@ -27,7 +27,7 @@ try {
     viewer_role: "participant",
     event: { id: ids.eventId, version: 5 },
     matches: [{ id: ids.matchId, event_id: ids.eventId, version: 8 }],
-    point_logs: [{ id: ids.operationId, match_id: ids.matchId, winner_side: "A" }],
+    point_logs: [{ id: ids.operationId, match_id: ids.matchId, winner_side: "A", voided_at: null }],
     entries: [], set_scores: [], photo: null,
   };
   assert.equal(isParticipantPointReceipt(receipt, ids), true, "fresh atomic commit");
@@ -43,6 +43,9 @@ try {
     ["wrong match", { ...receipt, matches: [{ ...receipt.matches[0], id: ids.eventId }] }],
     ["duplicate match", { ...receipt, matches: [...receipt.matches, ...receipt.matches] }],
     ["missing point", { ...receipt, point_logs: [] }],
+    ["missing voided status", { ...receipt, point_logs: [{ id: ids.operationId, match_id: ids.matchId, winner_side: "A" }] }],
+    ["undefined voided status", { ...receipt, point_logs: [{ ...receipt.point_logs[0], voided_at: undefined }] }],
+    ["voided point", { ...receipt, point_logs: [{ ...receipt.point_logs[0], voided_at: "2026-10-20T10:00:00Z" }] }],
     ["wrong side", { ...receipt, point_logs: [{ ...receipt.point_logs[0], winner_side: "B" }] }],
     ["wrong point match", { ...receipt, point_logs: [{ ...receipt.point_logs[0], match_id: ids.eventId }] }],
     ["duplicate point", { ...receipt, point_logs: [...receipt.point_logs, ...receipt.point_logs] }],

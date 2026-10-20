@@ -34,7 +34,7 @@ requireMatch(matchPage, /type PendingPoint\s*=\s*\{[^}]*\boperationId\s*:\s*stri
 requireText(matchPage, "operation_id:pending.operationId", "point persistence sends the queued operation UUID");
 requireText(matchPage, "operationId:crypto.randomUUID()", "operation UUID is allocated once when the user point is enqueued");
 requireText(matchPage, "const reconciled=await q.refresh()", "lost response reconciles against authoritative snapshot before retry");
-requireText(matchPage, "log.id===pending.operationId", "reconcile recognizes an already committed Point Log by the same operation UUID");
+requireText(matchPage, "isActiveCommittedPoint(log,pending.operationId,matchId!,pending.side)", "reconcile recognizes committed points through the active point identity and void status guard");
 requireText(matchPage, "next=await command(current.event.id,{type:\"point\"", "unconfirmed lost response retries the original pending operation");
 requireMatch(matchPage, /catch\s*\(e\)\s*\{\s*(?:if\s*\(!active\(\)\)return;\s*)?setOptimisticPoints\(\[\.\.\.pointQueue\.current\]\)/, "transient failures preserve pending operations for safe retry");
 requireMatch(matchPage, /if\s*\(disposition\s*===\s*"conflict"\)\s*\{\s*pointQueue\.current\s*=\s*\[\];\s*setOptimisticPoints\(\[\]\)/, "rejected or stale points clear optimistic state rather than replaying");

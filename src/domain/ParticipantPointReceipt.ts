@@ -38,6 +38,7 @@ export function isParticipantPointReceipt(value: unknown, request: ReceiptReques
     record(item) && item.id === request.operationId);
   // A historical point that the organizer has undone is not a successful
   // current score receipt, even if the operation_id is still present.
+  // A missing voided_at is malformed, not proof that this point is active.
   return points.length === 1 && points[0].match_id === request.matchId &&
-    points[0].winner_side === request.side && points[0].voided_at == null;
+    points[0].winner_side === request.side && points[0].voided_at === null;
 }

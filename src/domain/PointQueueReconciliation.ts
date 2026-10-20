@@ -4,7 +4,7 @@
  */
 type PointLogIdentity = { id: string; match_id: string; winner_side: string; voided_at?: string | null };
 
-/** A voided point is history, not proof that a pending score is still committed. */
+/** Only an explicit null voided_at proves the point is active. Missing status is unverified. */
 export function isActiveCommittedPoint(
   log: PointLogIdentity,
   operationId: string,
@@ -12,7 +12,7 @@ export function isActiveCommittedPoint(
   side: string,
 ): boolean {
   return log.id === operationId && log.match_id === matchId &&
-    log.winner_side === side && log.voided_at == null;
+    log.winner_side === side && log.voided_at === null;
 }
 
 export function uncommittedPointQueue<T extends { operationId: string; side: string }>(
@@ -23,7 +23,7 @@ export function uncommittedPointQueue<T extends { operationId: string; side: str
   // An operation ID on another side or a voided point is not proof that
   // this pending point remains committed. Match active point identity.
   const committedSides = new Map(
-    pointLogs.filter((log) => log.match_id === matchId && log.voided_at == null)
+    pointLogs.filter((log) => log.match_id === matchId && log.voided_at === null)
       .map((log) => [log.id, log.winner_side]),
   );
   return pending.filter((point) => committedSides.get(point.operationId) !== point.side);

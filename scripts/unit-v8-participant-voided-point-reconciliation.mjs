@@ -29,8 +29,15 @@ try {
   assert.equal(isActiveCommittedPoint(active, "op-1", "match-1", "A"), true);
   assert.equal(isActiveCommittedPoint(voided, "op-1", "match-1", "A"), false);
   assert.equal(isActiveCommittedPoint(active, "op-1", "match-1", "B"), false);
+  const missingStatus = { id: active.id, match_id: active.match_id, winner_side: active.winner_side };
+  assert.equal(isActiveCommittedPoint(missingStatus, "op-1", "match-1", "A"), false,
+    "missing voided_at must not acknowledge a committed point");
+  assert.equal(isActiveCommittedPoint({ ...active, voided_at: undefined }, "op-1", "match-1", "A"), false);
   assert.deepEqual(uncommittedPointQueue(pending, [active], "match-1"), []);
   assert.deepEqual(uncommittedPointQueue(pending, [voided], "match-1"), pending);
+  assert.deepEqual(uncommittedPointQueue(pending, [missingStatus], "match-1"), pending,
+    "unknown point status must retain pending retry rather than hide it");
+  assert.deepEqual(uncommittedPointQueue(pending, [{ ...active, voided_at: undefined }], "match-1"), pending);
   assert.deepEqual(uncommittedPointQueue(pending, [{ ...active, winner_side: "B" }], "match-1"), pending);
   const ids = { eventId: "event-1", matchId: "match-1", operationId: "op-1",
     side: "A", expectedEventVersion: 3, expectedMatchVersion: 2 };
@@ -40,6 +47,8 @@ try {
   assert.equal(isParticipantPointReceipt(receipt, ids), true);
   assert.equal(isParticipantPointReceipt({ ...receipt, point_logs: [voided] }, ids), false,
     "an undone point must not pass the Edge success receipt");
+  assert.equal(isParticipantPointReceipt({ ...receipt, point_logs: [missingStatus] }, ids), false,
+    "missing status must not produce a successful Edge receipt");
   const page = await readFile("src/pages/MatchPage.tsx", "utf8");
   for (const snapshot of ["current", "reconciled", "finalSnapshot"]) {
     assert.ok(page.includes(`${snapshot}.point_logs.some(log=>isActiveCommittedPoint(`),
