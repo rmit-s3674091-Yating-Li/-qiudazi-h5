@@ -1,3 +1,11 @@
+## 2026-10-20 — V8 tournament command Auth upstream classification (unreleased)
+
+- `V8-20261020-P1-TOURNAMENT-AUTH-STATUS`: verified JWT failures return `401 AUTH_REQUIRED` only for explicit invalid-credential statuses; Auth throttling/outages and unknown statuses return `503 AUTH_CHECK_UNAVAILABLE`. No profile or scoring RPC is reached without a verified user.
+
+## 2026-10-20 — V8 participant scoring eligibility Auth failure classification (unreleased)
+
+- `V8-20261020-P1-ELIGIBILITY-AUTH-STATUS`: invalid credentials still return `401 AUTH_REQUIRED`; Auth service failures, throttling, and unknown upstream status now return `503 AUTH_CHECK_UNAVAILABLE`. The read-only preflight never reaches membership RPC when Auth fails; trusted point writes remain unchanged.
+
 ## 2026-10-01 — Controller / Verifier governance split (unreleased)
 
 - Reframed the two active V7 automations as Controller and Independent Verifier without increasing automation count.

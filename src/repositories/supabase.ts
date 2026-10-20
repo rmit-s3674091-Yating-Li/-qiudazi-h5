@@ -16,7 +16,7 @@ export async function rpc<T>(name:string,args:Record<string,unknown>={}):Promise
   const c=client();
   const{data:sessionData,error:sessionError}=await c.auth.getSession();
   const session=sessionData.session;
-  if(sessionError||!session?.access_token)throw new Error(isEnglish()?"Restore your signed-in identity first.":"请先恢复登录身份");
+  if(sessionError||!session?.access_token)throw new TournamentCommandError(isEnglish()?"Restore your signed-in identity first.":"请先恢复登录身份","AUTH_REQUIRED",401);
   const operationId=action.type==="point"&&typeof action.operation_id==="string"?action.operation_id:null;
   if(operationId){
     const identity={authUserId:session.user.id,eventId,matchId:typeof action.match_id==="string"?action.match_id:"",side:typeof action.side==="string"?action.side:""};

@@ -45,6 +45,11 @@ function MatchPageForActor({mode="detail"}:{mode?:"detail"|"direct"|"live"}){
     if(!s||!m)return;
     const scope=pointScope.current;
     const active=()=>samePointQueueScope(pointScope.current,scope);
+    if(type==="undo"&&m.status==="finished"&&!confirmed){
+      setConfirmText(en?"Undoing the final point will reopen this completed match and recalculate results. Continue?":"撤销最后一分将重新打开已完成比赛并重新计算赛果，是否继续？");
+      setConfirm(()=>()=>{void send("undo",{},true)});
+      return;
+    }
     setBusy(true);setError("");
     try{
       const next=await command(s.event.id,{type,event_version:s.event.version,match_id:m.id,match_version:type==="score"?formVersion:m.version,...extra,confirmed});

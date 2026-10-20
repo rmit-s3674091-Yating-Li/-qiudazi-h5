@@ -118,6 +118,43 @@ try {
   // Organizer retains its existing independent command route.
   m = mock({ owner: true });
   assert.equal(await routePoint(m.client, cmd, "verified-auth-user", "actor-profile"), null);
+
+  // Execute the real Edge Auth branch: upstream errors must not masquerade as
+  // invalid credentials, and no unverified actor may reach the profile RPC.
+  const authStart = source.indexOf("    const { data: { user }, error: authError } = await client.auth.getUser(token);");
+  const authEnd = source.indexOf('    const { data: profiles, error: profileError }', authStart);
+  assert.ok(authStart >= 0 && authEnd > authStart, "Edge Auth gate must precede profile resolution");
+  const authBranch = source.slice(authStart, authEnd);
+  const checkAuth = new Function("client", "json", `return (async () => {
+    const token = "test-jwt";
+    ${authBranch}
+    return { verifiedUserId: user.id };
+  })();`);
+  const reply = (body, status = 200) => ({ body, status });
+  const authClient = (status, userId = null) => ({
+    auth: { getUser: async () => ({
+      data: { user: userId ? { id: userId } : null },
+      error: status === null ? null : Object.assign(new Error("Auth upstream"), { status }),
+    }) },
+    rpc: () => { throw new Error("unverified actor reached profile RPC"); },
+  });
+  for (const status of [400, 401, 403, 422]) {
+    assert.deepEqual(await checkAuth(authClient(status), reply), {
+      body: { error: "身份已失效，请刷新页面恢复登录", code: "AUTH_REQUIRED" }, status: 401,
+    }, `invalid credential status ${status}`);
+  }
+  for (const status of [429, 500, 503, undefined]) {
+    assert.deepEqual(await checkAuth(authClient(status), reply), {
+      body: { error: "身份验证服务暂不可用，请稍后重试", code: "AUTH_CHECK_UNAVAILABLE" }, status: 503,
+    }, `Auth upstream status ${status}`);
+  }
+  assert.deepEqual(await checkAuth(authClient(null), reply), {
+    body: { error: "身份已失效，请刷新页面恢复登录", code: "AUTH_REQUIRED" }, status: 401,
+  }, "missing user without an Auth error is not authenticated");
+  assert.deepEqual(await checkAuth(authClient(null, "verified-auth-user"), reply), {
+    verifiedUserId: "verified-auth-user",
+  }, "verified JWT may proceed to the profile RPC");
+  console.log("PASS: V8 tournament-command Auth failure classification (10 cases)");
   console.log("PASS: V8 participant final-point replay / fresh authorization / actor-binding delegation");
 } finally {
   delete globalThis.json;

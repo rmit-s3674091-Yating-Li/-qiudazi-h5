@@ -39,7 +39,16 @@ Deno.serve(async (request) => {
   try {
     const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: { user }, error: authError } = await client.auth.getUser(token);
-    if (authError || !user?.id) return json({ error: "AUTH_REQUIRED" }, 401);
+    if (authError) {
+      // A temporary Auth upstream failure is not evidence of an expired JWT.
+      // Never proceed to the service-role participant lookup without a verified user.
+      const status = authError.status;
+      if (status === 400 || status === 401 || status === 403 || status === 422) {
+        return json({ error: "AUTH_REQUIRED" }, 401);
+      }
+      return json({ error: "AUTH_CHECK_UNAVAILABLE" }, 503);
+    }
+    if (!user?.id) return json({ error: "AUTH_REQUIRED" }, 401);
 
     const { data: active, error: eligibilityError } = await client.rpc("v8_active_match_participant", {
       p_event_id: args.event_id,

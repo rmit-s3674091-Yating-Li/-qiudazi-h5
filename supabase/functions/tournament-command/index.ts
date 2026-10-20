@@ -169,7 +169,16 @@ Deno.serve(async (req) => {
   const cmd = normalizePointCommandIds(parsed.data);
   try {
     const { data: { user }, error: authError } = await client.auth.getUser(token);
-    if (authError || !user) return json({ error: "身份已失效，请刷新页面恢复登录" }, 401);
+    if (authError) {
+      // An Auth outage or rate limit does not prove that the JWT was revoked.
+      // Never access the service-role profile or scoring RPC on failed verification.
+      const status = authError.status;
+      if (status === 400 || status === 401 || status === 403 || status === 422) {
+        return json({ error: "身份已失效，请刷新页面恢复登录", code: "AUTH_REQUIRED" }, 401);
+      }
+      return json({ error: "身份验证服务暂不可用，请稍后重试", code: "AUTH_CHECK_UNAVAILABLE" }, 503);
+    }
+    if (!user?.id) return json({ error: "身份已失效，请刷新页面恢复登录", code: "AUTH_REQUIRED" }, 401);
     const { data: profiles, error: profileError } = await client.rpc("resolve_profile_for_auth_user", { p_auth_user_id: user.id });
     if (profileError) throw profileError;
     const profile = Array.isArray(profiles) ? profiles[0] : profiles;

@@ -32,7 +32,7 @@ try {
   globalThis.__testCreateClient = (_url, _key, config) => {
     assert.equal(config.auth.persistSession, false);
     return {
-      auth: { getUser: async (token) => { calls.push(["auth", token]); return state.authError ? { data: { user: null }, error: new Error("bad token") } : { data: { user: { id: "verified-user" } }, error: null }; } },
+      auth: { getUser: async (token) => { calls.push(["auth", token]); return state.authError ? { data: { user: null }, error: Object.assign(new Error("auth failure"), { status: state.authStatus }) } : { data: { user: { id: "verified-user" } }, error: null }; } },
       rpc: async (name, args) => { calls.push(["rpc", name, args]); assert.equal(name, "v8_active_match_participant"); assert.equal(args.p_actor_auth_user_id, "verified-user"); return { data: state.active, error: state.rpcError ? new Error("internal") : null }; },
       from: (table) => ({ select: (_fields) => ({ eq: (_key, _value) => ({
         maybeSingle: async () => {
@@ -67,7 +67,7 @@ try {
   function reset(overrides = {}) { state = {
     active: true, event, match,
     entries: [{ id: uuidC, status: "confirmed" }, { id: uuidD, status: "confirmed" }],
-    authError: false, rpcError: false, dbError: false, entriesError: false, ...overrides,
+    authError: false, authStatus: 401, rpcError: false, dbError: false, entriesError: false, ...overrides,
   }; }
   reset();
   assert.deepEqual(await invoke(), { status: 200, payload: { eligible: true } });
@@ -109,9 +109,17 @@ try {
   assert.deepEqual(await invoke({ event_id: uuidA, match_id: uuidB, actor_id: "attacker" }), { status: 400, payload: { error: "INVALID_REQUEST" } });
   assert.deepEqual(await invoke({ event_id: "invalid", match_id: uuidB }), { status: 400, payload: { error: "INVALID_REQUEST" } });
   assert.deepEqual(await invoke(undefined, null), { status: 401, payload: { error: "AUTH_REQUIRED" } });
-  reset({ authError: true });
-  assert.deepEqual(await invoke(), { status: 401, payload: { error: "AUTH_REQUIRED" } });
-  assert.deepEqual(calls.map(x => x[0]), ["auth"]);
+  // Invalid credentials are terminal, but Auth upstream outages must not masquerade as logout.
+  for (const authStatus of [400, 401, 403, 422]) {
+    reset({ authError: true, authStatus });
+    assert.deepEqual(await invoke(), { status: 401, payload: { error: "AUTH_REQUIRED" } });
+    assert.deepEqual(calls.map(x => x[0]), ["auth"], "invalid JWT cannot reach membership RPC");
+  }
+  for (const authStatus of [429, 500, 503, undefined]) {
+    reset({ authError: true, authStatus });
+    assert.deepEqual(await invoke(), { status: 503, payload: { error: "AUTH_CHECK_UNAVAILABLE" } });
+    assert.deepEqual(calls.map(x => x[0]), ["auth"], "Auth outage cannot reach membership RPC");
+  }
   reset({ rpcError: true });
   assert.deepEqual(await invoke(), { status: 503, payload: { error: "SERVICE_UNAVAILABLE" } });
   reset({ dbError: true });

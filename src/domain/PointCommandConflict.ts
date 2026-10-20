@@ -16,6 +16,10 @@ const terminalPointCodes = new Set([
   "PROFILE_REQUIRED", "EVENT_NOT_FOUND", "MATCH_NOT_FOUND",
   "INVALID_POINT_COMMAND", "DIRECT_SCORE_MODE", "MATCH_FINISHED",
   "SCORING_STATE",
+  // Edge/RPC can reject a point for terminal event, match or membership state.
+  // Preserve those denials even if a proxy drops the HTTP status.
+  "EVENT_FINISHED", "EVENT_CANCELLED", "MATCH_NOT_READY",
+  "MATCH_ALREADY_FINISHED", "NOT_PARTICIPANT", "DOWNSTREAM_MATCH_STARTED",
 ]);
 
 /** Never silently rebase a point onto a changed score or retry a rejected request. */

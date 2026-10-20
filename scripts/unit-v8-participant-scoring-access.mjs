@@ -95,6 +95,17 @@ try {
   ]) {
     assert.equal(pointRetryDisposition(denied, attempt, same, true), "conflict");
   }
+  // Terminal Edge denials must never be replayed, even when HTTP status is lost
+  // or a point log is visible from a concurrent/previous request.
+  for (const code of ["EVENT_FINISHED", "EVENT_CANCELLED", "MATCH_NOT_READY",
+    "MATCH_ALREADY_FINISHED", "NOT_PARTICIPANT", "DOWNSTREAM_MATCH_STARTED"]) {
+    for (const committed of [false, true]) {
+      for (const status of [null, 503]) {
+        assert.equal(pointRetryDisposition(new TournamentCommandError("denied", code, status), attempt, same, committed),
+          "conflict", `${code} is terminal regardless of status or observed point log`);
+      }
+    }
+  }
   assert.equal(pointRetryDisposition(new TournamentCommandError("timeout", null, 408), attempt, same, true), "committed");
   assert.equal(pointRetryDisposition(new TournamentCommandError("server error", null, 503), attempt, same, true), "committed");
   assert.equal(pointRetryDisposition(null, attempt, null, false), "conflict");
@@ -113,6 +124,7 @@ try {
   assert.match(matchSource, /pending\.lastAttempt=observed/, "point queue must retain attempted versions");
   assert.match(matchSource, /pointQueue\.current=\[\];setOptimisticPoints\(\[\]\)/, "conflicts must clear unsent optimistic points");
   assert.match(commandSource, /new TournamentCommandError\(explainError/, "Edge HTTP status and code must not be discarded");
+  assert.match(commandSource, /if\(sessionError\|\|!session\?\.access_token\)throw new TournamentCommandError\([^\n]*"AUTH_REQUIRED",401\)/, "missing JWT must be a terminal auth denial, not a retryable network error");
   console.log("V8 participant scoring eligibility and point conflict retry tests passed");
 } finally {
   await rm(tmp, { recursive: true, force: true });
@@ -147,6 +159,26 @@ assert.equal(tryScoreCorrection("finished", true).status, "finished");
 assert.equal(tryScoreCorrection("not_started", undefined).status, "finished",
   "first-time result entry must not require correction confirmation");
 console.log("PASS: V8 organizer completed-score correction requires trusted-domain confirmation");
+
+// A final-point undo is also a result correction: verify the actual domain guard.
+const undoGuardLine = correctionSource.split("\n").find((line) => line.includes('if(command.type==="undo"&&m.status==="finished")'));
+assert.ok(undoGuardLine, "finished live-result undo must have a trusted-domain guard");
+const executeUndoGuard = new Function("command", "m", "ensure", undoGuardLine);
+const requireUndoConfirmation = (status, confirmed) => executeUndoGuard(
+  { type: "undo", confirmed }, { status }, (allowed, code) => {
+    if (!allowed) { const error = new Error(code); error.code = code; throw error; }
+  },
+);
+for (const confirmation of [undefined, false, 1]) {
+  assert.throws(() => requireUndoConfirmation("finished", confirmation),
+    (error) => error.code === "CONFIRM_RESULT_CORRECTION");
+}
+assert.doesNotThrow(() => requireUndoConfirmation("finished", true));
+assert.doesNotThrow(() => requireUndoConfirmation("ongoing", undefined));
+const undoUiSource = await readFile("src/pages/MatchPage.tsx", "utf8");
+assert.match(undoUiSource, /if\(type==="undo"&&m\.status==="finished"&&!confirmed\)/);
+assert.match(undoUiSource, /setConfirm\(\(\)=>\(\)=>\{void send\("undo",\{\},true\)\}\)/);
+console.log("PASS: completed live-match undo requires explicit confirmation in domain and UI");
 // Keep P1 actor isolation, eligibility, retry and Match UI contracts in the default unit gate.
 await import("./unit-v8-participant-scoring-eligibility-client.mjs");
 await import("./unit-v8-participant-point-route-isolation.mjs");
