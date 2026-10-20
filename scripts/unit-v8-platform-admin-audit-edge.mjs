@@ -108,9 +108,32 @@ assert.equal((await send({ before: { ...cursor, id: "bad" } })).status, 400);
 assert.equal((await send({ before: { ...cursor, created_at: "2026-10-11" } })).status, 400);
 assert.equal((await send({ junk: "x".repeat(2049) })).status, 413);
 
-authError = { message: "expired" };
-assert.equal((await send()).status, 401);
+const auditRpcCount = () => calls.filter((call) => call.method === "rpc").length;
+const rpcCountBeforeAuthFailures = auditRpcCount();
+for (const status of [400, 401, 403, 422]) {
+  authError = { message: "invalid JWT", status };
+  res = await send();
+  assert.equal(res.status, 401, `invalid credentials status ${status}`);
+  assert.equal(res.data.code, "AUTH_REQUIRED");
+  assert.equal(auditRpcCount(), rpcCountBeforeAuthFailures, "invalid JWT cannot reach audit RPC");
+}
+for (const status of [429, 500, 502, 503, undefined]) {
+  authError = { message: "Auth upstream unavailable", status };
+  res = await send();
+  assert.equal(res.status, 503, `Auth upstream status ${status}`);
+  assert.equal(res.data.code, "AUTH_CHECK_UNAVAILABLE");
+  assert.equal(auditRpcCount(), rpcCountBeforeAuthFailures, "Auth outage cannot reach audit RPC");
+}
 authError = null;
+authUser = null;
+res = await send();
+assert.equal(res.status, 401, "missing verified user must fail closed");
+assert.equal(auditRpcCount(), rpcCountBeforeAuthFailures);
+authUser = { id: "not-a-uuid" };
+res = await send();
+assert.equal(res.status, 401, "malformed verified actor must fail closed");
+assert.equal(auditRpcCount(), rpcCountBeforeAuthFailures);
+authUser = { id: auditRow.actor_auth_user_id };
 rpcError = { message: "PLATFORM_ADMIN_FORBIDDEN" };
 res = await send();
 assert.equal(res.status, 403, "role revocation must fail closed");

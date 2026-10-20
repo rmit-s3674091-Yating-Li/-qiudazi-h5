@@ -104,8 +104,18 @@ Deno.serve(async (req) => {
   const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 
   try {
-    const { data: { user }, error: authError } = await client.auth.getUser(token);
-    if (authError || !user) return json({ code: "AUTH_REQUIRED" }, 401);
+    const { data: authData, error: authError } = await client.auth.getUser(token);
+    const user = authData?.user;
+    if (authError) {
+      // Auth rate limits/outages cannot establish that a bearer token is invalid.
+      // Never query privileged audit history without a verified caller.
+      const status = authError.status;
+      if (status === 400 || status === 401 || status === 403 || status === 422) {
+        return json({ code: "AUTH_REQUIRED" }, 401);
+      }
+      return json({ code: "AUTH_CHECK_UNAVAILABLE" }, 503);
+    }
+    if (!user || !validId(user.id)) return json({ code: "AUTH_REQUIRED" }, 401);
     const { data, error } = await client.rpc("platform_admin_list_audit", {
       p_actor_auth_user_id: user.id,
       p_page_size: query.pageSize,

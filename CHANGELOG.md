@@ -1,3 +1,15 @@
+## 2026-10-20 — V8 Platform Admin user directory Auth upstream classification (unreleased)
+
+- `V8-20261020-P2-USER-DIRECTORY-AUTH-STATUS`: explicit invalid credentials return `401 AUTH_REQUIRED`; Auth rate limits, upstream failures, and unknown statuses return `503 AUTH_CHECK_UNAVAILABLE`. Malformed verified actor IDs are rejected, and no privileged user-directory RPC runs after failed identity verification.
+
+## 2026-10-20 — V8 Platform Admin score exception Auth upstream classification (unreleased)
+
+- `V8-20261020-P2-SCORE-EXCEPTION-AUTH-STATUS`: explicit invalid credentials return `401 AUTH_REQUIRED`; Auth rate limits, upstream failures and unknown statuses return `503 AUTH_CHECK_UNAVAILABLE`. No privileged score-exception lookup runs without a verified user; existing server-side role checks remain unchanged.
+
+## 2026-10-20 — V8 Platform Admin report resolution Auth upstream classification (unreleased)
+
+- `V8-20261020-P2-REPORT-RESOLUTION-AUTH-STATUS`: explicit invalid-credential Auth statuses return `401 AUTH_REQUIRED`; Auth throttling, outages and unknown upstream statuses return `503 AUTH_CHECK_UNAVAILABLE`. The audited report-resolution RPC is never called when Auth verification fails.
+
 ## 2026-10-20 — V8 tournament command Auth upstream classification (unreleased)
 
 - `V8-20261020-P1-TOURNAMENT-AUTH-STATUS`: verified JWT failures return `401 AUTH_REQUIRED` only for explicit invalid-credential statuses; Auth throttling/outages and unknown statuses return `503 AUTH_CHECK_UNAVAILABLE`. No profile or scoring RPC is reached without a verified user.

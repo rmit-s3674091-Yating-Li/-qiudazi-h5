@@ -78,7 +78,16 @@ Deno.serve(async (req) => {
   try {
     const { data: authData, error: authError } = await client.auth.getUser(token);
     const user = authData?.user;
-    if (authError || !user || !validId(user.id)) return json({ code: "AUTH_REQUIRED" }, 401);
+    if (authError) {
+      // An Auth outage or throttle is not evidence that the JWT is invalid.
+      // Never reach the privileged exception-directory RPC without a verified user.
+      const status = authError.status;
+      if (status === 400 || status === 401 || status === 403 || status === 422) {
+        return json({ code: "AUTH_REQUIRED" }, 401);
+      }
+      return json({ code: "AUTH_CHECK_UNAVAILABLE" }, 503);
+    }
+    if (!user || !validId(user.id)) return json({ code: "AUTH_REQUIRED" }, 401);
     const { data, error } = await client.rpc("platform_admin_list_score_exceptions", {
       p_actor_auth_user_id: user.id, p_event_id: query.eventId, p_page_size: query.pageSize,
       p_before_created_at: query.beforeCreatedAt, p_before_id: query.beforeId,

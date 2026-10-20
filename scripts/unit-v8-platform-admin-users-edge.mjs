@@ -94,11 +94,29 @@ for (const invalid of ["bad-json", { page_size: 0 }, { page_size: 51 }, { page_s
   assert.equal((await send(invalid)).status, 400, `invalid input must fail: ${JSON.stringify(invalid)}`);
 }
 assert.equal((await send({ extra: "x".repeat(2049) })).status, 413);
-authError = { message: "expired" };
-assert.equal((await send()).status, 401);
+const rpcCount = () => calls.filter((call) => call.method === "rpc").length;
+const beforeAuthFailures = rpcCount();
+for (const status of [400, 401, 403, 422]) {
+  authError = { message: "invalid credentials", status };
+  res = await send();
+  assert.equal(res.status, 401, `invalid JWT status ${status}`);
+  assert.equal(res.data.code, "AUTH_REQUIRED");
+  assert.equal(rpcCount(), beforeAuthFailures, "invalid JWT must not reach privileged user RPC");
+}
+for (const status of [429, 500, 502, 503, undefined]) {
+  authError = { message: "Auth upstream unavailable", status };
+  res = await send();
+  assert.equal(res.status, 503, `Auth upstream status ${status}`);
+  assert.equal(res.data.code, "AUTH_CHECK_UNAVAILABLE");
+  assert.equal(rpcCount(), beforeAuthFailures, "Auth outage must not reach privileged user RPC");
+}
 authError = null;
 authUser = null;
 assert.equal((await send()).status, 401);
+assert.equal(rpcCount(), beforeAuthFailures);
+authUser = { id: "not-a-uuid" };
+assert.equal((await send()).status, 401, "malformed verified actor must fail closed");
+assert.equal(rpcCount(), beforeAuthFailures);
 authUser = { id: "b3333333-3333-4333-8333-333333333333" };
 rpcError = { message: "PLATFORM_ADMIN_HIGH_RISK_FORBIDDEN" };
 res = await send();

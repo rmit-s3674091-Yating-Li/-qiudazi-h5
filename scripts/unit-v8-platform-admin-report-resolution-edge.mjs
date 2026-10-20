@@ -32,7 +32,7 @@ const client = {
   auth: { getUser: async (token) => {
     authCalls++;
     return token === "good" ? { data: { user: { id: actor } }, error: authError } :
-      { data: { user: null }, error: { message: "invalid token" } };
+      { data: { user: null }, error: { message: "invalid token", status: 401 } };
   } },
   rpc: async (name, args) => {
     assert.equal(name, "platform_admin_resolve_report");
@@ -104,8 +104,27 @@ for (const bad of [
   assert.equal(res.status, 503, JSON.stringify(bad));
 }
 rpcResult = { data: { request_id: requestId, report_id: report, status: "resolved", version: 5, replayed: false }, error: null };
-authError = { message: "expired" };
+authError = { message: "expired", status: 401 };
 assert.equal((await call()).status, 401);
+// Supabase may return a user object together with an Auth error. Never trust it.
+for (const [status, expectedStatus, expectedCode] of [
+  [400, 401, "AUTH_REQUIRED"],
+  [401, 401, "AUTH_REQUIRED"],
+  [403, 401, "AUTH_REQUIRED"],
+  [422, 401, "AUTH_REQUIRED"],
+  [429, 503, "AUTH_CHECK_UNAVAILABLE"],
+  [500, 503, "AUTH_CHECK_UNAVAILABLE"],
+  [503, 503, "AUTH_CHECK_UNAVAILABLE"],
+  [undefined, 503, "AUTH_CHECK_UNAVAILABLE"],
+  [null, 503, "AUTH_CHECK_UNAVAILABLE"],
+]) {
+  authError = { message: "Auth upstream error", status };
+  const before = rpcCalls;
+  const failed = await call();
+  assert.equal(failed.status, expectedStatus);
+  assert.equal(failed.body.code, expectedCode);
+  assert.equal(rpcCalls, before, "Auth failure must not invoke report resolution RPC");
+}
 authError = null;
 envAvailable = false;
 assert.equal((await call()).status, 503);
