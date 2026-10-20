@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
 
+await import("./unit-v8-venue-picker-geolocation-feedback.mjs");
+
 const root = new URL("../", import.meta.url);
 const tmp = await mkdtemp(join(tmpdir(), "qiudazi-venue-"));
 const base = {

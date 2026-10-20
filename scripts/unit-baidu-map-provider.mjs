@@ -7,8 +7,25 @@ import ts from "typescript";
 const root=new URL("../",import.meta.url),tmp=await mkdtemp(join(tmpdir(),"qiudazi-baidu-"));
 async function compile(path,out){const source=await readFile(new URL(path,root),"utf8");const result=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022,verbatimModuleSyntax:true},fileName:path});await writeFile(join(tmp,out),result.outputText.replace(/(from\s+["'](?:\.\.?\/)[^"']+)\.ts(["'])/g,"$1.js$2").replace(/export function createConfiguredBaiduMapProvider[\s\S]*$/,""),"utf8");return source}
 try{
-  await compile("src/utils/mapProvider.ts","mapProvider.js");const source=await compile("src/utils/baiduMapProvider.ts","baiduMapProvider.js");const {createBaiduMapProvider}=await import(pathToFileURL(join(tmp,"baiduMapProvider.js")).href+`?v=${Date.now()}`);
+  await compile("src/utils/mapProvider.ts","mapProvider.js");const source=await compile("src/utils/baiduMapProvider.ts","baiduMapProvider.js");const {createBaiduMapProvider,venueProxyFailureCode}=await import(pathToFileURL(join(tmp,"baiduMapProvider.js")).href+`?v=${Date.now()}`);
   assert.doesNotMatch(source,/import\.meta\.env\.VITE_BAIDU_MAP_AK/);assert.match(source,/server-proxy/);assert.match(source,/\/api\/venue-search/);assert.match(source,/\/api\/venue-reverse/);assert.match(source,/reverse_geocoding\/v3/);assert.match(source,/response\.status===401/);
+  assert.match(source,/venueProxyFailureCode\(response\.status,body,isReverse\)/);
+  for (const [status, body, reverse, expected] of [
+    [401, {error:"AUTH_REQUIRED"}, false, "AUTH_REQUIRED"],
+    [503, {error:"AUTH_CHECK_UNAVAILABLE"}, false, "AUTH_CHECK_UNAVAILABLE"],
+    [503, {error:"BAIDU_MAP_AK_MISSING"}, false, "BAIDU_MAP_AK_MISSING"],
+    [502, {error:"BAIDU_PLACE_UPSTREAM_ERROR", upstream_statuses:[302]}, false, "BAIDU_PLACE_UPSTREAM_ERROR"],
+    [504, {error:"VENUE_SEARCH_TIMEOUT"}, false, "VENUE_SEARCH_TIMEOUT"],
+    [502, {error:"BAIDU_REVERSE_UPSTREAM_ERROR", upstream_status:302}, true, "BAIDU_REVERSE_UPSTREAM_ERROR"],
+    [400, {error:"VENUE_LOCATION_OUTSIDE_CHINA"}, true, "VENUE_LOCATION_OUTSIDE_CHINA"],
+    [503, {error:"AUTH_CHECK_UNAVAILABLE"}, true, "AUTH_CHECK_UNAVAILABLE"],
+    [502, {error:"BAIDU_REVERSE_NETWORK_ERROR"}, true, "BAIDU_REVERSE_NETWORK_ERROR"],
+    [502, {error:"INTERNAL_DB_SECRET"}, false, "BAIDU_PLACE_HTTP_ERROR"],
+    [502, {error:"BAIDU_REVERSE_UPSTREAM_ERROR"}, false, "BAIDU_PLACE_HTTP_ERROR"],
+    [502, {error:"BAIDU_PLACE_UPSTREAM_ERROR"}, true, "BAIDU_REVERSE_HTTP_ERROR"],
+    [503, null, false, "BAIDU_PLACE_HTTP_ERROR"],
+    [502, [], true, "BAIDU_REVERSE_HTTP_ERROR"],
+  ]) assert.equal(venueProxyFailureCode(status,body,reverse),expected);
   const missing=createBaiduMapProvider({ak:"",fetchImpl:async()=>{throw new Error("must not fetch")}});await assert.rejects(()=>missing.searchPlaces("网球中心"),/BAIDU_MAP_AK_MISSING/);assert.deepEqual(await missing.searchPlaces("   "),[]);
   let requested="";const provider=createBaiduMapProvider({ak:"test-publishable-ak",region:"上海",fetchImpl:async input=>{requested=input;return {ok:true,json:async()=>({status:0,results:[{uid:"poi-1",name:" 上海网球中心 ",address:"浦东新区示例路",location:{lat:31.2,lng:121.5}},{uid:"bad",name:"bad",address:"bad",location:{lat:999,lng:121}}]})}}});
   const places=await provider.searchPlaces(" 网球中心 ");assert.equal(places.length,1);assert.equal(places[0].name,"上海网球中心");assert.equal(places[0].address,"浦东新区示例路");assert.equal(places[0].provider,"baidu");assert.equal(places[0].placeId,"poi-1");assert.ok(Math.abs(places[0].latitude-31.2)<0.02);assert.ok(Math.abs(places[0].longitude-121.5)<0.02);assert.notEqual(places[0].latitude,31.2);assert.notEqual(places[0].longitude,121.5);assert.match(requested,/place\/v2\/search/);assert.match(requested,/query=%E7%BD%91%E7%90%83%E4%B8%AD%E5%BF%83/);assert.match(requested,/region=%E4%B8%8A%E6%B5%B7/);assert.match(requested,/ak=test-publishable-ak/);assert.equal(new URL(requested).searchParams.get("ret_coordtype"),"gcj02ll","direct Baidu V2 requests must return GCJ-02");
