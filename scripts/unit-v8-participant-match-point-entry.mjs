@@ -63,8 +63,8 @@ try {
     "a conflicting point side must not be mistaken for a committed pending point");
   assert.deepEqual(uncommittedPointQueue(queue, [{ ...logs[0], match_id: "match-2" }], "match-1"), queue,
     "same operation ID on a different match must not suppress pending points");
-  assert.deepEqual(uncommittedPointQueue(queue, [{ ...logs[0], voided_at: "2026-10-19" }], "match-1"), [queue[1]],
-    "an already committed operation must not be replayed optimistically after undo");
+  assert.deepEqual(uncommittedPointQueue(queue, [{ ...logs[0], voided_at: "2026-10-19" }], "match-1"), queue,
+    "a voided historical point must not be treated as an active committed score");
   assert.deepEqual(uncommittedPointQueue(queue, [], "match-1"), queue,
     "uncommitted points remain optimistic");
   assert.equal(queue.length, 2, "reconciliation must not consume the retry queue");
