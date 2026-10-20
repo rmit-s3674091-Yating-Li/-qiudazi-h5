@@ -8,11 +8,11 @@ const {default: handler} = await import(moduleUrl);
 const ok = (body, status = 200) => ({ok: status >= 200 && status < 300, status, json: async () => body});
 const validEmpty = {status: 0, results: []};
 
-async function run(label, mapResponse, {authOk=true, query='网球中心'}={}) {
+async function run(label, mapResponse, {authOk=true, authStatus=authOk ? 200 : 401, query='网球中心'}={}) {
   let mapCalls = 0;
   globalThis.fetch = async (input) => {
     const url = String(input);
-    if(url.includes('/auth/v1/user')) return ok({id: '11111111-1111-4111-8111-111111111111'}, authOk ? 200 : 401);
+    if(url.includes('/auth/v1/user')) return ok({id: '11111111-1111-4111-8111-111111111111'}, authStatus);
     assert.equal(new URL(url).searchParams.get('ret_coordtype'), 'gcj02ll', 'all Baidu POI endpoints must return GCJ-02');
     mapCalls++;
     return mapResponse(url, mapCalls);
@@ -88,4 +88,16 @@ const v2Partial = await run('v2 suggestion outage, search candidate',url=>url.in
 const failedWithoutResults = await run('partial outage is not a genuine empty result',url=>url.includes('/v3/suggestion') ? Promise.reject(new Error('offline')) : ok(validEmpty));assert.equal(failedWithoutResults.status,502);assert.equal(failedWithoutResults.body.error,'BAIDU_PLACE_NETWORK_ERROR');
 const offline = await run('network failure',()=>{throw new Error('offline')});assert.equal(offline.status,502);assert.equal(offline.body.error,'BAIDU_PLACE_NETWORK_ERROR');
 const denied = await run('auth denied',()=>{throw new Error('should not query POI')},{authOk:false});assert.equal(denied.status,401);assert.equal(denied.mapCalls,0);
+// An upstream Auth outage or rate limit is not proof that the user's JWT expired.
+// Do not call Baidu when the Auth check is inconclusive.
+for (const [authStatus, expectedStatus, expectedError] of [
+  [401, 401, 'AUTH_REQUIRED'], [403, 401, 'AUTH_REQUIRED'],
+  [400, 503, 'AUTH_CHECK_UNAVAILABLE'], [429, 503, 'AUTH_CHECK_UNAVAILABLE'],
+  [500, 503, 'AUTH_CHECK_UNAVAILABLE'], [503, 503, 'AUTH_CHECK_UNAVAILABLE'],
+]) {
+  const checked = await run(`auth status ${authStatus}`, () => { throw new Error('Baidu must not be called'); }, {authStatus});
+  assert.equal(checked.status, expectedStatus);
+  assert.equal(checked.body.error, expectedError);
+  assert.equal(checked.mapCalls, 0);
+}
 console.log('V8 venue search upstream response contract tests passed.');

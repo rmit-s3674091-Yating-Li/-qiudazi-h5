@@ -6,7 +6,7 @@ const priorKey = process.env.BAIDU_MAP_AK;
 const priorFetch = globalThis.fetch;
 process.env.BAIDU_MAP_AK = "fixture-secret-ak";
 const { default: handler } = await import(pathToFileURL(resolve("api/venue-reverse.js")).href);
-const ok = (body, status = 200) => ({ ok: status >= 200 && status < 300, json: async () => body });
+const ok = (body, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 const valid = { status: 0, result: { formatted_address: "北京市朝阳区" } };
 
 async function run({ location = "39.99,116.39", method = "GET", auth = "Bearer test-token", authUpstream = null, upstream = () => ok(valid) } = {}) {
@@ -49,6 +49,20 @@ try {
   assert.equal((await run({ method: "POST" })).status, 405);
   assert.equal((await run({ auth: "" })).status, 401);
   assert.equal((await run({ auth: "Bearer denied" })).status, 401);
+  // Auth service outage/rate limiting is not proof that the user's token is invalid.
+  // Fail closed without calling Baidu, but do not mislabel an upstream 5xx as 401.
+  for (const [upstreamStatus, expectedStatus, expectedError] of [
+    [401, 401, "AUTH_REQUIRED"],
+    [403, 401, "AUTH_REQUIRED"],
+    [429, 503, "AUTH_CHECK_UNAVAILABLE"],
+    [500, 503, "AUTH_CHECK_UNAVAILABLE"],
+    [503, 503, "AUTH_CHECK_UNAVAILABLE"],
+  ]) {
+    const authFailure = await run({ authUpstream: () => ok({ error: "upstream" }, upstreamStatus) });
+    assert.equal(authFailure.status, expectedStatus, `auth HTTP ${upstreamStatus}`);
+    assert.deepEqual(authFailure.body, { error: expectedError }, `auth HTTP ${upstreamStatus}`);
+    assert.equal(authFailure.mapCalls, 0, "failed auth must not reach Baidu");
+  }
   const authNetwork = await run({ authUpstream: () => { throw new Error("auth offline"); } });
   assert.equal(authNetwork.status, 503);
   assert.deepEqual(authNetwork.body, { error: "AUTH_CHECK_UNAVAILABLE" });

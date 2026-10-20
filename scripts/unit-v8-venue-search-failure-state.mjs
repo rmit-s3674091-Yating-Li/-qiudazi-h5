@@ -99,6 +99,12 @@ try {
   assert.deepEqual(rankPlaces([candidate("奥林匹克森林公园")], "奥森").map(item => item.name), ["奥林匹克森林公园"],
     "non-tennis shorthand still supports relevant fuzzy venue recall");
   assert.deepEqual(rankPlaces([candidate("城市绿心森林公园")], "绿心").map(item => item.name), ["城市绿心森林公园"]);
+  assert.deepEqual(rankPlaces([candidate("绿色体育中心")], "绿心").map(item => item.name), [],
+    "two isolated characters in an unrelated POI must not count as a venue-name match");
+  assert.deepEqual(rankPlaces([candidate("奥运森林活动中心")], "奥森").map(item => item.name), [],
+    "scattered shorthand characters must not manufacture a false 奥森 candidate");
+  assert.deepEqual(rankPlaces([candidate("奥森网球中心")], "奥森").map(item => item.name), ["奥森网球中心"],
+    "literal venue shorthand remains searchable");
   assert.deepEqual(rankPlaces([candidate("Tension Club"), candidate("Tennis Center")], "tennis").map(item => item.name), ["Tennis Center"],
     "English tennis queries must not accept near-spelling unrelated POIs");
   // Map movement or GPS selection must cancel a search that is still in flight.

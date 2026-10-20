@@ -67,6 +67,27 @@ try {
   assert.equal(maps.hasVenueCoordinates({ venue_latitude: null, venue_longitude: null }), false);
   assert.match(maps.browserMapProvider.externalMapUrl({ latitude: 31.2, longitude: 121.5 }), /^https:\/\/www\.openstreetmap\.org\//);
   assert.match(maps.browserMapProvider.externalDirectionsUrl({ latitude: 31.2, longitude: 121.5, name: "Tennis Center" }), /^https:\/\/maps\.apple\.com\/\?daddr=/);
+  // A GPS timeout or provider outage is not a permission denial. Preserve the
+  // separate fallback copy in EventFormPage for genuinely denied permissions.
+  const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  try {
+    for (const [code, expected] of [
+      [1, "GEOLOCATION_DENIED"],
+      [2, "GEOLOCATION_UNAVAILABLE"],
+      [3, "GEOLOCATION_TIMEOUT"],
+    ]) {
+      Object.defineProperty(globalThis, "navigator", {
+        configurable: true,
+        value: { geolocation: { getCurrentPosition(_ok, fail) { fail({ code }); } } },
+      });
+      await assert.rejects(maps.browserMapProvider.getCurrentPosition(),
+        error => error instanceof Error && error.message === expected,
+        `geolocation error ${code} must be classified as ${expected}`);
+    }
+  } finally {
+    if (originalNavigator) Object.defineProperty(globalThis, "navigator", originalNavigator);
+    else delete globalThis.navigator;
+  }
 
   requires(formSource, [
     /添加场馆定位/, /使用当前位置/, /VenueMapPicker/, /confirmMapLocation/,
