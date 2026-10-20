@@ -102,8 +102,29 @@ for (const bad of [
   assert.equal(calls.length, before, "invalid requests must not call Auth or RPC");
 }
 assert.equal((await send("x".repeat(4097))).status, 413);
-authError = { message: "expired" };
+authError = { message: "expired", status: 401 };
 assert.equal((await send()).status, 401);
+authError = null;
+// Auth may return a user object alongside an error. No photo-removal RPC may run.
+for (const [status, expectedStatus, expectedCode] of [
+  [400, 401, "AUTH_REQUIRED"],
+  [401, 401, "AUTH_REQUIRED"],
+  [403, 401, "AUTH_REQUIRED"],
+  [422, 401, "AUTH_REQUIRED"],
+  [429, 503, "AUTH_CHECK_UNAVAILABLE"],
+  [500, 503, "AUTH_CHECK_UNAVAILABLE"],
+  [503, 503, "AUTH_CHECK_UNAVAILABLE"],
+  [undefined, 503, "AUTH_CHECK_UNAVAILABLE"],
+  [null, 503, "AUTH_CHECK_UNAVAILABLE"],
+]) {
+  authError = { message: "auth upstream failure", status };
+  const before = calls.filter((entry) => entry.kind === "rpc").length;
+  const failed = await send();
+  assert.equal(failed.status, expectedStatus);
+  assert.equal(failed.data.code, expectedCode);
+  assert.equal(calls.filter((entry) => entry.kind === "rpc").length, before,
+    "Auth failures must not invoke the photo-removal transaction");
+}
 authError = null;
 authUser = { id: "not-a-uuid" };
 assert.equal((await send()).status, 401);

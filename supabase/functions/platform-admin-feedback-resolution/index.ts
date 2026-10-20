@@ -94,7 +94,16 @@ Deno.serve(async (req) => {
   try {
     const { data: authData, error: authError } = await client.auth.getUser(token);
     const user = authData?.user;
-    if (authError || !user || !validId(user.id)) return json({ code: "AUTH_REQUIRED" }, 401);
+    if (authError) {
+      // Auth throttling or outage is not evidence that the caller's JWT expired.
+      // Fail closed without invoking the audited feedback mutation RPC.
+      const status = authError.status;
+      if (status === 400 || status === 401 || status === 403 || status === 422) {
+        return json({ code: "AUTH_REQUIRED" }, 401);
+      }
+      return json({ code: "AUTH_CHECK_UNAVAILABLE" }, 503);
+    }
+    if (!user || !validId(user.id)) return json({ code: "AUTH_REQUIRED" }, 401);
     const { data, error } = await client.rpc("platform_admin_resolve_feedback", {
       p_actor_auth_user_id: user.id,
       p_feedback_id: input.feedbackId,

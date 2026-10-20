@@ -91,9 +91,30 @@ for (const bad of [
   assert.equal(calls.length, before, "invalid requests must not call Auth or RPC");
 }
 assert.equal((await send("x".repeat(4097))).status, 413);
-authError = { message: "expired" };
+authError = { message: "expired", status: 401 };
 assert.equal((await send()).status, 401);
+for (const status of [400, 401, 403, 422]) {
+  authError = { message: "invalid credentials", status };
+  const before = calls.length;
+  const response = await send();
+  assert.equal(response.status, 401);
+  assert.equal(response.data.code, "AUTH_REQUIRED");
+  assert.deepEqual(calls.slice(before).map(call => call.kind), ["auth"], "invalid JWT cannot cancel event");
+}
+for (const status of [429, 500, 503, undefined]) {
+  authError = { message: "Auth upstream unavailable", status };
+  const before = calls.length;
+  const response = await send();
+  assert.equal(response.status, 503);
+  assert.equal(response.data.code, "AUTH_CHECK_UNAVAILABLE");
+  assert.deepEqual(calls.slice(before).map(call => call.kind), ["auth"], "Auth outage cannot cancel event");
+}
 authError = null;
+authUser = null;
+const missingUser = await send();
+assert.equal(missingUser.status, 401);
+assert.equal(missingUser.data.code, "AUTH_REQUIRED");
+authUser = { id: "a1111111-1111-4111-8111-111111111111" };
 for (const [errorCode, status, publicCode] of [
   ["PLATFORM_ADMIN_HIGH_RISK_FORBIDDEN", 403, "PLATFORM_ADMIN_FORBIDDEN"],
   ["EVENT_NOT_FOUND", 404, "EVENT_NOT_FOUND"],
