@@ -22,6 +22,14 @@
 
 - `V8-20261020-P2-ADMIN-CANCEL-AUTH-STATUS`: distinguish explicit invalid credentials (`401 AUTH_REQUIRED`) from Auth service failures/rate limiting (`503 AUTH_CHECK_UNAVAILABLE`) on the privileged event-cancellation Edge route. No cancellation RPC is called when identity verification fails.
 
+## 2026-10-20 — V8 organizer voided point replay guard (unreleased)
+
+- `V8-20261020-P1-OWNER-VOIDED-REPLAY`: organizer point retry and version-conflict recovery reject voided historical point IDs instead of acknowledging them as active scores; active points retain idempotent replay. No database migration or authorization relaxation.
+
+## 2026-10-20 — V8 voided point replay transaction guard (unreleased)
+
+- `V8-20261020-P1-VOIDED-REPLAY-GUARD`: a participant point previously undone by an organizer cannot be acknowledged by the locked service-role replay transaction; the original operation ID remains reserved and returns `OPERATION_CONFLICT`. Active replays, actor binding, fresh-point two-entry checks and score correction permissions are unchanged.
+
 ## 2026-10-20 — V8 tournament command Auth upstream classification (unreleased)
 
 - `V8-20261020-P1-TOURNAMENT-AUTH-STATUS`: verified JWT failures return `401 AUTH_REQUIRED` only for explicit invalid-credential statuses; Auth throttling/outages and unknown statuses return `503 AUTH_CHECK_UNAVAILABLE`. No profile or scoring RPC is reached without a verified user.

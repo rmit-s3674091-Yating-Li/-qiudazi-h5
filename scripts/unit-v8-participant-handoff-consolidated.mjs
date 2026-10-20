@@ -24,3 +24,4 @@ assert.match(command, /function normalizePointCommandIds/);
 assert.match(command, /const cmd = normalizePointCommandIds\(parsed\.data\)/);
 assert.match(command, /operation_id: cmd\.operation_id\?\.toLowerCase\(\)/);
 console.log("PASS: consolidated V8 participant handoff safety contracts");
+await import("./unit-v8-participant-voided-point-reconciliation.mjs");

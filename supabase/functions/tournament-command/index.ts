@@ -61,10 +61,12 @@ function normalizePointCommandIds(cmd: Command): Command {
 
 async function findPointOperation(client: ReturnType<typeof createClient>, cmd: Command, actorAuthUserId: string) {
   if (cmd.type !== "point" || !cmd.operation_id) return null;
-  const { data, error } = await client.from("point_logs").select("id,match_id,winner_side").eq("id", cmd.operation_id).maybeSingle();
+  const { data, error } = await client.from("point_logs").select("id,match_id,winner_side,voided_at").eq("id", cmd.operation_id).maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  if (data.match_id !== cmd.match_id || data.winner_side !== cmd.side) return { conflict: true as const, snapshot: null };
+  // A voided operation remains reserved history, not a successful score replay.
+  // Fail closed if the point status is absent from the database response.
+  if (data.match_id !== cmd.match_id || data.winner_side !== cmd.side || data.voided_at !== null) return { conflict: true as const, snapshot: null };
   const { data: snapshot, error: snapshotError } = await client.rpc("get_event_snapshot_for_actor", { p_event_id: cmd.event_id, p_actor_auth_user_id: actorAuthUserId });
   if (snapshotError) throw snapshotError;
   const current = snapshot as Snapshot | null;
@@ -73,7 +75,7 @@ async function findPointOperation(client: ReturnType<typeof createClient>, cmd: 
     current.event.id !== cmd.event_id ||
     !current.matches.some((match) => match.id === cmd.match_id && match.event_id === cmd.event_id) ||
     !current.point_logs.some(
-      (log) => log.id === cmd.operation_id && log.match_id === cmd.match_id && log.winner_side === cmd.side,
+      (log) => log.id === cmd.operation_id && log.match_id === cmd.match_id && log.winner_side === cmd.side && log.voided_at === null,
     )
   ) return { conflict: true as const, snapshot: null };
   return { conflict: false as const, snapshot: current };

@@ -29,6 +29,12 @@ try {
   const binding = await readFile("supabase/migrations/20261013045400_v8_participant_point_replay_actor_binding.sql", "utf8");
   assert.match(binding, /v_binding\.actor_auth_user_id is distinct from p_actor_auth_user_id/);
   assert.match(binding, /v8_commit_participant_round_robin_point_unbound\(/);
+  const voidedGuard = await readFile("supabase/migrations/20261020051600_v8_participant_voided_point_replay_guard.sql", "utf8");
+  assert.match(voidedGuard, /voided_at is null/);
+  assert.match(voidedGuard, /or not v_has_active_point then/);
+  assert.match(voidedGuard, /raise exception 'OPERATION_CONFLICT'/);
+  assert.match(voidedGuard, /for share of entry_a, entry_b/);
+  assert.match(voidedGuard, /grant execute on function public\.v8_commit_participant_round_robin_point\(/);
   const atomic = await readFile("supabase/migrations/20261012215100_v8_participant_round_robin_point_commit.sql", "utf8");
   assert.match(atomic, /ep\.active is true and p\.linked_user_id=v_actor/);
   assert.match(atomic, /for share of en,ep,p/);

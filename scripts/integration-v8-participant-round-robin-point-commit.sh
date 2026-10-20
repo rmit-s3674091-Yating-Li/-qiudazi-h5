@@ -74,6 +74,17 @@ begin
     or (select count(*) from public.point_logs where match_id=v_match)<>1
   then raise exception 'REPLAY_NOT_IDEMPOTENT'; end if;
 
+  -- A voided point is historical. A replay must not acknowledge it as a
+  -- current committed score or recycle its original operation ID.
+  update public.point_logs set voided_at=now() where id=v_op;
+  v_blocked:=false;
+  begin
+    perform public.v8_commit_participant_round_robin_point(
+      v_event,v_match,v_actor,1,1,v_op,'A',v_next);
+  exception when others then v_blocked:=(sqlerrm='OPERATION_CONFLICT'); end;
+  if not v_blocked then raise exception 'VOIDED_POINT_REPLAY_ACCEPTED'; end if;
+  update public.point_logs set voided_at=null where id=v_op;
+
   -- A lost response for the last point must remain idempotent after the
   -- match and event reach their terminal states. The DB replay path must not
   -- reapply the point or bypass the original actor binding.

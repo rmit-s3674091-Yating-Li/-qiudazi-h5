@@ -11,7 +11,7 @@ import { useAuth } from "../hooks/Auth";
 import { useParticipantScoringEligibility } from "../hooks/useParticipantScoringEligibility";
 import { pointRetryDisposition, type PointAttemptVersions } from "../domain/PointCommandConflict";
 import { advancePointQueueScope, pointQueueScopeKey, samePointQueueScope } from "../domain/PointQueueScope";
-import { uncommittedPointQueue } from "../domain/PointQueueReconciliation";
+import { isActiveCommittedPoint, uncommittedPointQueue } from "../domain/PointQueueReconciliation";
 
 type PendingPoint={side:Side;operationId:string;lastAttempt?:PointAttemptVersions};
 
@@ -75,7 +75,7 @@ function MatchPageForActor({mode="detail"}:{mode?:"detail"|"direct"|"live"}){
         const pending=pointQueue.current[0];
         const observed={eventVersion:current.event.version,matchVersion:currentMatch.version};
         if(pending.lastAttempt){
-          const committed=current.point_logs.some(log=>log.id===pending.operationId&&log.match_id===matchId&&log.winner_side===pending.side);
+          const committed=current.point_logs.some(log=>isActiveCommittedPoint(log,pending.operationId,matchId!,pending.side));
           const disposition=pointRetryDisposition(null,pending.lastAttempt,observed,committed);
           if(disposition==="committed"){
             pointQueue.current.shift();setOptimisticPoints([...pointQueue.current]);q.replace(current);continue;
@@ -94,7 +94,7 @@ function MatchPageForActor({mode="detail"}:{mode?:"detail"|"direct"|"live"}){
           if(!active())return;
           latestSnapshot.current=reconciled;
           const reconciledMatch=reconciled.matches.find(x=>x.id===matchId);
-          const committed=reconciled.point_logs.some(log=>log.id===pending.operationId&&log.match_id===matchId&&log.winner_side===pending.side);
+          const committed=reconciled.point_logs.some(log=>isActiveCommittedPoint(log,pending.operationId,matchId!,pending.side));
           const refreshedVersions=reconciledMatch?{eventVersion:reconciled.event.version,matchVersion:reconciledMatch.version}:null;
           const disposition=pointRetryDisposition(firstError,observed,refreshedVersions,committed);
           if(disposition==="committed")next=reconciled;
@@ -111,7 +111,7 @@ function MatchPageForActor({mode="detail"}:{mode?:"detail"|"direct"|"live"}){
               if(!active())return;
               latestSnapshot.current=finalSnapshot;
               const finalMatch=finalSnapshot.matches.find(x=>x.id===matchId);
-              const finalCommitted=finalSnapshot.point_logs.some(log=>log.id===pending.operationId&&log.match_id===matchId&&log.winner_side===pending.side);
+              const finalCommitted=finalSnapshot.point_logs.some(log=>isActiveCommittedPoint(log,pending.operationId,matchId!,pending.side));
               const finalVersions=finalMatch?{eventVersion:finalSnapshot.event.version,matchVersion:finalMatch.version}:null;
               const finalDisposition=pointRetryDisposition(retryError,observed,finalVersions,finalCommitted);
               if(finalDisposition==="committed")next=finalSnapshot;
