@@ -99,6 +99,8 @@ try {
   assert.deepEqual(rankPlaces([candidate("奥林匹克森林公园")], "奥森").map(item => item.name), ["奥林匹克森林公园"],
     "non-tennis shorthand still supports relevant fuzzy venue recall");
   assert.deepEqual(rankPlaces([candidate("城市绿心森林公园")], "绿心").map(item => item.name), ["城市绿心森林公园"]);
+  assert.deepEqual(rankPlaces([candidate("北京城市绿心森林公园")], "绿心公园").map(item => item.name), ["北京城市绿心森林公园"],
+    "full park name should remain relevant to a natural short park query");
   assert.deepEqual(rankPlaces([candidate("绿色体育中心")], "绿心").map(item => item.name), [],
     "two isolated characters in an unrelated POI must not count as a venue-name match");
   assert.deepEqual(rankPlaces([candidate("奥运森林活动中心")], "奥森").map(item => item.name), [],

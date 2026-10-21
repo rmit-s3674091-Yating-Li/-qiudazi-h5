@@ -3,6 +3,7 @@ export async function collectVenueSearch<T>(
   variants: readonly string[],
   search: (variant: string) => Promise<T[]>,
   stillCurrent: () => boolean = () => true,
+  hasRelevantCandidate: (groups: readonly T[][]) => boolean = () => false,
 ): Promise<{ groups: T[][]; hadFailure: boolean; cancelled: boolean }> {
   const groups: T[][] = [];
   let hadFailure = false;
@@ -16,6 +17,9 @@ export async function collectVenueSearch<T>(
       hadFailure = true;
     }
     if (!stillCurrent()) return { groups: [], hadFailure, cancelled: true };
+    // Once a relevant candidate exists, do not block its display on slower,
+    // redundant queries. Keep fallback variants when the first result is irrelevant.
+    if (hasRelevantCandidate(groups)) break;
   }
   return { groups, hadFailure, cancelled: false };
 }

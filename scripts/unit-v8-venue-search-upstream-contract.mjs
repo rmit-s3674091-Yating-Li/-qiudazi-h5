@@ -100,4 +100,24 @@ for (const [authStatus, expectedStatus, expectedError] of [
   assert.equal(checked.body.error, expectedError);
   assert.equal(checked.mapCalls, 0);
 }
+// Regression: a common name with a suffix must reach the canonical Baidu query.
+const greenHeart = await run('green heart park suffix and alias', url => {
+  const term = new URL(url).searchParams.get('query');
+  return ok({status:0,results:term === '城市绿心森林公园'
+    ? [{...poi,uid:'green-heart',name:'北京城市绿心森林公园',city:'北京市'}] : []});
+},{query:'绿心公园'});
+assert.equal(greenHeart.status,200);
+assert.ok(greenHeart.body.query_variants.includes('绿心'));
+assert.ok(greenHeart.body.query_variants.includes('城市绿心森林公园'));
+assert.deepEqual(greenHeart.body.results.map(item=>item.uid),['green-heart']);
+
+// The same rule must work for an unseen station without a bespoke alias.
+const station = await run('generic station suffix relaxation', () => ok(validEmpty), {query:'望京西站'});
+assert.equal(station.status,200);
+assert.ok(station.body.query_variants.includes('望京西'));
+assert.equal(station.body.results.length,0);
+
+// Do not turn a broad generic query into an unbounded two-character root.
+const generic = await run('generic tennis centre stays bounded', () => ok(validEmpty));
+assert.deepEqual(generic.body.query_variants,['网球中心']);
 console.log('V8 venue search upstream response contract tests passed.');
