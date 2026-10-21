@@ -12,7 +12,7 @@ function ensureLeaflet():Promise<any>{if(window.L)return Promise.resolve(window.
 type PickedPlace=Pick<VenuePlace,"name"|"address"|"provider"|"placeId">;
 function normalizeText(value:string){return value.replace(/[\s·•・()（）\-_/]/g,"").toLowerCase()}
 function searchVariants(term:string){const clean=term.trim(),relaxed=clean.replace(/(网球运动中心|网球俱乐部|网球中心|网球场|体育中心|运动中心|体育馆|运动馆|场馆|球场|中心)$/u,"").trim(),noTennis=clean.replace(/网球$/u,"").trim();return Array.from(new Set([clean,relaxed,noTennis].filter(value=>value.length>=2))).slice(0,3);}
-function mergePlaces(groups:VenuePlace[][]){const seen=new Set<string>(),merged:VenuePlace[]=[];for(const group of groups)for(const item of group){const key=item.placeId?`${item.provider}:${item.placeId}`:`${normalizeText(item.name)}|${normalizeText(item.address)}`;if(seen.has(key))continue;seen.add(key);merged.push(item);}return merged;}
+function mergePlaces(groups:readonly VenuePlace[][]){const seen=new Set<string>(),merged:VenuePlace[]=[];for(const group of groups)for(const item of group){const key=item.placeId?`${item.provider}:${item.placeId}`:`${normalizeText(item.name)}|${normalizeText(item.address)}`;if(seen.has(key))continue;seen.add(key);merged.push(item);}return merged;}
 function coreSearchTerm(term:string){return normalizeText(term).replace(/网球运动中心|网球俱乐部|网球中心|网球场|体育中心|运动中心|体育馆|运动馆|场馆|球场|网球|中心/g,"")}
 function fuzzyCoverage(candidate:string,core:string){if(!core)return 0;const chars=Array.from(new Set(core));if(!chars.length)return 0;return chars.filter(char=>candidate.includes(char)).length/chars.length}
 function broadVenueCategory(needle:string){return["网球","体育","运动","球场","公园"].find(token=>needle.includes(token))||"";}
