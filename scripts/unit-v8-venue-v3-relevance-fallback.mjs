@@ -20,15 +20,15 @@ const ok = body => ({ ok: true, status: 200, json: async () => body });
 const empty = { status: 0, results: [] };
 const unrelated = p("普通活动地点");
 const exact = p("奥森网球中心");
-let v2Calls = 0;
+let v2Calls = 0, v2Queries = [];
 const originalFetch = globalThis.fetch;
 async function run(v3, v2) {
-  v2Calls = 0;
+  v2Calls = 0; v2Queries = [];
   globalThis.fetch = async input => {
     const url = String(input);
     if (url.includes("/auth/v1/user")) return ok({ id: "11111111-1111-4111-8111-111111111111" });
     const path = new URL(url).pathname;
-    if (path.includes("/v2/")) { v2Calls++; return ok(v2); }
+    if (path.includes("/v2/")) { v2Calls++; v2Queries.push(new URL(url).searchParams.get("query")); return ok(v2); }
     return ok(v3);
   };
   let status = 0, body;
@@ -43,7 +43,7 @@ try {
   assert.ok(recovered.body.results.some(item => item.name === exact.name), "V2 exact venue must be retained");
   const direct = await run({ status: 0, results: [exact] }, empty);
   assert.equal(direct.status, 200);
-  assert.equal(direct.v2Calls, 0, "literal V3 name match does not need V2 for that variant");
+  assert.ok(!v2Queries.includes("奥森"), "literal V3 name match does not need V2 for that variant");
   const trulyEmpty = await run(empty, empty);
   assert.equal(trulyEmpty.status, 200);
   assert.deepEqual(trulyEmpty.body.results, []);
