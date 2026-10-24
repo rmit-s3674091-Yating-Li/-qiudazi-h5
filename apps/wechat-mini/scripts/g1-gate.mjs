@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { spawnSync } from 'node:child_process'
+import { captureG1RepoState, isG1RepoStateUnchanged } from './g1-repo-state.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const commands = ['test:offline', 'lint:boundary', 'typecheck', 'format:check', 'build:weapp']
@@ -47,6 +48,11 @@ export function runG1Gate(projectDir = root, preflightOnly = false) {
     console.log('G1_PREFLIGHT_READY: lockfile and local executables present; build not run')
     return 0
   }
+  const repoRoot = resolve(projectDir, '../..')
+  let before
+  try { before = captureG1RepoState(repoRoot) }
+  catch { console.error('G1_BLOCKED: EXACT_HEAD_OR_GIT_STATE_UNAVAILABLE'); return 2 }
+  if (before.outsideMiniStatus !== '') { console.error('G1_BLOCKED: H5_TRACKED_WORKTREE_DIRTY'); return 2 }
   for (const name of commands) {
     console.log(`G1_RUNNING: npm run ${name}`)
     const result = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', name], { cwd: projectDir, stdio: 'inherit', shell: false })
@@ -55,6 +61,11 @@ export function runG1Gate(projectDir = root, preflightOnly = false) {
       return result.status && result.status > 0 ? result.status : 1
     }
   }
+  let after
+  try { after = captureG1RepoState(repoRoot) }
+  catch { console.error('G1_FAILED: EXACT_HEAD_OR_GIT_STATE_UNAVAILABLE_AFTER_BUILD'); return 2 }
+  if (!isG1RepoStateUnchanged(before, after)) { console.error('G1_FAILED: HEAD_CHANGED_OR_H5_TRACKED_TREE_DIRTY'); return 2 }
+  console.log(`G1_EVIDENCE_HEAD: ${before.head}`)
   console.log('G1_SOURCE_GATE_PASSED: offline tests, boundary, types, format and Taro build')
   console.log('SESSION_BRIDGE_UNPROVEN; WECHAT_LOGIN_LIVE=false; WECHAT_RELEASE_APPROVED=false')
   return 0

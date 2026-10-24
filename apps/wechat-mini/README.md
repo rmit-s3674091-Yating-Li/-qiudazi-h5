@@ -25,3 +25,7 @@ H5 根目录的 `package.json`、构建、路由和地图 P3 不变。`scripts/s
 **验收分层：** G1 `offline-test`、`typecheck`、`format`、`build` 的实际日志才能证明编译；G2 必须单独批准 TEST 微信→Supabase 可刷新会话、RLS、G/老郑历史 Profile/照片及 Admin 隔离；G4 还需个人主体类目/备案/合法域名、iOS/Android 中国真机、微信审核。三个 Gate 不得相互替代。
 
 G1 通过仅表示本地源码测试和小程序构建通过；**不**表示微信 AppID、可刷新 Supabase Auth Session、G/老郑身份迁移、国内真机、备案/审核通过。真实登录仍为 `SESSION_BRIDGE_UNPROVEN`。`verify:g1` 不执行 npm install、Supabase 写入、微信 API、部署、push 或付费操作；依赖安装与测试由主 Chat 在批准的本地工作区完成。
+
+## G1 仓库状态证据（第十一批）
+
+`verify:g1` 在执行前后核对 Git HEAD 和小程序目录外已跟踪的 H5 文件变更；如果工作树在测试期间发生越界变更或 HEAD 变化则失败关闭，并记录 `G1_EVIDENCE_HEAD`。这仍不证明微信正式会话或真机审核通过。
