@@ -9,7 +9,9 @@
     "typecheck": "npm run sync:domain && tsc --noEmit",
     "format:check": "prettier --check config src tests scripts package.json tsconfig.json project.config.json",
     "build:weapp": "npm run sync:domain && taro build --type weapp",
-    "check:contract": "node --test tests/build-contract.test.mjs"
+    "check:contract": "node --test tests/build-contract.test.mjs",
+    "verify:g1": "node scripts/g1-gate.mjs",
+    "preflight:g1": "node scripts/g1-gate.mjs --preflight-only"
   },
   "dependencies": {
     "@tarojs/components": "4.2.1",

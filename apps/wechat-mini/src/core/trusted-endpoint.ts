@@ -14,7 +14,31 @@ export interface TrustedEndpointPolicy {
 
 const originPattern = /^https:\/\/([a-z0-9](?:[a-z0-9.-]*[a-z0-9])?)(?::443)?$/i
 const absolutePattern = /^(https:\/\/[a-z0-9.-]+(?::443)?)(\/[^#\\\s]*)$/i
-const sensitiveQuery = /(?:\?|&)(?:access_token|refresh_token|token_hash|session[_]key|login_code)=/i
+const forbiddenQueryKeys = new Set([
+  'access_token', 'refresh_token', 'token_hash', 'session_key', 'sessionkey',
+  'login_code', 'id_token', 'authorization', 'client_secret', 'app_secret', 'appsecret',
+])
+
+/**
+ * Query keys are decoded ONCE before inspection. A raw regex misses keys such
+ * as %61ccess_token, which the server may interpret as access_token. Fail
+ * closed on malformed/ambiguous names; never parse or log query values here.
+ */
+function hasUnsafeQueryKey(url: string): boolean {
+  const index = url.indexOf('?')
+  if (index < 0) return false
+  const query = url.slice(index + 1)
+  if (!query) return true
+  for (const pair of query.split('&')) {
+    const [rawKey] = pair.split('=', 1)
+    let key: string
+    try { key = decodeURIComponent(rawKey.replace(/\+/g, ' ')) }
+    catch { return true }
+    if (!/^[A-Za-z][A-Za-z0-9_.-]{0,127}$/.test(key) ||
+        forbiddenQueryKeys.has(key.toLowerCase())) return true
+  }
+  return false
+}
 
 function normalizeOrigin(value: string): string {
   if (typeof value !== 'string' || !originPattern.test(value)) throw new Error('INVALID_TRUSTED_ORIGIN')
@@ -37,7 +61,7 @@ export function createTrustedEndpointPolicy(config: TrustedEndpointConfig): Trus
   return {
     assert(url: string, carriesCredential: boolean): void {
       if (typeof url !== 'string' || url.length > 2048 || /[\u0000-\u001f\u007f]/.test(url) ||
-          sensitiveQuery.test(url)) throw new Error('UNTRUSTED_ENDPOINT')
+          hasUnsafeQueryKey(url)) throw new Error('UNTRUSTED_ENDPOINT')
       const match = absolutePattern.exec(url)
       if (!match) throw new Error('UNTRUSTED_ENDPOINT')
       const origin = normalizeOrigin(match[1])
