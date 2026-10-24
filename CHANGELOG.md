@@ -1,3 +1,43 @@
+## 2026-10-20 — V8 Platform Admin user directory Auth upstream classification (unreleased)
+
+- `V8-20261020-P2-USER-DIRECTORY-AUTH-STATUS`: explicit invalid credentials return `401 AUTH_REQUIRED`; Auth rate limits, upstream failures, and unknown statuses return `503 AUTH_CHECK_UNAVAILABLE`. Malformed verified actor IDs are rejected, and no privileged user-directory RPC runs after failed identity verification.
+
+## 2026-10-20 — V8 Platform Admin score exception Auth upstream classification (unreleased)
+
+- `V8-20261020-P2-SCORE-EXCEPTION-AUTH-STATUS`: explicit invalid credentials return `401 AUTH_REQUIRED`; Auth rate limits, upstream failures and unknown statuses return `503 AUTH_CHECK_UNAVAILABLE`. No privileged score-exception lookup runs without a verified user; existing server-side role checks remain unchanged.
+
+## 2026-10-20 — V8 Platform Admin report resolution Auth upstream classification (unreleased)
+
+- `V8-20261020-P2-REPORT-RESOLUTION-AUTH-STATUS`: explicit invalid-credential Auth statuses return `401 AUTH_REQUIRED`; Auth throttling, outages and unknown upstream statuses return `503 AUTH_CHECK_UNAVAILABLE`. The audited report-resolution RPC is never called when Auth verification fails.
+
+## 2026-10-20 — V8 Platform Admin photo removal Auth upstream classification (unreleased)
+
+- `V8-20261020-P2-PHOTO-REMOVE-AUTH-STATUS`: explicit invalid JWT statuses return `401 AUTH_REQUIRED`; Auth throttling/outages or unknown statuses return `503 AUTH_CHECK_UNAVAILABLE`. Photo-removal RPC is never invoked when Auth verification fails.
+
+## 2026-10-20 — V8 Platform Admin feedback resolution Auth classification (unreleased)
+
+- `V8-20261020-P2-FEEDBACK-RESOLUTION-AUTH-STATUS`: explicit invalid JWT responses still return `401 AUTH_REQUIRED`; Auth throttling/outages or unknown statuses return `503 AUTH_CHECK_UNAVAILABLE`. No feedback mutation RPC runs after a failed identity check.
+
+## 2026-10-20 — V8 Platform Admin event cancellation Auth upstream classification (unreleased)
+
+- `V8-20261020-P2-ADMIN-CANCEL-AUTH-STATUS`: distinguish explicit invalid credentials (`401 AUTH_REQUIRED`) from Auth service failures/rate limiting (`503 AUTH_CHECK_UNAVAILABLE`) on the privileged event-cancellation Edge route. No cancellation RPC is called when identity verification fails.
+
+## 2026-10-20 — V8 organizer voided point replay guard (unreleased)
+
+- `V8-20261020-P1-OWNER-VOIDED-REPLAY`: organizer point retry and version-conflict recovery reject voided historical point IDs instead of acknowledging them as active scores; active points retain idempotent replay. No database migration or authorization relaxation.
+
+## 2026-10-20 — V8 voided point replay transaction guard (unreleased)
+
+- `V8-20261020-P1-VOIDED-REPLAY-GUARD`: a participant point previously undone by an organizer cannot be acknowledged by the locked service-role replay transaction; the original operation ID remains reserved and returns `OPERATION_CONFLICT`. Active replays, actor binding, fresh-point two-entry checks and score correction permissions are unchanged.
+
+## 2026-10-20 — V8 tournament command Auth upstream classification (unreleased)
+
+- `V8-20261020-P1-TOURNAMENT-AUTH-STATUS`: verified JWT failures return `401 AUTH_REQUIRED` only for explicit invalid-credential statuses; Auth throttling/outages and unknown statuses return `503 AUTH_CHECK_UNAVAILABLE`. No profile or scoring RPC is reached without a verified user.
+
+## 2026-10-20 — V8 participant scoring eligibility Auth failure classification (unreleased)
+
+- `V8-20261020-P1-ELIGIBILITY-AUTH-STATUS`: invalid credentials still return `401 AUTH_REQUIRED`; Auth service failures, throttling, and unknown upstream status now return `503 AUTH_CHECK_UNAVAILABLE`. The read-only preflight never reaches membership RPC when Auth fails; trusted point writes remain unchanged.
+
 ## 2026-10-01 — Controller / Verifier governance split (unreleased)
 
 - Reframed the two active V7 automations as Controller and Independent Verifier without increasing automation count.

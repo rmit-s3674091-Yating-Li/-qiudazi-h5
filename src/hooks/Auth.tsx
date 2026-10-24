@@ -7,10 +7,13 @@ import { clearIdentityClientStorage, clearLoginRequired, isLoginRequired, markLo
 import { repository, supabase, explainError } from "../repositories/supabase";
 import { clearQueryCache } from "./useQuery";
 import { useLanguage } from "../i18n";
+import { AuthAccountGeneration } from "../domain/AuthAccountGeneration";
+import { isCurrentNicknameLoginResponse } from "../domain/NicknameLoginAttempt";
 
 interface AuthState { session: Session | null; profile: Profile | null; ready: boolean; busy: boolean; error: string; loginRequired: boolean; start: (options?: { explicit?: boolean }) => Promise<Profile>; loginByNickname: (nickname: string) => Promise<Profile>; refresh: () => Promise<void>; signOut: () => Promise<void>; }
 const AuthContext = createContext<AuthState>(null!);
 export const useAuth = () => useContext(AuthContext);
+class SupersededAuthFlowError extends Error {}
 const isEnglish=()=>typeof localStorage!=="undefined"&&localStorage.getItem("qiudazi-language")==="en";
 
 function readCachedProfile(authUserId: string) { try { const raw = localStorage.getItem(PROFILE_CACHE_KEY); if (!raw) return null; const parsed = JSON.parse(raw) as { authUserId?: unknown; profile?: unknown }; if (parsed.authUserId !== authUserId || !parsed.profile || typeof parsed.profile !== "object") return null; return parsed.profile as Profile; } catch { return null; } }
@@ -20,7 +23,33 @@ function clearCachedProfile() { try { localStorage.removeItem(PROFILE_CACHE_KEY)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null), [profile, setProfile] = useState<Profile | null>(null), [ready, setReady] = useState(false), [busy, setBusy] = useState(false), [error, setError] = useState(""), [loginRequired, setLoginRequired] = useState(() => typeof localStorage !== "undefined" && isLoginRequired(localStorage));
   const flight = useRef<Promise<Profile> | null>(null);
-  async function refresh() { if (!supabase) return; const { data, error } = await supabase.auth.getSession(); if (error) throw error; setSession(data.session); if (data.session) { const p = await repository.profile(); setProfile(p); writeCachedProfile(data.session.user.id, p); } else { setProfile(null); clearCachedProfile(); } }
+  const identity = useRef(new AuthAccountGeneration());
+  const nicknameLoginAttempt = useRef(0);
+  function observeSession(next: Session | null) {
+    const { changed, generation } = identity.current.observe(next?.user.id ?? null);
+    if (changed) {
+      // Invalidate account-scoped cache/profile when the authenticated actor changes.
+      clearQueryCache();
+      clearCachedProfile();
+      setProfile(null);
+    }
+    setSession(next);
+    return generation;
+  }
+  async function refresh() {
+    if (!supabase) return;
+    const before = identity.current.version;
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (identity.current.version !== before && identity.current.userId !== (data.session?.user.id ?? null)) return;
+    const generation = observeSession(data.session);
+    if (data.session) {
+      const profile = await repository.profile();
+      if (!identity.current.isCurrent(data.session.user.id, generation)) return;
+      setProfile(profile);
+      writeCachedProfile(data.session.user.id, profile);
+    } else { setProfile(null); clearCachedProfile(); }
+  }
   async function signOut() {
     if (!supabase) throw new Error(isEnglish()?"Supabase is not configured yet.":"Supabase尚未配置");
     setBusy(true);setError("");
@@ -34,8 +63,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!supabase) { setReady(true); return; }
     let active = true;
-    (async () => { try { const { data, error: sessionError } = await supabase.auth.getSession(); if (sessionError) throw sessionError; if (!active) return; setSession(data.session); if (!data.session) { setProfile(null); clearCachedProfile(); return; } const cached = readCachedProfile(data.session.user.id); if (cached && active) setProfile(cached); const fresh = await repository.profile(); if (!active) return; setProfile(fresh); writeCachedProfile(data.session.user.id, fresh); setError(""); } catch (e) { if (active) setError(explainError(e)); } finally { if (active) setReady(true); } })();
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => { setSession(next); if (!next) { setProfile(null); clearCachedProfile(); } });
+    (async () => {
+      try {
+        const before = identity.current.version;
+        const { data, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!active || (identity.current.version !== before &&
+            identity.current.userId !== (data.session?.user.id ?? null))) return;
+        const generation = observeSession(data.session);
+        if (!data.session) return;
+        const userId = data.session.user.id;
+        const cached = readCachedProfile(userId);
+        if (cached && active && identity.current.isCurrent(userId, generation)) setProfile(cached);
+        const fresh = await repository.profile();
+        if (!active || !identity.current.isCurrent(userId, generation)) return;
+        setProfile(fresh);
+        writeCachedProfile(userId, fresh);
+        setError("");
+      } catch (e) { if (active) setError(explainError(e)); }
+      finally { if (active) setReady(true); }
+    })();
+    const { data } = supabase.auth.onAuthStateChange((_event, next) => { observeSession(next); });
     return () => { active = false; data.subscription.unsubscribe(); };
   }, []);
   function start(options?: { explicit?: boolean }) {
@@ -43,7 +91,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     flight.current = (async () => {
       if (!supabase) throw new Error(isEnglish()?"Supabase is not configured yet.":"Supabase尚未配置");
       const explicit=options?.explicit===true;
+      const startGeneration = identity.current.version;
       const { data } = await supabase.auth.getSession(); let s = data.session;
+      if (identity.current.version !== startGeneration && (!s || identity.current.userId !== s.user.id)) throw new SupersededAuthFlowError();
       if (!s && !explicit && isLoginRequired(localStorage)) throw new Error(isEnglish()?"Please sign in to continue.":"请先登录后继续");
       if (!s) {
         let credentials: { email: string; password: string } | null = null;
@@ -52,24 +102,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!s) { const provision = await supabase.functions.invoke("guest-session", { body: {} }); if (provision.error) throw provision.error; const data = provision.data as { email?: unknown; password?: unknown; error?: unknown } | null; if (!data || typeof data.email !== "string" || typeof data.password !== "string") throw new Error(typeof data?.error === "string" ? data.error : (isEnglish()?"Could not create a guest test identity.":"游客身份创建失败")); credentials = { email: data.email, password: data.password }; localStorage.setItem(GUEST_CREDENTIALS_KEY, JSON.stringify(credentials)); const signInResult = await supabase.auth.signInWithPassword(credentials); if (signInResult.error) throw signInResult.error; s = signInResult.data.session; }
         if (!s) throw new Error(isEnglish()?"Could not create the guest test identity. Refresh the page and try again.":"游客身份创建失败，请刷新页面重试");
       }
-      setSession(s); const p = await repository.profile(); setProfile(p); writeCachedProfile(s.user.id, p); clearLoginRequired(localStorage);setLoginRequired(false); return p;
-    })().catch((e) => { setError(explainError(e)); throw e; }).finally(() => { setBusy(false); flight.current = null; });
+      if (identity.current.version !== startGeneration && identity.current.userId !== s.user.id) throw new SupersededAuthFlowError();
+      const generation = observeSession(s);
+      const p = await repository.profile();
+      if (!identity.current.isCurrent(s.user.id, generation)) throw new SupersededAuthFlowError();
+      setProfile(p); writeCachedProfile(s.user.id, p); clearLoginRequired(localStorage);setLoginRequired(false); return p;
+    })().catch((e) => { if (!(e instanceof SupersededAuthFlowError)) setError(explainError(e)); throw e; }).finally(() => { setBusy(false); flight.current = null; });
     return flight.current;
   }
   async function loginByNickname(nickname:string){
     if(!supabase)throw new Error(isEnglish()?"Supabase is not configured yet.":"Supabase尚未配置");
+    const attempt=++nicknameLoginAttempt.current;
+    const startedGeneration=identity.current.version;
+    const supersededError=new Error("Nickname login superseded by a newer account");
+    let adoptedUserId:string|null=null,adoptedGeneration:number|null=null;
     setBusy(true);setError("");
     try{
       const exchange=await supabase.functions.invoke("test-identity-exchange",{body:{nickname}});
+      if(!isCurrentNicknameLoginResponse(attempt,nicknameLoginAttempt.current,startedGeneration,identity.current.version,identity.current.userId))throw supersededError;
       if(exchange.error)throw exchange.error;
       const payload=exchange.data as {token_hash?:unknown;otp_type?:unknown;error?:unknown}|null;
       if(!payload||typeof payload.token_hash!=="string"||payload.otp_type!=="email")throw new Error(typeof payload?.error==="string"?payload.error:(isEnglish()?"Nickname sign-in failed.":"昵称登录失败"));
       const verified=await supabase.auth.verifyOtp({token_hash:payload.token_hash,type:"email"});
       if(verified.error||!verified.data.session)throw verified.error||new Error(isEnglish()?"Nickname sign-in failed.":"昵称登录失败");
+      if(!isCurrentNicknameLoginResponse(attempt,nicknameLoginAttempt.current,startedGeneration,identity.current.version,identity.current.userId,verified.data.session.user.id))throw supersededError;
+      adoptedUserId=verified.data.session.user.id;
+      adoptedGeneration=observeSession(verified.data.session);
       clearQueryCache();clearIdentityClientStorage(localStorage);
       const p=await repository.profile();
-      setSession(verified.data.session);setProfile(p);writeCachedProfile(verified.data.session.user.id,p);clearLoginRequired(localStorage);setLoginRequired(false);return p;
-    }catch(e){setSession(null);setProfile(null);clearCachedProfile();markLoginRequired(localStorage);setLoginRequired(true);setError(explainError(e));throw e;}finally{setBusy(false);}
+      if(nicknameLoginAttempt.current!==attempt||!identity.current.isCurrent(adoptedUserId,adoptedGeneration))throw supersededError;
+      setProfile(p);writeCachedProfile(adoptedUserId,p);clearLoginRequired(localStorage);setLoginRequired(false);return p;
+    }catch(e){
+      const mayCleanUp=nicknameLoginAttempt.current===attempt&&
+        (identity.current.version===startedGeneration||
+          (adoptedUserId!==null&&adoptedGeneration!==null&&identity.current.isCurrent(adoptedUserId,adoptedGeneration)));
+      if(mayCleanUp){setSession(null);setProfile(null);clearCachedProfile();markLoginRequired(localStorage);setLoginRequired(true);}
+      if(e!==supersededError&&mayCleanUp)setError(explainError(e));
+      throw e;
+    }finally{if(nicknameLoginAttempt.current===attempt)setBusy(false);}
   }
   return <AuthContext.Provider value={{ session, profile, ready, busy, error, loginRequired, start, loginByNickname, refresh, signOut }}>{children}</AuthContext.Provider>;
 }
