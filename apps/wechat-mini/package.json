@@ -5,9 +5,9 @@
   "scripts": {
     "sync:domain": "node scripts/sync-domain.mjs",
     "test:offline": "npm run sync:domain && node --experimental-strip-types --test tests/*.test.mjs",
-    "lint:boundary": "node scripts/check-boundaries.mjs",
+    "lint:boundary": "npm run sync:domain && node scripts/check-boundaries.mjs",
     "typecheck": "npm run sync:domain && tsc --noEmit",
-    "format:check": "prettier --check config src tests scripts package.json tsconfig.json project.config.json",
+    "format:check": "prettier --check config src tests scripts babel.config.cjs package.json tsconfig.json project.config.json",
     "build:weapp": "npm run sync:domain && taro build --type weapp",
     "check:contract": "node --test tests/build-contract.test.mjs",
     "verify:g1": "node scripts/g1-gate.mjs",
@@ -22,11 +22,13 @@
     "react-dom": "18.3.1"
   },
   "devDependencies": {
+    "@babel/preset-react": "7.24.7",
     "@tarojs/cli": "4.2.1",
     "@tarojs/plugin-framework-react": "4.2.1",
     "@tarojs/plugin-platform-weapp": "4.2.1",
     "@tarojs/webpack5-runner": "4.2.1",
     "@types/react": "18.3.31",
+    "babel-preset-taro": "4.2.1",
     "prettier": "3.6.2",
     "typescript": "5.9.3"
   },

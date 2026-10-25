@@ -1,0 +1,33 @@
+name: WeChat Mini G1
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/wechat-mini/**"
+      - "src/domain/**"
+      - ".github/workflows/wechat-mini-g1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wechat-mini-g1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mini-g1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.22.1"
+          cache: npm
+          cache-dependency-path: apps/wechat-mini/package-lock.json
+      - name: Install locked mini dependencies
+        run: npm --prefix apps/wechat-mini ci
+      - name: Verify isolated source and fresh Taro output
+        run: npm --prefix apps/wechat-mini run verify:g1
