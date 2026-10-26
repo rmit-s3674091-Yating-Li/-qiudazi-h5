@@ -2,6 +2,7 @@ import { hasDirectNameMatch } from "./venue-search-relevance.js";
 import { randomUUID } from "node:crypto";
 import { hasSafeNameSequenceMatch } from "./venue-search-relevance.js";
 import { classifyBaiduTerminalStatus } from "./venue-search-terminal-status.js";
+import { runVenueAuthDiagnostic } from "./venue-auth-diagnostic.js";
 const SUPABASE_URL =
   process.env.VITE_SUPABASE_URL || "https://rtmjzmgrhifjzxaliltm.supabase.co";
 const SUPABASE_ANON_KEY =
@@ -502,6 +503,7 @@ export default async function handler(req, res) {
     return;
   }
   const deadline = createRequestDeadline();
+  let authenticatedUserId;
   try {
     try {
       const authResponse = await deadline.race(
@@ -523,12 +525,18 @@ export default async function handler(req, res) {
         res.status(503).json({ error: "AUTH_CHECK_UNAVAILABLE" });
         return;
       }
+      authenticatedUserId = authUser.id;
     } catch {
       res.status(deadline.timedOut() ? 504 : 503).json({
         error: deadline.timedOut()
           ? "VENUE_SEARCH_TIMEOUT"
           : "AUTH_CHECK_UNAVAILABLE",
       });
+      return;
+    }
+    if (Object.hasOwn(req.query || {}, "diagnostic")) {
+      deadline.close();
+      await runVenueAuthDiagnostic(req, res, authenticatedUserId);
       return;
     }
     const query = value(req.query?.query).trim(),
