@@ -86,7 +86,16 @@ try {
   const diagnostic = good.body.search_diagnostics;
   assert.equal(diagnostic.version, 1);
   assert.equal(diagnostic.merged_count, 1);
-  assert.equal(diagnostic.endpoints.length, 2);
+  assert.ok(
+    Array.isArray(good.body.query_variants) &&
+      good.body.query_variants.length >= 1 &&
+      good.body.query_variants.length <= 5,
+  );
+  assert.equal(
+    diagnostic.endpoints.length,
+    2 + (good.body.query_variants.length - 1) * 4,
+    "exact variant stops after V3 while generated variants exercise V2 fallback",
+  );
   assert.ok(
     diagnostic.endpoints.every(
       (stage) =>

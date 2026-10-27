@@ -124,7 +124,11 @@ try {
     /\[place,setPlace\]=useState<PickedPlace\|null>\(null\)/,
   );
   assert.match(sourceContractText(ui), /collectVenueSearch<VenuePlace>\(/);
-  assert.match(sourceContractText(ui), /if\(!found\.length&&hadFailure\)/);
+  assert.match(
+    sourceContractText(ui),
+    /constincomplete=hadFailure\|\|partialUpstream/,
+  );
+  assert.match(sourceContractText(ui), /if\(incomplete\)/);
   assert.match(
     sourceContractText(ui),
     /!searching&&!error&&searchCompleted\?\(?<pclassName="mutedsmall">\{noResultsCopy\}/,

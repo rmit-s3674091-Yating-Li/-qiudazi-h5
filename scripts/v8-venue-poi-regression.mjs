@@ -224,7 +224,42 @@ export async function checkOne({
     wrongCity,
     cityUnverified,
   );
-  const failure =
+  // A correct POI in a partial response does not prove that Baidu permissions,
+  // quota and endpoint health are restored. Never let a 200/status=0 wrapper
+  // hide an upstream terminal error from the acceptance gate.
+  const partialUpstreamError = clean(body?.partial_upstream_error);
+  const failedUpstreamStage = endpoints.some(
+    (item) =>
+      (Number.isInteger(item?.status) && item.status !== 0) ||
+      (Number.isInteger(item?.http_status) &&
+        (item.http_status < 200 || item.http_status >= 300)),
+  );
+  const unhealthyUpstreamStage = endpoints.some(
+    (item) => item?.health !== null && item?.health !== undefined,
+  );
+  const incompleteUpstreamEvidence =
+    !endpoints.length ||
+    endpoints.some(
+      (item) =>
+        !Number.isInteger(item?.status) ||
+        !Number.isInteger(item?.http_status) ||
+        !Object.hasOwn(item, "health"),
+    );
+  const degradedUpstream =
+    response.status === 200 && body?.status === 0
+      ? partialUpstreamError ||
+        (failedUpstreamStage
+          ? "NONZERO_UPSTREAM_STAGE"
+          : unhealthyUpstreamStage
+            ? "UNHEALTHY_UPSTREAM_STAGE"
+            : incompleteUpstreamEvidence
+              ? "INCOMPLETE_UPSTREAM_DIAGNOSTICS"
+              : "")
+      : "";
+  // Directly observed candidate correctness failures are the primary stage.
+  // Upstream degradation remains independently recorded and still blocks an
+  // otherwise valid candidate from passing the acceptance gate.
+  const candidateFailure =
     type === "负例" && response.status === 200 && body?.status === 0
       ? results.length
         ? "FALSE_POSITIVE_NEGATIVE_QUERY"
@@ -235,6 +270,9 @@ export async function checkOne({
           body?.status === 0
         ? "PARTIAL_ONLY_NOT_ACCEPTED"
         : baselineFailure;
+  const failure =
+    candidateFailure ||
+    (degradedUpstream ? `UPSTREAM_PARTIAL_FAILURE:${degradedUpstream}` : null);
   return {
     sha,
     city,
@@ -244,6 +282,8 @@ export async function checkOne({
     mode,
     http_status: response.status,
     proxy_error: clean(body?.error) || null,
+    partial_upstream_error: partialUpstreamError || null,
+    degraded_upstream: Boolean(degradedUpstream),
     upstream_statuses: endpoints.map((x) => ({
       endpoint: x.endpoint,
       query_variant: x.query_variant || null,

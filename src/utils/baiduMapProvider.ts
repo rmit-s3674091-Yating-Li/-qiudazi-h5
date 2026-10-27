@@ -20,6 +20,7 @@ type BaiduPlace = {
 type BaiduResponse = {
   status?: unknown;
   message?: unknown;
+  partial_upstream_error?: unknown;
   results?: unknown;
   result?: any;
 };
@@ -27,6 +28,7 @@ export interface BaiduMapProviderOptions {
   ak?: string;
   fetchImpl?: FetchLike;
   region?: string;
+  onPartialFailure?: (code: string) => void;
 }
 function outOfChina(lat: number, lng: number) {
   return lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271;
@@ -247,6 +249,13 @@ export function createBaiduMapProvider(
         );
       if (!Array.isArray(body.results))
         throw new Error("BAIDU_PLACE_INVALID_RESPONSE");
+      const partialCode = text(body.partial_upstream_error);
+      if (partialCode)
+        options.onPartialFailure?.(
+          venueProxySearchErrors.has(partialCode)
+            ? partialCode
+            : "BAIDU_PLACE_UPSTREAM_ERROR",
+        );
       const places = body.results
         .map((item) => normalizePlace(item as BaiduPlace))
         .filter((item): item is VenuePlace => item !== null);
@@ -339,7 +348,10 @@ export function createBaiduMapProvider(
     },
   };
 }
-export function createConfiguredBaiduMapProvider(region = "全国"): MapProvider {
+export function createConfiguredBaiduMapProvider(
+  region = "全国",
+  onPartialFailure?: (code: string) => void,
+): MapProvider {
   const proxyFetch: FetchLike = async (input, init) => {
     const url = new URL(input),
       query = url.searchParams.get("query") || "",
@@ -367,5 +379,6 @@ export function createConfiguredBaiduMapProvider(region = "全国"): MapProvider
     ak: "server-proxy",
     fetchImpl: proxyFetch,
     region,
+    onPartialFailure,
   });
 }

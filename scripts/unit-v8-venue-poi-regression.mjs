@@ -40,6 +40,7 @@ const fake = async (url, opts = {}) => {
             query_variant: "奥森",
             status: 0,
             health: null,
+            http_status: 200,
             raw_count: 2,
             valid_coordinate_count: 1,
             city_retained_count: 1,
@@ -66,6 +67,106 @@ assert.equal(result.city_retained_count, 1);
 assert.equal(result.matched_count, 1);
 assert.deepEqual(result.match_types, ["ALIAS"]);
 assert.equal(result.selection_confirmed, "NOT_VERIFIED");
+// Regression: proxy may return a valid POI with status=0 while another
+// upstream endpoint still rejects the same AK with 240. Never count as PASS.
+const partialDenied = await checkOne({
+  base,
+  sha,
+  token: "local-fixture-token",
+  city: "北京",
+  type: "公园",
+  query: "奥森",
+  canonical: "奥林匹克森林公园",
+  fetchImpl: async () => ({
+    status: 200,
+    json: async () => ({
+      status: 0,
+      results: [poi],
+      partial_upstream_error: "BAIDU_PLACE_PERMISSION_DENIED",
+      search_diagnostics: { endpoints: [{ status: 0 }, { status: 240 }] },
+    }),
+  }),
+});
+assert.equal(
+  partialDenied.failure_stage,
+  "UPSTREAM_PARTIAL_FAILURE:BAIDU_PLACE_PERMISSION_DENIED",
+);
+assert.equal(partialDenied.degraded_upstream, true);
+const silentDegradation = await checkOne({
+  base,
+  sha,
+  token: "local-fixture-token",
+  city: "北京",
+  type: "公园",
+  query: "奥森",
+  canonical: "奥林匹克森林公园",
+  fetchImpl: async () => ({
+    status: 200,
+    json: async () => ({
+      status: 0,
+      results: [poi],
+      search_diagnostics: { endpoints: [{ status: 0 }, { status: 240 }] },
+    }),
+  }),
+});
+assert.equal(
+  silentDegradation.failure_stage,
+  "UPSTREAM_PARTIAL_FAILURE:NONZERO_UPSTREAM_STAGE",
+);
+for (const [stage, expected] of [
+  [
+    { status: null, http_status: null, health: "network" },
+    "UNHEALTHY_UPSTREAM_STAGE",
+  ],
+  [
+    { status: null, http_status: null, health: "timeout" },
+    "UNHEALTHY_UPSTREAM_STAGE",
+  ],
+  [
+    { status: 0, http_status: 200, health: "malformed" },
+    "UNHEALTHY_UPSTREAM_STAGE",
+  ],
+  [
+    { status: 0, http_status: null, health: null },
+    "INCOMPLETE_UPSTREAM_DIAGNOSTICS",
+  ],
+]) {
+  const degraded = await checkOne({
+    base,
+    sha,
+    token: "local-fixture-token",
+    city: "北京",
+    type: "公园",
+    query: "奥森",
+    canonical: "奥林匹克森林公园",
+    fetchImpl: async () => ({
+      status: 200,
+      json: async () => ({
+        status: 0,
+        results: [poi],
+        search_diagnostics: { endpoints: [stage] },
+      }),
+    }),
+  });
+  assert.equal(degraded.failure_stage, `UPSTREAM_PARTIAL_FAILURE:${expected}`);
+}
+const missingDiagnostics = await checkOne({
+  base,
+  sha,
+  token: "local-fixture-token",
+  city: "北京",
+  type: "公园",
+  query: "奥森",
+  canonical: "奥林匹克森林公园",
+  fetchImpl: async () => ({
+    status: 200,
+    json: async () => ({ status: 0, results: [poi] }),
+  }),
+});
+assert.equal(
+  missingDiagnostics.failure_stage,
+  "UPSTREAM_PARTIAL_FAILURE:INCOMPLETE_UPSTREAM_DIAGNOSTICS",
+);
 const wrong = await checkOne({
   base,
   sha,
@@ -80,6 +181,7 @@ const wrong = await checkOne({
   }),
 });
 assert.equal(wrong.failure_stage, "CROSS_CITY_CANDIDATE");
+assert.equal(wrong.degraded_upstream, true);
 const missing = await checkOne({
   base,
   sha,
@@ -127,7 +229,13 @@ const negative = await checkOne({
   canonical: "虚构紫薯网球场Z",
   fetchImpl: async () => ({
     status: 200,
-    json: async () => ({ status: 0, results: [] }),
+    json: async () => ({
+      status: 0,
+      results: [],
+      search_diagnostics: {
+        endpoints: [{ status: 0, http_status: 200, health: null }],
+      },
+    }),
   }),
 });
 assert.equal(negative.failure_stage, null);

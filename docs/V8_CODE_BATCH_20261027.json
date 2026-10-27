@@ -1,6 +1,6 @@
 {
-  "review_base_sha": "b2a29b6c99199992d7faba03a9dd288fc9aaca17",
-  "applied_count": 15,
+  "review_base_sha": "5cc0cccc7a02edb156170b22dd27230dc9c21e89",
+  "applied_count": 17,
   "rows": [
     {
       "batch": 18,
@@ -187,28 +187,53 @@
         "apps/wechat-mini/src/pages/venue-poc/index.tsx",
         "apps/wechat-mini/tests/venue-selection-poc.test.mjs"
       ]
+    },
+    {
+      "batch": 33,
+      "source": "20261027-1203_miniprogram-coordinate-provenance-gate_patch_b2a29b6.md",
+      "handoff_id": "QD-MP-20261027-1203-BATCH33-COORDINATE-PROVENANCE",
+      "patch_sha256": "d3a4366eebaedc49558a6c91d0429fba7b8c25480e1579ee779d294016ceb411",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-coordinate-contract.ts",
+        "apps/wechat-mini/tests/venue-coordinate-contract.test.mjs"
+      ]
+    },
+    {
+      "batch": 34,
+      "source": "20261027-1506_miniprogram-venue-map-draft-bridge_patch_b2a29b6.md",
+      "handoff_id": "QD-MP-20261027-1506-BATCH34-VENUE-MAP-DRAFT-BRIDGE",
+      "patch_sha256": "31b4894fefc0844cf6c69c78da4c41e555cfbfa405cffbb189c07534b5569daf",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-map-draft-bridge.ts",
+        "apps/wechat-mini/tests/venue-map-draft-bridge.test.mjs"
+      ]
     }
   ],
   "checks": {
     "original_apply_check": "15/15 PASS; no forced SHA equality; unchanged mini base context",
-    "offline_unit": "272/272 PASS",
-    "boundary": "PASS 26 files",
+    "offline_unit": "316/316 PASS",
+    "boundary": "PASS 28 files",
     "typecheck": "PASS after Taro getStorageInfo unknown/object guard",
     "format": "PASS",
     "taro_build": "PASS actual webpack",
     "g1": "PASS fresh app.json/app.js/pages/index/index.js",
     "h5_unit": "PASS",
     "h5_build": "PASS",
-    "h5_tracked_source_isolation": "PASS before docs changes"
+    "h5_tracked_source_isolation": "PASS; batches 33-34 add mini-only source/tests"
   },
   "map": {
     "selected": "V5.2",
     "older_versions": "V5/V5.1 child archives 5/5 byte-identical; V5.2 changes reviewed base metadata",
     "integrity": "3 ZIP CRC PASS; 5/5 child hashes each PASS",
     "isolated_tests": "acceptance 10 and generic variants 19 PASS; JS syntax PASS",
-    "real_worktree_stage": "FAILED POST_APPLY_UNIT_FAILED scripts/unit-v8-venue-poi-regression.mjs:151; expected CROSS_CITY_CANDIDATE, actual UPSTREAM_PARTIAL_FAILURE:INCOMPLETE_UPSTREAM_DIAGNOSTICS",
-    "applied_to_branch": false,
+    "real_worktree_stage": "PASS after preserving observed candidate failures as primary failure_stage while retaining degraded_upstream and partial_upstream_error independently",
+    "applied_to_branch": true,
+    "local_verification": "H5 unit/build/format and V5.2 post-apply suites PASS; DB integration script BLOCKED locally because psql is unavailable and must be confirmed by Integration Contract CI",
     "live_baidu": "BLOCKED last 8/8 business 200; no new live calls"
   },
-  "archive_rule": "Archive 15 mini sources and superseded map wrappers only after commit and readback; leave V5.2 FAILED candidate pending."
+  "archive_rule": "Archive batches 33-34 and V5.2/evidence only after commit, remote readback and green CI; live Baidu acceptance remains a separate blocked gate."
 }

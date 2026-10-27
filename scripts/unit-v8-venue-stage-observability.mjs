@@ -91,7 +91,16 @@ try {
     ["good-beijing"],
   );
   const success = stages();
-  assert.equal(success.length, 2);
+  assert.ok(
+    Array.isArray(good.body.query_variants) &&
+      good.body.query_variants.length >= 1 &&
+      good.body.query_variants.length <= 5,
+  );
+  assert.equal(
+    success.length,
+    2 + (good.body.query_variants.length - 1) * 4,
+    "exact variant stops after V3 while generated variants exercise V2 fallback",
+  );
   assert.equal(success[0].raw_count, 3);
   assert.equal(success[0].valid_coordinate_count, 2);
   assert.equal(success[0].city_coordinate_count, 1);

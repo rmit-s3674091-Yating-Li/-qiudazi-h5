@@ -60,10 +60,23 @@ async function run(
   return { status, body, mapCalls };
 }
 
+function assertFullFanout(result, label) {
+  assert.ok(
+    Array.isArray(result.body.query_variants) &&
+      result.body.query_variants.length >= 1 &&
+      result.body.query_variants.length <= 5,
+    `${label}: bounded query variants`,
+  );
+  assert.equal(
+    result.mapCalls,
+    result.body.query_variants.length * 4,
+    `${label}: V3 suggestion/region and V2 suggestion/search per variant`,
+  );
+}
 const empty = await run("real empty", () => ok(validEmpty));
 assert.equal(empty.status, 200);
 assert.deepEqual(empty.body.results, []);
-assert.equal(empty.mapCalls, 4);
+assertFullFanout(empty, "real empty");
 const malformed = await run("malformed 200", () =>
   ok({ message: "broken schema" }),
 );
@@ -121,9 +134,14 @@ const success = await run("valid candidate", (_, i) =>
   i === 1 ? ok({ status: 0, results: [poi] }) : ok({ status: 0, results: [] }),
 );
 assert.equal(success.status, 200);
+assert.equal(
+  success.body.partial_upstream_error,
+  undefined,
+  "healthy upstream must remain fully successful",
+);
 assert.equal(success.body.results.length, 1);
 assert.equal(success.body.results[0].uid, "venue-1");
-assert.equal(success.mapCalls, 4, "partial V3 name must continue to V2");
+assertFullFanout(success, "partial V3 name must continue to V2");
 const mixedItems = await run("valid POI survives malformed sibling", (_, i) =>
   i === 1 ? ok({ status: 0, results: [null, poi] }) : ok(validEmpty),
 );
@@ -131,6 +149,10 @@ assert.equal(mixedItems.status, 200);
 assert.deepEqual(
   mixedItems.body.results.map((item) => item.uid),
   ["venue-1"],
+);
+assert.equal(
+  mixedItems.body.partial_upstream_error,
+  "BAIDU_PLACE_INVALID_RESPONSE",
 );
 const outsideCity = {
   ...poi,
@@ -148,7 +170,7 @@ const outsideCityFallback = await run(
         : ok(validEmpty),
 );
 assert.equal(outsideCityFallback.status, 200);
-assert.equal(outsideCityFallback.mapCalls, 4);
+assertFullFanout(outsideCityFallback, "off-city V3 fallback");
 assert.deepEqual(
   outsideCityFallback.body.results.map((item) => item.uid),
   ["venue-1"],
@@ -168,7 +190,7 @@ const invalidV3Fallback = await run(
         : ok(validEmpty),
 );
 assert.equal(invalidV3Fallback.status, 200);
-assert.equal(invalidV3Fallback.mapCalls, 4);
+assertFullFanout(invalidV3Fallback, "invalid-coordinate V3 fallback");
 assert.deepEqual(
   invalidV3Fallback.body.results.map((item) => item.uid),
   ["venue-1"],
@@ -186,7 +208,7 @@ const zeroV3Fallback = await run(
         : ok(validEmpty),
 );
 assert.equal(zeroV3Fallback.status, 200);
-assert.equal(zeroV3Fallback.mapCalls, 4);
+assertFullFanout(zeroV3Fallback, "zero-pin V3 fallback");
 assert.deepEqual(
   zeroV3Fallback.body.results.map((item) => item.uid),
   ["venue-1"],
@@ -223,6 +245,10 @@ const mixedCoordinates = await run("drop bad candidate, keep valid", (_, i) =>
 assert.deepEqual(
   mixedCoordinates.body.results.map((item) => item.uid),
   ["venue-1"],
+);
+assert.equal(
+  mixedCoordinates.body.partial_upstream_error,
+  "BAIDU_PLACE_INVALID_RESPONSE",
 );
 const stringCoordinates = await run(
   "numeric string coordinates are valid",
@@ -553,17 +579,25 @@ const partialResults = await run(
 );
 assert.equal(partialResults.status, 200);
 assert.equal(partialResults.body.results.length, 1);
+assert.equal(
+  partialResults.body.partial_upstream_error,
+  "BAIDU_PLACE_INVALID_RESPONSE",
+);
 const v3Partial = await run("v3 suggestion outage, region candidate", (url) =>
   url.includes("/v3/suggestion")
     ? Promise.reject(new Error("offline"))
     : ok({ status: 0, results: [poi] }),
 );
 assert.equal(v3Partial.status, 200);
+assert.equal(
+  v3Partial.body.partial_upstream_error,
+  "BAIDU_PLACE_NETWORK_ERROR",
+);
 assert.deepEqual(
   v3Partial.body.results.map((item) => item.uid),
   ["venue-1"],
 );
-assert.equal(v3Partial.mapCalls, 4, "partial V3 name must continue to V2");
+assertFullFanout(v3Partial, "partial V3 failure");
 const v2Partial = await run("v2 suggestion outage, search candidate", (url) =>
   url.includes("/v3/")
     ? ok(validEmpty)
@@ -572,11 +606,32 @@ const v2Partial = await run("v2 suggestion outage, search candidate", (url) =>
       : ok({ status: 0, results: [poi] }),
 );
 assert.equal(v2Partial.status, 200);
+assert.equal(
+  v2Partial.body.partial_upstream_error,
+  "BAIDU_PLACE_NETWORK_ERROR",
+);
 assert.deepEqual(
   v2Partial.body.results.map((item) => item.uid),
   ["venue-1"],
 );
-assert.equal(v2Partial.mapCalls, 4);
+assertFullFanout(v2Partial, "partial V2 failure");
+// Unknown non-terminal business status must not be hidden by a good sibling.
+const mixedUnknownBusiness = await run(
+  "one valid candidate and unknown business error",
+  (_, i) =>
+    i === 1
+      ? ok({ status: 0, results: [poi] })
+      : i === 2
+        ? ok({ status: 299, message: "unrecognized upstream status" })
+        : ok(validEmpty),
+);
+assert.equal(mixedUnknownBusiness.status, 200);
+assert.equal(mixedUnknownBusiness.body.results.length, 1);
+assert.equal(
+  mixedUnknownBusiness.body.partial_upstream_error,
+  "BAIDU_PLACE_UPSTREAM_ERROR",
+);
+assert.deepEqual(mixedUnknownBusiness.body.upstream_statuses, [299]);
 const failedWithoutResults = await run(
   "partial outage is not a genuine empty result",
   (url) =>
@@ -665,5 +720,6 @@ assert.equal(station.body.results.length, 0);
 const generic = await run("generic tennis centre stays bounded", () =>
   ok(validEmpty),
 );
-assert.deepEqual(generic.body.query_variants, ["网球中心"]);
+assert.deepEqual(generic.body.query_variants, ["网球中心", "北京网球中心"]);
+assert.ok(generic.body.query_variants.length <= 5);
 console.log("V8 venue search upstream response contract tests passed.");

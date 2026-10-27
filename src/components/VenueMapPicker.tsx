@@ -253,6 +253,8 @@ export function VenueMapPicker({
   async function searchPlaces(termInput = query) {
     const term = termInput.trim();
     if (term.length < 2) return;
+    // Provider follows query script, not the language of UI labels.
+    const useBaiduSearch = !en || /[㐀-鿿]/u.test(term);
     const seq = ++searchSeq.current;
     setError("");
     setResults([]);
@@ -260,19 +262,32 @@ export function VenueMapPicker({
     setSearchOpen(true);
     setSearching(true);
     try {
-      const bounds = en ? await englishCityBounds() : null;
+      const bounds = !useBaiduSearch ? await englishCityBounds() : null;
       if (seq !== searchSeq.current) return;
-      const baidu = en
+      let partialUpstream = false;
+      const baidu = !useBaiduSearch
           ? null
           : createConfiguredBaiduMapProvider(
-              (initialCity || "").trim() || "全国",
+              {
+                beijing: "北京",
+                shanghai: "上海",
+                chengdu: "成都",
+                guangzhou: "广州",
+                shenzhen: "深圳",
+                chongqing: "重庆",
+              }[(initialCity || "").normalize("NFKC").trim().toLowerCase()] ||
+                (initialCity || "").trim() ||
+                "全国",
+              () => {
+                partialUpstream = true;
+              },
             ),
-        variants = en ? [term] : searchVariants(term);
+        variants = !useBaiduSearch ? [term] : searchVariants(term);
       const { groups, hadFailure, cancelled } =
         await collectVenueSearch<VenuePlace>(
           variants,
           (variant) =>
-            en
+            !useBaiduSearch
               ? browserMapProvider
                   .searchPlaces(variant, {
                     language: "en",
@@ -295,12 +310,17 @@ export function VenueMapPicker({
       if (cancelled) return;
       const found = rankPlaces(mergePlaces(groups), term).slice(0, 12);
       setResults(found);
-      setSearchCompleted(!hadFailure || found.length > 0);
-      if (!found.length && hadFailure)
+      const incomplete = hadFailure || partialUpstream;
+      setSearchCompleted(!incomplete || found.length > 0);
+      if (incomplete)
         setError(
           en
-            ? "Search is temporarily unavailable. You can still move the map or enter the venue manually."
-            : "地点搜索服务暂时不可用，你仍可以拖动地图或返回手填比赛场馆。",
+            ? found.length
+              ? "Some search sources are unavailable. Please verify the suggestions."
+              : "Search is temporarily unavailable. You can still move the map or enter the venue manually."
+            : found.length
+              ? "部分地点搜索服务异常，请核对候选地点的名称与地址。"
+              : "地点搜索服务异常，无法确认是否有匹配地点；可拖动地图或返回手填比赛场馆。",
         );
     } catch {
       if (seq === searchSeq.current) {

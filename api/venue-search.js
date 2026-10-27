@@ -121,7 +121,7 @@ function childResults(parent) {
     .map((child) => {
       const differentProvince = Boolean(
         child?.province &&
-          normalizeCity(child.province) !== normalizeCity(parent?.province),
+        normalizeCity(child.province) !== normalizeCity(parent?.province),
       );
       return {
         uid: child?.uid || undefined,
@@ -230,10 +230,13 @@ function hasMalformedLocations(region, groups) {
     ),
   );
 }
-function queryVariants(query) {
+function queryVariants(query, region = "全国") {
   const clean = query.normalize("NFKC").trim();
-  // Generic suffix relaxation works for unlisted parks, stations and sports facilities.
-  // Curated proper-name aliases supplement it; they do not replace provider lookup.
+  const city = String(region || "")
+    .normalize("NFKC")
+    .trim()
+    .replace(/市$/u, "");
+  // Existing curated aliases remain; typed expansions also cover unseen POIs.
   const aliases = {
     奥森: ["奥林匹克森林公园", "奥森网球"],
     绿心: ["城市绿心森林公园", "北京城市绿心森林公园"],
@@ -246,7 +249,6 @@ function queryVariants(query) {
     )
     .trim();
   const variants = [clean];
-  // Never broaden generic two-character words such as "网球" or "中心".
   if (
     relaxed !== clean &&
     (relaxed.length >= 3 || Object.hasOwn(aliases, relaxed))
@@ -254,6 +256,23 @@ function queryVariants(query) {
     variants.push(relaxed);
   for (const key of [clean, relaxed])
     for (const alias of aliases[key] || []) variants.push(alias);
+
+  // Generalized subway-station recall. Never remove the original name:
+  // "清河站" may denote a railway station rather than a subway station.
+  if (clean.endsWith("站") && !clean.endsWith("地铁站") && clean.length >= 3)
+    variants.push(`${clean.slice(0, -1)}地铁站`);
+  else if (/[路桥街]$/u.test(clean) && clean.length >= 3 && clean.length <= 8)
+    variants.push(`${clean}地铁站`);
+
+  // Add a scoped name for generic POI categories without claiming venue type.
+  if (
+    ["北京", "上海", "成都"].includes(city) &&
+    clean.length >= 3 &&
+    !clean.startsWith(city) &&
+    /(?:公园|网球中心|体育中心|体育公园|环球中心)$/u.test(clean)
+  )
+    variants.push(`${city}${clean}`);
+
   const venueWord =
     /(网球|球场|体育|运动|公园|中心|场馆|俱乐部|酒店|学校|大学|学院|站)$/u.test(
       clean,
@@ -543,7 +562,7 @@ export default async function handler(req, res) {
       return;
     }
     try {
-      const variants = queryVariants(query),
+      const variants = queryVariants(query, region),
         groups = [],
         statuses = [],
         health = [];
@@ -632,14 +651,36 @@ export default async function handler(req, res) {
           return;
         }
       }
+      // A usable POI does not turn an upstream outage into a fully healthy search.
+      // Preserve the candidate for manual selection but expose the partial failure
+      // to the client and to strict live-API acceptance checks.
+      const partialError = deadline.timedOut()
+        ? "VENUE_SEARCH_TIMEOUT"
+        : nonZero.length
+          ? "BAIDU_PLACE_UPSTREAM_ERROR"
+          : health.includes("http")
+            ? "BAIDU_PLACE_HTTP_ERROR"
+            : health.includes("malformed") || malformedCoordinates
+              ? "BAIDU_PLACE_INVALID_RESPONSE"
+              : health.includes("timeout")
+                ? "VENUE_SEARCH_TIMEOUT"
+                : health.includes("network")
+                  ? "BAIDU_PLACE_NETWORK_ERROR"
+                  : null;
       res.status(200).json({
         status: 0,
-        message: "ok",
+        message: partialError ? "partial upstream success" : "ok",
         results,
         total: results.length,
         result_type: "poi_type",
         query_type: "suggestion+region",
         query_variants: variants,
+        ...(partialError
+          ? {
+              partial_upstream_error: partialError,
+              upstream_statuses: [...new Set(nonZero)].slice(0, 4),
+            }
+          : {}),
         ...previewVenueResponse(deadline, results),
       });
     } catch {

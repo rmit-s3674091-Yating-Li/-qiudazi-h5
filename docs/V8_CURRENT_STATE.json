@@ -73,7 +73,7 @@
     "No automation may merge main, deploy Production, or move release-candidate without explicit authorization."
   ],
   "reviewed_at": "2026-10-27",
-  "review_base_sha": "3cdb135097014b81cbc043c0ce0ce4d5fcd8f578",
+  "review_base_sha": "5cc0cccc7a02edb156170b22dd27230dc9c21e89",
   "topic_owners_v8": {
     "scope": "docs/V8_CONFIRMED_SCOPE.md",
     "cross_platform_technology": "docs/research/miniprogram/miniprogram-implementation-prd.md",
@@ -85,19 +85,19 @@
     "miniprogram": {
       "research": "RESEARCH_INTEGRATED",
       "authorization": "OFFLINE_POC_AUTHORIZED",
-      "code": "OFFLINE_POC_IMPLEMENTED_THROUGH_BATCH_32",
+      "code": "OFFLINE_POC_IMPLEMENTED_THROUGH_BATCH_34",
       "pending_code_batches": [],
-      "automation": "G1_PASSED_ON_BATCH_WORKTREE_AT_RECORDED_BASE",
+      "automation": "G1_PASSED_316_TESTS_ON_INTEGRATION_WORKTREE_AT_RECORDED_BASE",
       "real_auth": "SESSION_BRIDGE_UNPROVEN",
       "real_device": "NOT_VERIFIED",
       "release": "NOT_AUTHORIZED"
     },
     "map": {
-      "code": "EXISTING_BAIDU_PROXY_RETAINED",
+      "code": "V5_2_AUTOMATED_FIXES_APPLIED_BAIDU_PROXY_RETAINED",
       "live_service": "FAILED_BUSINESS_STATUS_200_8_OF_8",
       "matrix_30_plus_9": "NOT_TESTED",
       "selection_fill_real_device": "NOT_VERIFIED",
-      "pending_candidate": "V5_2_STAGE_FAILED_NOT_APPLIED",
+      "pending_candidate": "NONE_V5_2_APPLIED_AUTOMATED_ACCEPTANCE_PASSED_LIVE_GATE_BLOCKED",
       "evidence_owner": "docs/V8_P3_STATUS_20261025.md"
     }
   }
