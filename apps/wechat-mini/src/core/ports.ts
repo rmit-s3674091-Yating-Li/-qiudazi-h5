@@ -1,3 +1,5 @@
+import type { VenueSearchOutcome } from "./venue-search.ts";
+
 export type ActorScope = Readonly<{
   authUserId: string;
   profileId: string;
@@ -27,10 +29,7 @@ export interface UploadPort {
   }): Promise<{ status: number; rawBody: string }>;
 }
 export interface VenuePort {
-  search(
-    city: string,
-    query: string,
-  ): Promise<ReadonlyArray<{ id: string; name: string; address: string }>>;
+  search(city: string, query: string): Promise<VenueSearchOutcome>;
 }
 export interface SessionPort {
   getVerifiedActor(): Promise<ActorScope | null>;
@@ -50,7 +49,7 @@ export class UnprovenSessionPort implements SessionPort {
   }
 }
 export class OfflineVenuePort implements VenuePort {
-  async search(): Promise<[]> {
-    return [];
+  async search(): Promise<VenueSearchOutcome> {
+    return { status: "UNAVAILABLE", reason: "OFFLINE_POC", candidates: [] };
   }
 }

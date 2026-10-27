@@ -52,14 +52,52 @@ export class PendingIntentGate {
   clear(): void {
     this.pending = null;
   }
+  /** Read a single clock snapshot. Invalid clocks cannot prolong an invite. */
+  private safeNow(): number | null {
+    try {
+      const now = this.now();
+      return Number.isSafeInteger(now) &&
+        now >= 0 &&
+        Number.isSafeInteger(now + this.ttlMs)
+        ? now
+        : null;
+    } catch {
+      return null;
+    }
+  }
   private getValid(): Pending | null {
     const p = this.pending;
     if (!p) return null;
-    if (this.now() < p.capturedAt || this.now() - p.capturedAt >= this.ttlMs) {
+    const now = this.safeNow();
+    if (
+      now === null ||
+      now < p.capturedAt ||
+      now >= p.capturedAt + this.ttlMs
+    ) {
       this.clear();
       return null;
     }
     return p;
+  }
+  /** Never trust the shape or return type of a runtime session adapter. */
+  private currentActor(
+    actor: ActorSnapshot,
+    isCurrent: ActorIsCurrent,
+  ): boolean {
+    try {
+      return (
+        !!actor &&
+        typeof actor === "object" &&
+        typeof actor.authUserId === "string" &&
+        actorPattern.test(actor.authUserId) &&
+        Number.isSafeInteger(actor.generation) &&
+        actor.generation >= 0 &&
+        typeof isCurrent === "function" &&
+        isCurrent(actor.authUserId, actor.generation) === true
+      );
+    } catch {
+      return false;
+    }
   }
 
   capture(
@@ -68,8 +106,11 @@ export class PendingIntentGate {
     openedByAuthId: string | null = null,
   ): PendingStatus {
     if (
+      typeof requestId !== "string" ||
       !requestIdPattern.test(requestId) ||
-      (openedByAuthId !== null && !actorPattern.test(openedByAuthId))
+      (openedByAuthId !== null &&
+        (typeof openedByAuthId !== "string" ||
+          !actorPattern.test(openedByAuthId)))
     )
       return "INVALID_INTENT";
     try {
@@ -78,10 +119,12 @@ export class PendingIntentGate {
       return "INVALID_INTENT";
     }
     if (this.getValid()) return "REPLACEMENT_CONFIRM_REQUIRED";
+    const now = this.safeNow();
+    if (now === null) return "INVALID_INTENT";
     this.pending = {
       intent: Object.freeze({ ...intent }),
       requestId,
-      capturedAt: this.now(),
+      capturedAt: now,
       openedByAuthId,
       boundActor: null,
     };
@@ -98,10 +141,7 @@ export class PendingIntentGate {
     if (!p) return "NOT_FOUND";
     if (
       p.requestId !== requestId ||
-      !actorPattern.test(actor.authUserId) ||
-      !Number.isSafeInteger(actor.generation) ||
-      actor.generation < 0 ||
-      !isCurrent(actor.authUserId, actor.generation) ||
+      !this.currentActor(actor, isCurrent) ||
       (p.openedByAuthId !== null && p.openedByAuthId !== actor.authUserId) ||
       (p.boundActor !== null &&
         (p.boundActor.authUserId !== actor.authUserId ||
@@ -125,14 +165,14 @@ export class PendingIntentGate {
     if (!p) return { status: "NOT_FOUND" };
     if (
       !p.boundActor ||
+      !this.currentActor(actor, isCurrent) ||
       p.boundActor.authUserId !== actor.authUserId ||
-      p.boundActor.generation !== actor.generation ||
-      !isCurrent(actor.authUserId, actor.generation)
+      p.boundActor.generation !== actor.generation
     ) {
       this.clear();
       return { status: "STALE_ACTOR" };
     }
-    if (needsConfirmation(p.intent) && !userConfirmed)
+    if (needsConfirmation(p.intent) && userConfirmed !== true)
       return { status: "CONFIRM_REQUIRED" };
     const intent = p.intent;
     this.clear();

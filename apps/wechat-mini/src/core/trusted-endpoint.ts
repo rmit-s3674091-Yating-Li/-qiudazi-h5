@@ -116,6 +116,30 @@ export function createTrustedEndpointPolicy(
   };
 }
 
+/**
+ * A bearer token must never be copied into a URL path or query value, even
+ * when the query key itself looks harmless. Inspect a bounded number of URL
+ * decoding layers without recording the token or the URL in errors. This is
+ * defense in depth; it does not establish redirect or platform URL behavior.
+ */
+function assertCredentialNotInUrl(url: string, credential: string): void {
+  const match = absolutePattern.exec(url);
+  if (!match) throw new Error("UNTRUSTED_ENDPOINT");
+  let pathAndQuery = match[2];
+  for (let depth = 0; depth < 8; depth++) {
+    if (pathAndQuery.includes(credential)) throw new Error("CREDENTIAL_IN_URL");
+    if (!pathAndQuery.includes("%")) return;
+    try {
+      pathAndQuery = decodeURIComponent(pathAndQuery);
+    } catch {
+      // Ambiguous URL encodings are not suitable for bearer requests.
+      throw new Error("UNTRUSTED_ENDPOINT");
+    }
+  }
+  if (pathAndQuery.includes(credential)) throw new Error("CREDENTIAL_IN_URL");
+  if (pathAndQuery.includes("%")) throw new Error("UNTRUSTED_ENDPOINT");
+}
+
 /** Tests can inject a spy in place of Taro; guard runs before any network call. */
 export async function guardedNetworkCall<T>(
   policy: TrustedEndpointPolicy,
@@ -127,10 +151,11 @@ export async function guardedNetworkCall<T>(
   if (requireCredential && jwt === undefined) throw new Error("AUTH_REQUIRED");
   if (
     jwt !== undefined &&
-    (typeof jwt !== "string" || !jwt.trim() || /[\r\n]/.test(jwt))
+    (typeof jwt !== "string" || !/^[A-Za-z0-9._-]+$/.test(jwt))
   ) {
     throw new Error("INVALID_JWT");
   }
   policy.assert(url, jwt !== undefined);
+  if (jwt !== undefined) assertCredentialNotInUrl(url, jwt);
   return invoke();
 }

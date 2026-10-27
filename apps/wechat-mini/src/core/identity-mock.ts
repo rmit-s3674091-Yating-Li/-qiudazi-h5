@@ -87,11 +87,17 @@ export class MockLegacyProofVerifier {
       !validOpaque(proof) ||
       this.proofs.has(proof) ||
       this.consumed.has(proof) ||
+      !fixture ||
+      typeof fixture !== "object" ||
       !validOpaque(fixture.requestId) ||
       !validSubject(fixture.subject) ||
-      !fixture.legacy.authUserId ||
-      !fixture.legacy.profileId ||
-      !Number.isFinite(fixture.expiresAt)
+      !fixture.legacy ||
+      typeof fixture.legacy.authUserId !== "string" ||
+      !fixture.legacy.authUserId.trim() ||
+      typeof fixture.legacy.profileId !== "string" ||
+      !fixture.legacy.profileId.trim() ||
+      !Number.isSafeInteger(fixture.expiresAt) ||
+      fixture.expiresAt < 1
     )
       throw new Error("INVALID_PROOF_FIXTURE");
     this.proofs.set(proof, {
@@ -114,6 +120,10 @@ export class MockLegacyProofVerifier {
     if (stored) this.consumed.add(proof);
     if (
       !stored ||
+      !Number.isSafeInteger(now) ||
+      now < 0 ||
+      !validOpaque(requestId) ||
+      !validSubject(subject) ||
       stored.requestId !== requestId ||
       stored.subjectKey !== keyFor(subject) ||
       !stored.consentRecorded ||
@@ -158,7 +168,14 @@ export class MockIdentityServer {
     }
     if (!fields.every(validOpaque)) return { status: "CONFLICT_LOCKED" };
     const [loginCode, requestId, clientNonce] = fields;
-    const now = this.now();
+    let now: number;
+    try {
+      now = this.now();
+    } catch {
+      this.requests.delete(requestId);
+      this.pending.delete(requestId);
+      return { status: "CONFLICT_LOCKED" };
+    }
     if (
       !Number.isSafeInteger(now) ||
       now < 0 ||
@@ -206,13 +223,21 @@ export class MockIdentityServer {
     userConfirmed: boolean,
   ): ExchangeResult {
     const pending = this.pending.get(requestId);
-    const now = this.now();
+    let now: number;
+    try {
+      now = this.now();
+    } catch {
+      this.requests.delete(requestId);
+      this.pending.delete(requestId);
+      return { status: "CONFLICT_LOCKED" };
+    }
     if (
       !pending ||
       !Number.isSafeInteger(now) ||
       now < pending.createdAt ||
       now >= pending.expiresAt
     ) {
+      this.requests.delete(requestId);
       this.pending.delete(requestId);
       return { status: "CONFLICT_LOCKED" };
     }

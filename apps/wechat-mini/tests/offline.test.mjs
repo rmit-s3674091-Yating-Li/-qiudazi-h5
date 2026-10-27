@@ -192,7 +192,11 @@ test("protected calls and venue lookup fail closed in offline PoC", async () => 
   const session = new UnprovenSessionPort();
   assert.equal(await session.getVerifiedActor(), null);
   await assert.rejects(session.refresh(), /SESSION_BRIDGE_UNPROVEN/);
-  assert.deepEqual(await new OfflineVenuePort().search("北京", "奥森"), []);
+  assert.deepEqual(await new OfflineVenuePort().search("北京", "奥森"), {
+    status: "UNAVAILABLE",
+    reason: "OFFLINE_POC",
+    candidates: [],
+  });
 });
 
 test("A to B to A identity generation rejects stale async responses", () => {

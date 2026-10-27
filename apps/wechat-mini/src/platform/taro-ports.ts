@@ -4,6 +4,7 @@ import {
   guardedNetworkCall,
   type TrustedEndpointPolicy,
 } from "../core/trusted-endpoint.ts";
+import { readStorageStrict } from "../core/strict-storage-read.ts";
 
 /**
  * An explicit endpoint policy is mandatory even for the offline PoC.
@@ -34,11 +35,16 @@ export class TaroTransport implements TransportPort {
 }
 export class TaroKeyValue implements KeyValuePort {
   async read(key: string): Promise<unknown> {
-    try {
-      return (await Taro.getStorage({ key })).data;
-    } catch {
-      return null;
-    }
+    return readStorageStrict(key, {
+      listKeys: async () => {
+        const info: unknown = await Taro.getStorageInfo();
+        return info && typeof info === "object" && "keys" in info
+          ? info.keys
+          : undefined;
+      },
+      readValue: async (storageKey) =>
+        (await Taro.getStorage({ key: storageKey })).data,
+    });
   }
   async write(key: string, value: unknown): Promise<void> {
     await Taro.setStorage({ key, data: value });
