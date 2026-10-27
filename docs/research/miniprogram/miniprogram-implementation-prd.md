@@ -1,47 +1,88 @@
-# 球搭子｜小程序与 H5 统一身份设计 PRD（研究融合版）
+# 球搭子｜H5 与微信小程序技术路线及实施门槛
 
-> 状态：DESIGN_COMPLETE_CANDIDATE_CONDITIONAL；不等于已批准开发、登录可用或可发布。基线：feature/v8-confirmed-20261011，39e17fe。2026-10-23 Chat 融合七份研究。
-> 先行阅读：本目录 handoff.md、identity-architecture.md、wechat-login-options.md；历史两份 identity-architecture-and-cost.md 和 framework-reuse-matrix.md 保留。
+更新：2026-10-27。审阅基线：`3cdb135097014b81cbc043c0ce0ce4d5fcd8f578`。本文件为跨端技术决策唯一正文；范围真源仍为 [V8_CONFIRMED_SCOPE](../../V8_CONFIRMED_SCOPE.md)，实施/验证索引为 [V8_CURRENT_STATE](../../V8_CURRENT_STATE.json)。不自动新增第六项 V8 产品范围。
 
-## 目标与边界
+## 状态分层
 
-H5 与微信小程序并行，共用既有 Supabase 业务数据、稳定 public.profiles.id 和纯 TypeScript 赛事/记分规则。小程序 PoC 首选 Taro 4 + React/TS；小程序导航、地图、拍照上传、存储、网络认证需单独适配，不假设现有 React Router/Leaflet/DOM 可运行。小程序不搬 Platform Admin，V8 当前五项已确认开发范围不自动扩大。
+| 层级          | 当前结论                  | 证据与限制                                                                      |
+| ------------- | ------------------------- | ------------------------------------------------------------------------------- |
+| 研究/技术决策 | RESEARCH_INTEGRATED       | 既有研究和本轮用户技术方向已融合；不代表代码完成                                |
+| 授权范围      | OFFLINE_POC_AUTHORIZED    | H5 保留，小程序并行；未授权正式微信接入、数据库迁移、收费或发布                 |
+| 代码          | OFFLINE_POC_IMPLEMENTED   | `apps/wechat-mini/` 已落仓，已融合至第17批；18–28批仍为待应用补丁               |
+| 自动化        | G1_PASSED_AT_RECORDED_SHA | 诊断清理 SHA 的 mini-g1、H5 单测/构建/集成成功；不能外推到未融合补丁            |
+| 身份/真实业务 | SESSION_BRIDGE_UNPROVEN   | wx.login、手机号获取、mock 身份均不是可信可刷新的 Supabase Auth Session         |
+| 发布/真机     | NOT_VERIFIED              | AppID、主体/类目、备案、合法域名、隐私权限、中国 iOS/Android 真机与审核均未闭环 |
 
-P0（可另行批准的零新增外部订阅费用本地 PoC）：模拟登录/会话适配、跨端 NavigationIntent 与六类邀请解析、赛事/Quick Start/参赛记分共享纯 TS 规则、地图和媒体 Adapter、冲突和账号切换测试。模拟通过不等于真实微信登录通过。
+## A. 架构与复用
 
-P1（需另行授权 TEST 集成）：赛事大厅/详情、创建和 Quick Start、参赛者记分、赛事分享打开→登录→回跳→加入/拒绝、球搭子邀请及历史 Player 认领、最小场馆选择与手填 fallback、保护赛事照片的读取。更多高级相册、PC 后台迁移、订阅/支付均延期。
+当前 PoC 路线是 Taro 4 + React/TypeScript，H5 持续保留。赛事、Quick Start、记分、回执与账号代次等纯 TypeScript 领域规则复用 H5 唯一源码。小程序同步脚本只生成被 gitignore 的 shared-domain，不维护第二套业务真源；React Router、DOM、Leaflet 不直接搬进小程序。
 
-## 未定的登录决策
+地图、导航、网络、会话、Storage、媒体分开适配。Taro 的 request/uploadFile/本地文件与 Supabase fetch、持久化、multipart 的兼容性需要真实环境验证；不能把平台原语封装视为完整 Supabase SDK 支持。Platform Admin 继续由 H5 承担，不在小程序复制后台。
 
-- 若具备中国大陆合规短信签名主体且重视 H5、小程序、PC 一致性：优先验证 Supabase Phone OTP + 国内 SMS Hook；短信提供商不是免费默认服务，号码持有权不自动等于历史 Profile 所有权。
-- 若无合规 SMS 主体且小程序为主入口：优先验证 wx.login → 服务端 code2Session → 可信身份绑定 → **受支持、可刷新** Supabase Auth Session；目前 SESSION_BRIDGE_UNPROVEN，不能直接上线。
-- 混合和邮箱恢复只能在费用、国内送达、绑定安全及维护复杂度经过证明后纳入；微信 getPhoneNumber 不是独立的 Supabase 登录会话。具体费用与官方资质尚待后台核验。
+G1 用完整仓库的离线单测、boundary、TypeScript、Prettier、真实 Taro build 和新鲜构建产物证明工程可构建。真实微信身份、刷新会话、RLS、Storage、邀请加入和真机属于后续关口；G1 不替代它们。执行入口见 [PoC README](../../../apps/wechat-mini/README.md)。
 
-## 登录与账号安全不变量
+## B. 登录、绑定与历史身份
 
-必须由服务器验证真实凭据；OpenID 只在 AppID 内唯一，UnionID 可能缺失；昵称/头像/同名/手机号相似不自动合并。保留旧 Auth UUID 与历史审计、业务 Profile ID、照片和赛事外键。需同批审查 test-identity-exchange、guest-session 与 complete_profile 昵称自动 alias 关联。profiles_self_read 与 current_profile_id/ensure_profile alias 可见性差异必须做正反例 RLS 测试。Admin 只按可信 auth.uid() 的独立权限校验，不因绑定原 Profile 自动赋权；G/老郑旧身份验证须有独立证明。
+微信小程序以 wx.login/code2Session 为候选入口，应用 secret/session_key 只在受控服务端处理；微信手机号能力与手机号短信 OTP 是不同能力，不把取号等同于登录。H5 的入口需按微信内/外、短信主体和国际号码需求另行验证，不因小程序路线获批就自动启用收费短信。
 
-## 分享、邀请与进入登录的状态
+SESSION_BRIDGE_UNPROVEN 必须保留。受支持的 Supabase session 签发、刷新、撤销、重放、过期、账号切换隔离全部需要 TEST 实证；不能自签 JWT、把 openid/profile ID 当 Auth UID、或用 mock 的成功状态代替认证。详见 [会话桥接](session-bridge-poc.md) 和 [身份审计](identity-architecture.md)。
 
-跨端统一 NavigationIntent：逻辑类型与 token 安全分层；小程序 page path 与 H5 hash route 分别编码、解码。至少区分公开赛事详情、私有赛事预览、好友 connection invite、临时 Player claim、已有好友赛事邀请及普通登录回跳。分享链接绝不含 access/refresh token；需要登录时保留 intent，成功后以服务端权限恢复，并要求高影响邀请明确确认，过期/跨用户/重复调用失败关闭。
+历史 Profile 以稳定业务 ID 延续，但凭据绑定必须有当前可信会话、旧账号所有权证明、明确确认和冲突恢复；不能凭昵称、头像或手机号相似性接管。RLS alias 兼容、旧昵称登录退役、Admin 按 Auth UUID 独立授权分别验收。A→B→A 仍须使前一代异步结果、缓存和待执行意图失效；时钟无效、回拨和过期证明失败关闭。详见 [历史迁移](legacy-user-migration.md)。
 
-**E1 默认低 TCO 候选**：分享后登录先行，再查询既有 authenticated RPC；不是已批准产品结论。**E2 待用户确认**：匿名展示最小脱敏赛事预览，需要独立字段白名单、受控 RPC/Edge 与防枚举限流。现有 get_event_snapshot、get_private_event_preview、get_my_event_entry_id 的 anon 权限不支持直接匿名读取，绝不为省开发而赋予原业务 RPC 的 anon EXECUTE。
+## C. 地图展示、检索和坐标
 
-## 适配与成本门槛
+| 层次       | 当前决定                                                     | 已实现与待验证                                                 |
+| ---------- | ------------------------------------------------------------ | -------------------------------------------------------------- |
+| 展示       | H5 与小程序使用各自适合的展示组件                            | H5 当前 Leaflet/OSM；PoC 静态小程序地图，均不等于真实 POI 通过 |
+| 检索       | 尽量共享受鉴权服务端接口、结果模型、排序和坐标转换           | 当前百度 Web API 仍保留；小程序真实 API 未接入                 |
+| 供应商顺序 | 百度最后一次受控鉴权修复；腾讯位置服务第一替代候选，高德第二 | 不自动换供应商、不启用资源或收费、不改生产地图                 |
+| H5 专项    | 不再优先投入百度浏览器 JS API 重构                           | Browser AK、Server AK 与展示 SDK 分层，不能互相替代认证        |
+| 失败恢复   | 保留拖图/手动选点、当前位置与手填地址                        | 具体场地为独立可选文本；定位/网络/键盘/回填需要真机验收        |
 
-Taro 网络/存储/WebSocket/上传 API 与浏览器 fetch/Blob 不等价；实现 TransportPort、SessionPort、MediaPort、StoragePort，再测试 Supabase JWT、RLS、签名 URL、头像路径及 event-photos 私有访问。当前相册原图与水印采用不同对象，不能为节约费用自行合并副本语义。地图小程序 Map/POI 与 H5 的 P3 修复独立；中文 POI 城市限制与手填 fallback 必测。
+结果模型须保留名称、地址、城市、provider、placeId、坐标及坐标系。百度候选 GCJ-02 在边界适配到当前 H5 使用的 WGS84；小程序显示组件需要显式坐标适配，禁止重复转换或把百度 BD-09、GCJ-02、WGS84 混用。坐标不作为普通用户操作字段。
 
-成本排序以安全、合规、用户可用性满足后的总拥有成本（资质、短信单价×实际使用次数、防刷、备案、域名、存储/调用量、维护）为准；正式金额无官方当期证据时标待核验。商业化不得依赖 Vercel Hobby 个人非商业免费套餐。不得自行采购、开通计费或调整套餐。
+本轮最新真实证据是 2026-10-26 23:48:24（北京时间）同一 Vercel 运行时 AK 的四接口×两地点：8/8 HTTP 200，但业务 status=200；没有 status=0，不得宣称恢复。详细矩阵及部署/清理 SHA 只在 [P3 状态](../../V8_P3_STATUS_20261025.md) 维护。
 
-## 开发/验收 Gate
+后续必须先取得真实成功响应和正确城市、相关场馆、有效坐标，再通过北京“奥森”“绿心公园”双门控，然后运行 30 固定+9 盲测与浏览器选点回填。CI、静态探针、mock、READY 均不替代真实验收。
 
-| Gate | 通过条件 | 失败后 |
-| --- | --- | --- |
-| G0 设计 | 用户确认登录主路径、E1/E2、主体与预算；来源及状态明确 | 不启动产品开发 |
-| G1 离线 mock | Taro+TS 编译、身份绑定状态机、六类 NavigationIntent、并发与缓存隔离 | 修改 Adapter |
-| G2 TEST 身份 | 真实受支持 Supabase Auth session，刷新/撤销、RLS/Storage/Admin 拒绝、旧用户正确绑定、无昵称接管 | 不启用正式登录 |
-| G3 分享/隐私 | 受限操作登录回跳；若 E2 独立匿名预览、限流和隐私测试 | 不开放 anon RPC |
-| G4 微信上线资质 | APP/小程序备案、主体/域名/隐私/中国真机、地图与文件 API | 不发布 |
-| G5 业务闭环 | 创建→分享→登录→加入/拒绝→记分；G/老郑历史与 Admin 不串号；弱网和重复调用安全 | 不发布、不移 V8 Release Gate |
+现有研究识别了服务端部分成功未显式披露健康降级、客户端降级反馈、通用中文变体、英文界面中文查询路由、客户端/服务端嵌套查询扩展等候选缺口。静态理论上限 3×5×4=60 不是实际请求量；应统一服务端预算、取消和重试边界。现有英文 Nominatim 手动查询仍有全应用限流/重复请求和政策核验待办，不能标为全面合规，也不作为本轮绕过百度鉴权的替代。V4 与依赖路由补丁保持待应用，不能用它们宣称修复业务 status=200。
 
-详细证据、协议草案、风险和失败恢复见本目录七份专题文档。
+## D. 跨端业务、邀请与媒体
+
+赛事创建、Quick Start、参赛记分继续共享现有规则；真实写入仍由服务端验证参与资格、版本、幂等 operation 和回执。端上接到回执只有在 actor/operation/match/version 一致时才可更新界面；本地模拟连续点击保护不证明服务端已写入。
+
+分享与邀请以六类 NavigationIntent 作为路由契约，不是授权凭证。待执行意图必须有类型/URL/过期校验、用户确认、账号代次隔离与一次消费；真实读取、接受邀请、加入、认领仍需服务端重新检查接收人、角色、有效期、撤销及隐私。E1 登录先行可沿用；E2 最小匿名预览仍需最小脱敏读模型/RPC 的独立授权，不将当前 private event 直接放开。详见 [跨端产品范围](cross-platform-product-scope.md)。
+
+媒体必须维持赛事源照片与个人导入副本的独立生命周期，不为成本改为共享引用。照片访问由可信会话和 RLS/Storage/服务端 ACL 控制，短期 signed URL 不能被当成永久授权。上传前明确确认，选图/获取 token/上传全过程绑定 actor 代次，阻止连点重复与账号切换污染；端上水印、原图/水印副本、保存分享、权限拒绝及弱网均需适配。详见 [网络媒体](network-media-adaptation.md)。
+
+## E. 主体、发布与成本
+
+| 要求                 | 个人主体                                 | 企业主体                          | 当前项目证据                                   |
+| -------------------- | ---------------------------------------- | --------------------------------- | ---------------------------------------------- |
+| 认证、类目、接口资格 | 按实际主体和类目核验，不承诺全功能可用   | 按资质、认证及对应接口核验        | 待官方后台核验；touristappid 不是正式 AppID    |
+| 备案、域名、HTTPS    | 上线前核实适用要求及履行主体             | 同样需按实际服务核实              | 备案结果、request/upload/download 域名均未验证 |
+| 地图定位与隐私       | 用户授权、用途告知、隐私声明/权限配置    | 同样按实际采集与 SDK 要求核验     | 中国真机、拒绝路径和审核均未验证               |
+| 手机号与短信         | 取号能力资格与短信签名资格分别核实       | 需要对应服务资格、签名/模板与审核 | 未开通新服务，不把历史报价当当前已核实费用     |
+| 费用                 | 主体认证/域名/短信/地图/存储等按实际计费 | 同左，不能以企业身份推断永久免费  | 没有新增采购授权；配额/账单待核验              |
+
+框架及离线 mock 不需要新增外部采购，不代表正式上线零成本。现有 Supabase/Vercel/地图额度、媒体复制和 egress、短信量、备案/域名/认证的实际费用需官方当前资料及后台证据；本轮不重新研究价格、不承诺已满足。原始官方线索保存在 [可行性](mini-program-feasibility.md)、[登录方案](wechat-login-options.md)、[网络媒体](network-media-adaptation.md)，历史数字不得直接作为新采购依据。
+
+## 待应用代码队列与实施顺序
+
+本轮只消费研究/治理结论，不应用以下 11 批代码。原始文件和路径逐条见 [全量台账](../../V8_HANDOFF_RECONCILIATION_20261027.json)。
+
+| 批次                           | 保留的防护/功能结论                    | 主要依赖                                  |
+| ------------------------------ | -------------------------------------- | ----------------------------------------- |
+| 18 pending intent              | 非法输入、时钟、意图过期失败关闭       | 当前 pending-intent                       |
+| 19 launch intent               | 入口解析异常不触发副作用               | 当前 launch-intent                        |
+| 20 identity proof clock        | 非法/回拨时钟下的证明失效              | identity-mock                             |
+| 21 venue outcome               | 服务失败与空结果分离、保持类型契约     | ports、venue-search                       |
+| 22 actor-scoped read           | 异步只读结果绑定账号代次               | SessionPort、AuthAccountGeneration        |
+| 23 credential URL/header guard | 凭据不进入 URL、受信 endpoint/header   | trusted-endpoint；保留 session_key 等拦截 |
+| 24 actor-scoped cache          | 缓存按账号/代次隔离、异常失败关闭      | ActorScope/SessionPort                    |
+| 25 photo upload gate           | 显式确认、账号切换/连点保护            | 先23；非真实上传通过                      |
+| 26 score receipt gate          | 复用 H5 回执规则校验 actor/operation   | 共享领域真源                              |
+| 27 batch preflight             | diff 完整性、路径、摘要、HEAD/冲突检查 | 不修改旧包摘要或强制跳过失败              |
+| 28 share mock UI               | 六类意图的离线操作演示                 | 先18；不签发会话或真实接受邀请            |
+
+未来集中应用需重新读取 HEAD，先审查27预检器本身，再按18–26与28依赖应用，统一 G1、H5 回归和构建。第18/21/24批原始 diff 格式/元数据差异须人工确认；预检工具的 REVIEW_REQUIRED 不能改成假 PASS。用户已授权的离线 PoC 无需逐包重复审批，但真实 TEST Auth、迁移、生产配置、发布、收费仍未授权。

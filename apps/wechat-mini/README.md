@@ -1,13 +1,11 @@
 # 球搭子微信小程序 · 零新增外部付费离线 PoC
 
-**状态（2026-10-25）：第十三至十七批已合并到本次源码：新鲜构建产物、直接依赖锁完整性、共享域同步隔离、连续点击及身份时钟回拨防护。G1 已在完整工作区运行；精确提交与 CI 结果以 Git 和 `WeChat Mini G1` 工作流为准。正式微信登录仍为 `SESSION_BRIDGE_UNPROVEN`，未经发布验收。**
+**状态（2026-10-27 同步）：第十三至十七批已合并到本次源码：新鲜构建产物、直接依赖锁完整性、共享域同步隔离、连续点击及身份时钟回拨防护。G1 已在完整工作区运行；精确提交与 CI 结果以 Git 和 `WeChat Mini G1` 工作流为准。正式微信登录仍为 `SESSION_BRIDGE_UNPROVEN`，未经发布验收。**
 
 在仓库根目录执行：
 
 ```bash
-# 主 Chat 批量融合本补丁后，先生成并审核可复现的 npm 锁文件（不使用 --force 绕过冲突）：
-npm --prefix apps/wechat-mini install --package-lock-only
-# package-lock.json 必须与 package.json 一起纳入同一次受控提交。
+# package-lock.json 已落仓；使用现有锁文件复现，只有有意更改依赖时才审核更新锁文件。
 npm --prefix apps/wechat-mini ci
 # 不会下载依赖或部署；失败时列出 G1_BLOCKED 原因：
 npm --prefix apps/wechat-mini run preflight:g1
@@ -29,3 +27,5 @@ G1 通过仅表示本地源码测试和小程序构建通过；**不**表示微�
 ## G1 仓库状态证据（第十一批）
 
 `verify:g1` 在执行前后核对 Git HEAD 和小程序目录外已跟踪的 H5 文件变更；如果工作树在测试期间发生越界变更或 HEAD 变化则失败关闭，并记录 `G1_EVIDENCE_HEAD`。这仍不证明微信正式会话或真机审核通过。
+
+第18–28批共11份候选代码尚未应用。本轮只同步研究/治理文档；当前路线及真实身份/媒体/地图/发布门槛见[实施 PRD](../../docs/research/miniprogram/miniprogram-implementation-prd.md)。不能把这些补丁的隔离结果当成本仓库 G1。

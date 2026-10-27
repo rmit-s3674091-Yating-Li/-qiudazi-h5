@@ -1,3 +1,5 @@
+> 当前状态校正（2026-10-27）：本文以下为原日期的研究/证据快照，不是当前实施状态。离线 Taro PoC 已落仓且已有 G1 记录；正式身份仍为 SESSION_BRIDGE_UNPROVEN。当前技术决定与状态分层以[实施 PRD](miniprogram-implementation-prd.md)及[融合入口](handoff.md)为准。本文历史“尚未批准 PoC/没有小程序代码”等句不覆盖较新的授权及源码。历史价格、资质与官方线索未在本轮重新核验。
+
 > 设计研究文档 · 本文记录研究证据与候选方案，不代表代码已实现、费用已批准或正式上线。
 > 来源：小程序 MVP、H5 分享邀请的跨端入口；2026-10-21—22 的原始 Handoff，基线 HEAD 39e17fe。
 > 状态：DESIGN_COMPLETE_CANDIDATE_CONDITIONAL；用户尚未批准开发、数据库迁移或付费。
@@ -14,7 +16,7 @@ BASELINE_READ_AT=2026-10-22 00:03-00:10 Asia/Shanghai
 TARGET_LIBRARY=/球搭子/V8/miniprogram-research/handoffs/  
 PATCH_PACKAGE_ID=QD-MP-20261022-MVP-SHARE-ROUTES  
 WRITE_BOUNDARY=ONLY_LIBRARY_HANDOFF; NO_GITHUB_SUPABASE_VERCEL_WECHAT_WRITES; NO_P3_CHANGE; NO_PURCHASE  
-DECISION_STATE=DESIGN_IN_PROGRESS; NOT_AUTHORIZED_FOR_DEVELOPMENT  
+DECISION_STATE=DESIGN_IN_PROGRESS; NOT_AUTHORIZED_FOR_DEVELOPMENT
 
 ## 0. 本轮新增，不重复前七轮
 
@@ -34,17 +36,17 @@ DECISION_STATE=DESIGN_IN_PROGRESS; NOT_AUTHORIZED_FOR_DEVELOPMENT
 
 ## 2. 建议的产品范围：把 P1 的“分享/邀请入口”从增强项提升为必要闭环
 
-| 业务能力 | P0：零新增付费离线 PoC | P1：测试环境真实 MVP（需独立授权） | P2：可延后 | 平台差异与验收 |
-|---|---|---|---|---|
-| 赛事大厅、我的赛事、详情 | mock 列表/详情与导航 | 真实数据、公开/私有权限、登录后回跳 | 高级筛选 | 小程序页面栈与 H5 hash 分离 |
-| 创建赛事、Quick Start | 表单 mock、纯 TS 赛制单测 | 创建→名单→生成对阵→开赛、循环+淘汰 | 高级编辑交互 | server-side 事务、失败恢复与 H5 一致 |
-| 参赛者记分 | 同一 scoring fixtures | 真 JWT、角色授权、version/idempotency/离线恢复 | 更丰富的记分动画 | 不能只测单人正常提交 |
-| **赛事分享、邀请落地** | **mock 路由与 deep-link 解析** | **必须具备可验证的分享→打开→登录→回跳→查看/报名或拒绝路径** | 小程序码批量生成、海报美化 | 不能把分享推到 P2，否则无法验证真实传播与加入赛事 |
-| 好友邀请/历史 Player 认领 | mock 三种邀请类别及失败态 | 明确 token 与原 Profile 控制权、显式确认/拒绝、跨端恢复 | 社交推荐 | 禁止昵称自动认领与越权关联 |
-| 相册 | 选择/水印/上传契约 mock | 先保证赛事源照片按权限可读、受保护预览 | 私人相册完整管理/批量导入可分期 | 个人相册私密性不能被分享链接绕过 |
-| 地图/场馆 | 微信 Map 与假 POI/mock | 城市约束/手填 fallback/正确位置；根据核心创建流程决定最小真机验收 | 多供应商 POI、智能推荐 | 不修改 H5 P3；小程序适配独立验收 |
-| Platform Admin | 无 | **继续 H5 后台**，小程序仅保证普通用户不能越权 | 小程序管理员 UI 不进 MVP | G 现有后台故障独立定位 |
-| 订阅消息/支付/Club SaaS | 无 | 无 | 另立需求与预算 | 不作为 MVP 先决条件 |
+| 业务能力                  | P0：零新增付费离线 PoC         | P1：测试环境真实 MVP（需独立授权）                                | P2：可延后                      | 平台差异与验收                                    |
+| ------------------------- | ------------------------------ | ----------------------------------------------------------------- | ------------------------------- | ------------------------------------------------- |
+| 赛事大厅、我的赛事、详情  | mock 列表/详情与导航           | 真实数据、公开/私有权限、登录后回跳                               | 高级筛选                        | 小程序页面栈与 H5 hash 分离                       |
+| 创建赛事、Quick Start     | 表单 mock、纯 TS 赛制单测      | 创建→名单→生成对阵→开赛、循环+淘汰                                | 高级编辑交互                    | server-side 事务、失败恢复与 H5 一致              |
+| 参赛者记分                | 同一 scoring fixtures          | 真 JWT、角色授权、version/idempotency/离线恢复                    | 更丰富的记分动画                | 不能只测单人正常提交                              |
+| **赛事分享、邀请落地**    | **mock 路由与 deep-link 解析** | **必须具备可验证的分享→打开→登录→回跳→查看/报名或拒绝路径**       | 小程序码批量生成、海报美化      | 不能把分享推到 P2，否则无法验证真实传播与加入赛事 |
+| 好友邀请/历史 Player 认领 | mock 三种邀请类别及失败态      | 明确 token 与原 Profile 控制权、显式确认/拒绝、跨端恢复           | 社交推荐                        | 禁止昵称自动认领与越权关联                        |
+| 相册                      | 选择/水印/上传契约 mock        | 先保证赛事源照片按权限可读、受保护预览                            | 私人相册完整管理/批量导入可分期 | 个人相册私密性不能被分享链接绕过                  |
+| 地图/场馆                 | 微信 Map 与假 POI/mock         | 城市约束/手填 fallback/正确位置；根据核心创建流程决定最小真机验收 | 多供应商 POI、智能推荐          | 不修改 H5 P3；小程序适配独立验收                  |
+| Platform Admin            | 无                             | **继续 H5 后台**，小程序仅保证普通用户不能越权                    | 小程序管理员 UI 不进 MVP        | G 现有后台故障独立定位                            |
+| 订阅消息/支付/Club SaaS   | 无                             | 无                                                                | 另立需求与预算                  | 不作为 MVP 先决条件                               |
 
 **建议决策**：小程序 P1 最小真实闭环是“被邀请者打开赛事→验证登录→看到与权限相符的赛事→合法加入或拒绝→参赛记分”；同时支持“创建赛事→分享给好友”。不是把 H5 全部页面迁移，也不能把邀请码安全与登录恢复放到以后。
 
@@ -52,14 +54,14 @@ DECISION_STATE=DESIGN_IN_PROGRESS; NOT_AUTHORIZED_FOR_DEVELOPMENT
 
 ### 3.1 统一逻辑目标与平台表现
 
-| 逻辑目标 `intent` | H5 现有/目标 URL | 小程序建议页面 | 访问级别 |
-|---|---|---|---|
-| `event_view` | `/#/events/{eventId}` | `/pages/event/detail?eventId=...` | 公开信息；私有内容由后端 role 判定 |
-| `private_preview` | `/#/events/{eventId}/preview` | `/pages/event/preview?eventId=...` | 脱敏预览；非授权不能查看名单/照片 |
-| `connection_invite` | `?connect={token}` 或 `/#/connect/{token}` | `/pages/invite/connection?ref=...` | token 仅定位邀请，实际接收必须校验登录主体与状态 |
-| `player_claim` | `?claim={token}` 或 `/#/claim-player/{token}` | `/pages/invite/claim?ref=...` | 历史 Player 认领是独立敏感操作 |
-| `event_invite` | `/event-invites`，以 JWT 查询邀请收件箱 | `/pages/invite/inbox` | **不能**用赛事 id 或好友 token 代替受邀人身份 |
-| `score_match` | `/#/events/{id}/matches/{matchId}/live` | `/pages/match/live?eventId=...&matchId=...` | 实际参赛者/owner 权限服务端判定；分享不能授予记分权 |
+| 逻辑目标 `intent`   | H5 现有/目标 URL                              | 小程序建议页面                              | 访问级别                                            |
+| ------------------- | --------------------------------------------- | ------------------------------------------- | --------------------------------------------------- |
+| `event_view`        | `/#/events/{eventId}`                         | `/pages/event/detail?eventId=...`           | 公开信息；私有内容由后端 role 判定                  |
+| `private_preview`   | `/#/events/{eventId}/preview`                 | `/pages/event/preview?eventId=...`          | 脱敏预览；非授权不能查看名单/照片                   |
+| `connection_invite` | `?connect={token}` 或 `/#/connect/{token}`    | `/pages/invite/connection?ref=...`          | token 仅定位邀请，实际接收必须校验登录主体与状态    |
+| `player_claim`      | `?claim={token}` 或 `/#/claim-player/{token}` | `/pages/invite/claim?ref=...`               | 历史 Player 认领是独立敏感操作                      |
+| `event_invite`      | `/event-invites`，以 JWT 查询邀请收件箱       | `/pages/invite/inbox`                       | **不能**用赛事 id 或好友 token 代替受邀人身份       |
+| `score_match`       | `/#/events/{id}/matches/{matchId}/live`       | `/pages/match/live?eventId=...&matchId=...` | 实际参赛者/owner 权限服务端判定；分享不能授予记分权 |
 
 设计一个平台无关的 `NavigationIntent`：`{kind, entityId?, inviteRef?, source?, version}`。H5 adapter 输出 hash URL 或 root query，Mini adapter 输出合法 page path + query。**不要在 URL 中传 JWT、refresh token、Supabase magic-link token_hash、微信 session_key、手机号或管理员权限。** 分享给外部用户的 token 应有随机性、有效期/撤销/状态和服务器核验；二维码 `scene` 字段若长度受限，用短 opaque reference 服务端解析，不能截断 token、明文编码 PII 或默认授予权限。微信小程序码真实限制和资质需再从官方后台核验，不能写死未经官方核验的数字。
 
@@ -88,12 +90,12 @@ DECISION_STATE=DESIGN_IN_PROGRESS; NOT_AUTHORIZED_FOR_DEVELOPMENT
 
 ## 5. 成本与里程碑：先可验证的零新增费用，再决定正式上线
 
-| 阶段 | 产物与准入 | 费用与限制 | 是否需要用户另行授权 |
-|---|---|---|---|
-| M0 文档收口 | MVP scope、路由契约、登录候选与 blocker 台账、16 项验收矩阵 | 本轮研究零新增付费；人工工时非零 | 不需要产品写入，但 GitHub 文档落库仍由主 Chat 审核 |
-| M1 本地 mock PoC | Taro 编译、纯 TS scoring fixtures、mock share→intent→auth→resume；不使用真实身份/短信 | 可在现有本地/开源工具中零新增订阅成本 | **是：启动代码 PoC 属开发授权** |
-| M2 隔离 TEST 集成 | 已验证的 Auth Session、JWT/RLS、旧用户映射、真实邀请码 RPC、相册 Storage、合法域名、真机弱网 | Supabase 免费额度内有可能零新增订阅，但短信、主体、域名/备案、微信 AppID 及真机条件需单独核验 | **是：任何测试库/Edge/配置变更另行授权** |
-| M3 小程序审核/发布 | 资质、隐私指引、域名、真机矩阵、性能、灰度回滚、费用预算 | 微信认证/备案、域名、短信/地图、商业化部署费用**待官方核验** | **是：注册/认证/付费/发布均须确认** |
+| 阶段               | 产物与准入                                                                                   | 费用与限制                                                                                    | 是否需要用户另行授权                               |
+| ------------------ | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| M0 文档收口        | MVP scope、路由契约、登录候选与 blocker 台账、16 项验收矩阵                                  | 本轮研究零新增付费；人工工时非零                                                              | 不需要产品写入，但 GitHub 文档落库仍由主 Chat 审核 |
+| M1 本地 mock PoC   | Taro 编译、纯 TS scoring fixtures、mock share→intent→auth→resume；不使用真实身份/短信        | 可在现有本地/开源工具中零新增订阅成本                                                         | **是：启动代码 PoC 属开发授权**                    |
+| M2 隔离 TEST 集成  | 已验证的 Auth Session、JWT/RLS、旧用户映射、真实邀请码 RPC、相册 Storage、合法域名、真机弱网 | Supabase 免费额度内有可能零新增订阅，但短信、主体、域名/备案、微信 AppID 及真机条件需单独核验 | **是：任何测试库/Edge/配置变更另行授权**           |
+| M3 小程序审核/发布 | 资质、隐私指引、域名、真机矩阵、性能、灰度回滚、费用预算                                     | 微信认证/备案、域名、短信/地图、商业化部署费用**待官方核验**                                  | **是：注册/认证/付费/发布均须确认**                |
 
 **TCO 补充事实（2026-10-22 官方复核）**：Vercel Hobby 仅限个人非商业使用；正式商业化不可将 Hobby 计为合法零成本生产托管。Vercel 官方 Pro 基础平台费为 $20/月（含一个可部署席位与 $20/月基础设施抵扣额度；实际其他资源超额另计），但不意味着球搭子必须立刻购买：可继续评估合法低成本替代托管，并先做非商业研究 PoC。现有 H5 不应为小程序开发被强制整体迁移。
 

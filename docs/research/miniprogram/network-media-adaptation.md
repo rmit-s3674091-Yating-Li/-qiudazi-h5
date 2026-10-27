@@ -1,3 +1,5 @@
+> 当前状态校正（2026-10-27）：本文以下为原日期的研究/证据快照，不是当前实施状态。离线 Taro PoC 已落仓且已有 G1 记录；正式身份仍为 SESSION_BRIDGE_UNPROVEN。当前技术决定与状态分层以[实施 PRD](miniprogram-implementation-prd.md)及[融合入口](handoff.md)为准。本文历史“尚未批准 PoC/没有小程序代码”等句不覆盖较新的授权及源码。历史价格、资质与官方线索未在本轮重新核验。
+
 > 设计研究文档 · 本文记录研究证据与候选方案，不代表代码已实现、费用已批准或正式上线。
 > 来源：网络、存储、媒体及 Supabase 适配；2026-10-21—22 的原始 Handoff，基线 HEAD 39e17fe。
 > 状态：DESIGN_COMPLETE_CANDIDATE_CONDITIONAL；用户尚未批准开发、数据库迁移或付费。
@@ -34,15 +36,15 @@ PATCH_PACKAGE_ID=QD-MP-DOCS-20261021-1808-NETWORK-MEDIA
 
 ### 1.1 真实库统计（2026-10-21，本轮 SELECT，仅聚合、不导出文件路径或身份）
 
-| 对象/表 | 实际值 | 解释 |
-|---|---:|---|
-| `storage.objects` `event-photos` | 108 个对象，8,080,414 bytes ≈ 7.71 MiB | 当前私有赛事照片及个人相册媒体总量；不是全组织存储账单 |
-| `storage.objects` `avatars` | 89 个对象，198,787 bytes ≈ 0.19 MiB | 公开头像桶，不能据此推断历史账户总量 |
-| `public.event_photos` | 5 条 | 赛事来源照片元数据 |
-| `public.participant_album_photos` | 49 条 | 个人导入副本元数据 |
-| 两表原图/水印引用路径 | 108 条、108 个不同路径 | `2 × (5+49)=108`；与 Storage 108 个对象一致 |
-| 引用路径在 Storage 缺失 | 0 | 本次快照未发现悬空引用 |
-| Storage 中未被上述两表引用 | 0 | 本次快照未发现孤儿对象；**不要因此启动删除任务** |
+| 对象/表                           |                                 实际值 | 解释                                                   |
+| --------------------------------- | -------------------------------------: | ------------------------------------------------------ |
+| `storage.objects` `event-photos`  | 108 个对象，8,080,414 bytes ≈ 7.71 MiB | 当前私有赛事照片及个人相册媒体总量；不是全组织存储账单 |
+| `storage.objects` `avatars`       |    89 个对象，198,787 bytes ≈ 0.19 MiB | 公开头像桶，不能据此推断历史账户总量                   |
+| `public.event_photos`             |                                   5 条 | 赛事来源照片元数据                                     |
+| `public.participant_album_photos` |                                  49 条 | 个人导入副本元数据                                     |
+| 两表原图/水印引用路径             |                 108 条、108 个不同路径 | `2 × (5+49)=108`；与 Storage 108 个对象一致            |
+| 引用路径在 Storage 缺失           |                                      0 | 本次快照未发现悬空引用                                 |
+| Storage 中未被上述两表引用        |                                      0 | 本次快照未发现孤儿对象；**不要因此启动删除任务**       |
 
 以上是同一时点测试库的**当前快照**，不是历史增长率或生产 SLA；统计依赖 `metadata.size` 可读，不代表全部组织其他项目的用量。已读取 organization 信息，`qiudazi-test` 所在 organization 为 **Free**；同组织还存在其他项目，不能将 Free 1 GB 额度全部当作球搭子独占剩余额度。建议主 Chat 后续只读读取组织 Usage 后才能定实际阈值。
 
@@ -71,23 +73,44 @@ PATCH_PACKAGE_ID=QD-MP-DOCS-20261021-1808-NETWORK-MEDIA
 
 ```ts
 interface SessionPort {
-  getVerifiedActor(): Promise<{ authUserId: string; profileId: string; sessionEpoch: string } | null>;
+  getVerifiedActor(): Promise<{
+    authUserId: string;
+    profileId: string;
+    sessionEpoch: string;
+  } | null>;
   refresh(): Promise<void>;
   signOutAndClearActorScope(): Promise<void>;
 }
 interface TransportPort {
-  rpc<T>(name: string, args: Record<string, unknown>, actorEpoch: string): Promise<T>;
-  edge<T>(functionName: string, payload: unknown, actorEpoch: string): Promise<T>;
+  rpc<T>(
+    name: string,
+    args: Record<string, unknown>,
+    actorEpoch: string,
+  ): Promise<T>;
+  edge<T>(
+    functionName: string,
+    payload: unknown,
+    actorEpoch: string,
+  ): Promise<T>;
   cancelActorRequests(actorEpoch: string): void;
 }
 interface MediaPort {
-  chooseImages(): Promise<Array<{ localPath: string; mime: string; bytes: number }>>;
+  chooseImages(): Promise<
+    Array<{ localPath: string; mime: string; bytes: number }>
+  >;
   watermark(inputPath: string, eventSnapshot: unknown): Promise<string>;
   saveToAlbum(authorizedTempPath: string): Promise<void>;
 }
 interface StoragePort {
-  uploadEventPair(eventId: string, originalPath: string, markedPath: string, actorEpoch: string): Promise<{ originalKey: string; markedKey: string }>;
-  signedEventPreview(photoId: string): Promise<{ url: string; expiresAt: number }>;
+  uploadEventPair(
+    eventId: string,
+    originalPath: string,
+    markedPath: string,
+    actorEpoch: string,
+  ): Promise<{ originalKey: string; markedKey: string }>;
+  signedEventPreview(
+    photoId: string,
+  ): Promise<{ url: string; expiresAt: number }>;
 }
 ```
 
@@ -95,11 +118,11 @@ interface StoragePort {
 
 ### 2.3 Supabase/Taro 兼容路线的低 TCO 排序与证据边界
 
-| 路线 | 优点 | 主要未知/安全门槛 | 当前排序 |
-|---|---|---|---|
-| A. 保留 Supabase JS v2，提供审计后的 `global.fetch` + `auth.storage` + 生命周期适配 | 最少重复 RPC/Auth 逻辑；官方 SDK 支持注入 custom fetch/storage | `Request`/`Response`/Headers、AbortSignal、`FormData`、refresh lock、WS、Storage 上传/下载在微信真机不保证；须实际编译+真机 | **优先零元 PoC**，未证实可用 |
-| B. 小程序原生 `Taro.request`/`FileSystemManager` 的最小 REST adapter，保留共享 DTO 与后端 RPC | 不依赖浏览器 polyfill；控制调用面与包体 | 需正确实现 Supabase Auth 刷新/错误、RPC、Edge JWT、Storage；不应自己实现签发 token 或绕过 RLS | A 关键能力失败时的兜底 |
-| C. 自建全量 BFF/Edge 代理全部 RPC 和照片二进制 | 网络统一入口 | 额外运维/Edge 流量、上传带宽和服务端权限面扩大；若用 service_role 代理必须逐接口证明 actor 与最小授权 | **不推荐**作为省钱默认 |
+| 路线                                                                                          | 优点                                                           | 主要未知/安全门槛                                                                                                           | 当前排序                     |
+| --------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| A. 保留 Supabase JS v2，提供审计后的 `global.fetch` + `auth.storage` + 生命周期适配           | 最少重复 RPC/Auth 逻辑；官方 SDK 支持注入 custom fetch/storage | `Request`/`Response`/Headers、AbortSignal、`FormData`、refresh lock、WS、Storage 上传/下载在微信真机不保证；须实际编译+真机 | **优先零元 PoC**，未证实可用 |
+| B. 小程序原生 `Taro.request`/`FileSystemManager` 的最小 REST adapter，保留共享 DTO 与后端 RPC | 不依赖浏览器 polyfill；控制调用面与包体                        | 需正确实现 Supabase Auth 刷新/错误、RPC、Edge JWT、Storage；不应自己实现签发 token 或绕过 RLS                               | A 关键能力失败时的兜底       |
+| C. 自建全量 BFF/Edge 代理全部 RPC 和照片二进制                                                | 网络统一入口                                                   | 额外运维/Edge 流量、上传带宽和服务端权限面扩大；若用 service_role 代理必须逐接口证明 actor 与最小授权                       | **不推荐**作为省钱默认       |
 
 **媒体上传关键差异**：Taro 4 `uploadFile` 默认走 `multipart/form-data`，需要指定 `filePath` 和表单 `name`；Supabase Storage standard upload 支持文件/ArrayBuffer 和 multipart，但 `storage-js` 的具体表单字段、header、`x-upsert`、签名/认证、MIME 及微信平台 `uploadFile` 对空字段名的支持需按**项目所用 SDK 版本**核对。不能仅凭两者都叫 multipart 就宣称兼容，也不能反过来断言必然不兼容。建议 PoC 比较：A1 `Taro.request` + ArrayBuffer raw upload；A2 `Taro.uploadFile` multipart；A3 经官方 Storage JS adapter；三者均用**隔离测试对象**且需用户未来批准测试写入，当前只定义契约。
 
@@ -130,20 +153,20 @@ interface StoragePort {
 
 ### 建议验收矩阵（最小 12 条）
 
-| ID | 场景 | PASS | FAIL 必须阻断 |
-|---|---|---|---|
-| NET-01 | Supabase `fetch`/Storage/WS 在小程序构建 | 无 DOM import/未实现 API；正常鉴权 | 真实业务登录 |
-| NET-02 | 刷新/退出/跨端切换 | JWT subject、Profile、epoch 一致且不串号 | 所有写入 |
-| NET-03 | Edge 记分重复/弱网 | 原 `operation_id` 幂等，冲突不吞错 | 参赛记分上线 |
-| NET-04 | 后台恢复 | 正确刷新 session 与赛事快照，避免重复操作 | 实时记分 |
-| MEDIA-01 | 10 MiB/3 MiB 及 MIME | 服务器按桶规则拒绝超限/错类型 | 媒体上线 |
-| MEDIA-02 | 上传双文件/最终确认 | 原图与水印都成功才 finalize；失败清理 | 照片上传 |
-| MEDIA-03 | alias owner 与非 owner | 前者仅有权操作本人赛事；后者 403 | 微信迁移 |
-| MEDIA-04 | 旧头像/旧 Auth 前缀 | 可读性、删除授权符合现有策略，无越权 | 历史用户迁移 |
-| MEDIA-05 | 私有 signed URL | 不落日志/分享；过期/撤销边界说明真实 | 私有相册 |
-| MEDIA-06 | 个人导入与源删除 | 独立副本按现有隐私生命周期保留 | 相册改造 |
-| MEDIA-07 | Storage 对账 | 所有元数据引用有对象，未授权访问失败 | 发布 |
-| COST-01 | 真实使用量监控 | 按组织账单/桶容量计算预警，不把 Free 配额当无限 | 商业运营 |
+| ID       | 场景                                     | PASS                                            | FAIL 必须阻断 |
+| -------- | ---------------------------------------- | ----------------------------------------------- | ------------- |
+| NET-01   | Supabase `fetch`/Storage/WS 在小程序构建 | 无 DOM import/未实现 API；正常鉴权              | 真实业务登录  |
+| NET-02   | 刷新/退出/跨端切换                       | JWT subject、Profile、epoch 一致且不串号        | 所有写入      |
+| NET-03   | Edge 记分重复/弱网                       | 原 `operation_id` 幂等，冲突不吞错              | 参赛记分上线  |
+| NET-04   | 后台恢复                                 | 正确刷新 session 与赛事快照，避免重复操作       | 实时记分      |
+| MEDIA-01 | 10 MiB/3 MiB 及 MIME                     | 服务器按桶规则拒绝超限/错类型                   | 媒体上线      |
+| MEDIA-02 | 上传双文件/最终确认                      | 原图与水印都成功才 finalize；失败清理           | 照片上传      |
+| MEDIA-03 | alias owner 与非 owner                   | 前者仅有权操作本人赛事；后者 403                | 微信迁移      |
+| MEDIA-04 | 旧头像/旧 Auth 前缀                      | 可读性、删除授权符合现有策略，无越权            | 历史用户迁移  |
+| MEDIA-05 | 私有 signed URL                          | 不落日志/分享；过期/撤销边界说明真实            | 私有相册      |
+| MEDIA-06 | 个人导入与源删除                         | 独立副本按现有隐私生命周期保留                  | 相册改造      |
+| MEDIA-07 | Storage 对账                             | 所有元数据引用有对象，未授权访问失败            | 发布          |
+| COST-01  | 真实使用量监控                           | 按组织账单/桶容量计算预警，不把 Free 配额当无限 | 商业运营      |
 
 ## 4. 最低 TCO：已知官方价格、真实增长公式与支出闸门
 
@@ -156,13 +179,13 @@ interface StoragePort {
 
 ### 4.2 方案逐项成本/替代
 
-| 方案 | 必需新增订阅/付费 | 可选费用与触发 | 维护负担 | 零新增费用替代 |
-|---|---|---|---|---|
-| Taro React + Supabase SDK custom adapter | 框架许可证无必需采购；复用现有项目，但真实微信主体/域名仍待核 | SDK polyfill/调试工时；配额超限；微信资质/域名/备案待官方核验 | 中，依赖真机兼容性 | 离线 TS mock + 微信开发工具模拟（不能证明合法上线） |
-| Taro 原生 REST adapter | 无必需新 SaaS，但不能免除合规资质 | 自己维护 Auth refresh/HTTP/Storage 兼容测试 | 中高 | 先做仅只读赛事 REST 契约，不接入真用户 |
-| 新 BFF/全媒体代理 | 可能复用 Edge 但会增加调用、二进制流量/处理时间 | Free 配额与限流，未来超额和维护成本 | 高；权限面扩大 | 不新增代理，优先验证直连 Supabase 受控 JWT/RLS |
-| 个人相册“仅引用不复制” | 看似节省 Storage | 隐私/删除语义和授权体系重设计，不能默认可行 | 高且可能破坏用户预期 | **维持独立副本**，先量化容量并压缩 |
-| 商业图片处理/短信/地图 API | 非小程序媒体 P0 必需 | 供应商定价/额度 **待官方核验** | 增加锁定与账单 | 本地水印/既有存储/手动地图 fallback |
+| 方案                                     | 必需新增订阅/付费                                             | 可选费用与触发                                                | 维护负担             | 零新增费用替代                                      |
+| ---------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------- | -------------------- | --------------------------------------------------- |
+| Taro React + Supabase SDK custom adapter | 框架许可证无必需采购；复用现有项目，但真实微信主体/域名仍待核 | SDK polyfill/调试工时；配额超限；微信资质/域名/备案待官方核验 | 中，依赖真机兼容性   | 离线 TS mock + 微信开发工具模拟（不能证明合法上线） |
+| Taro 原生 REST adapter                   | 无必需新 SaaS，但不能免除合规资质                             | 自己维护 Auth refresh/HTTP/Storage 兼容测试                   | 中高                 | 先做仅只读赛事 REST 契约，不接入真用户              |
+| 新 BFF/全媒体代理                        | 可能复用 Edge 但会增加调用、二进制流量/处理时间               | Free 配额与限流，未来超额和维护成本                           | 高；权限面扩大       | 不新增代理，优先验证直连 Supabase 受控 JWT/RLS      |
+| 个人相册“仅引用不复制”                   | 看似节省 Storage                                              | 隐私/删除语义和授权体系重设计，不能默认可行                   | 高且可能破坏用户预期 | **维持独立副本**，先量化容量并压缩                  |
+| 商业图片处理/短信/地图 API               | 非小程序媒体 P0 必需                                          | 供应商定价/额度 **待官方核验**                                | 增加锁定与账单       | 本地水印/既有存储/手动地图 fallback                 |
 
 **付款闸门**：小程序认证/备案/域名、微信 API 价格、PC 扫码资质、付费图像/地图/短信、升级 Supabase/Vercel 套餐均未获用户本轮授权，绝不创建/购买/部署。微信官方主体与合法域名要求仍须后台原文核实，不能凭二手信息填 0 元。
 

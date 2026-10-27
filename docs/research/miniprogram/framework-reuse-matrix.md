@@ -1,3 +1,5 @@
+> 当前状态校正（2026-10-27）：本文以下为原日期的研究/证据快照，不是当前实施状态。离线 Taro PoC 已落仓且已有 G1 记录；正式身份仍为 SESSION_BRIDGE_UNPROVEN。当前技术决定与状态分层以[实施 PRD](miniprogram-implementation-prd.md)及[融合入口](handoff.md)为准。本文历史“尚未批准 PoC/没有小程序代码”等句不覆盖较新的授权及源码。历史价格、资质与官方线索未在本轮重新核验。
+
 # 球搭子｜小程序框架选型与现有代码迁移矩阵（第二轮增量研究）
 
 HANDOFF_ID=QD-MP-20261021-0608-framework-reuse-matrix  
@@ -22,33 +24,33 @@ NEXT_ACTION=交互式主 Chat 先核对最新 HEAD、已有 handoff、用户授�
 
 代表性源码的可迁移判断：
 
-| 现有模块 | 已见代码依赖/特征 | 小程序复用判定 | 需要的动作 |
-|---|---|---|---|
-| `src/domain/ScoringEngine.ts` | 仅引用领域 types/ensure；未见 DOM/浏览器 API | **高优先级直接验证** | 单独 TS 构建、相同评分单测在 Node/Taro 执行；不能以静态阅读替代编译证明 |
-| `src/domain/QuickGroupConfig.ts`、`ParticipantPointReceipt.ts` | 未见浏览器/React 依赖 | **高优先级直接验证** | 规则与幂等收据逻辑共享、双端相同 fixture |
-| `src/domain/VenueSelection.ts` | 引用 `../utils/mapProvider` 类型 | **需要解耦类型** | 提取纯 POI/场馆 DTO，避免运行时误加载浏览器地图模块 |
-| `src/domain/IdentitySession.ts` | 文件内部无 import，但封装了传入 storage 的清理逻辑 | **逻辑部分可复用** | 以跨端 StoragePort 替换隐含 localStorage 语义；不能把旧昵称认证复用为正式登录 |
-| `src/pages/QuickStartPage.tsx` | React hooks、`react-router-dom`、浏览器组件、直接仓库调用 | **页面需重写** | Taro Page + 路由 + 表单/导航/校验 adapter，保留纯业务规则 |
-| `src/pages/EventPage.tsx` | `Link/useNavigate/useParams/useSearchParams`、Web 地图、UI 组件 | **页面需重写** | 小程序页面栈、分享 path、map、状态缓存等独立适配 |
-| `src/components/UI.tsx` | React Router、`window` | **不可直接复制** | 以 Taro View/Text/Button/导航组件实现新 UI，保持交互规范而非 DOM |
-| `src/hooks/useQuery.ts` | `window`/`document` 事件与可见性轮询 | **拆分复用** | 抽离查询状态机，使用小程序 onShow/onHide/网络状态驱动轮询 |
-| `src/repositories/supabase.ts` | `@supabase/supabase-js`、`localStorage`、浏览器默认 fetch/WebSocket/上传 | **接口契约可复用，运行时实现不能照搬** | `RepositoryPort` + H5 adapter + 小程序网络/存储/WS/上传 adapter，先证明 SDK 可用 |
-| `src/utils/mapProvider.ts`、`src/components/EventVenueMap.tsx` | 浏览器 `navigator`、Leaflet、`window/document` | **地图实现不能直接复用** | 微信 `<map>`/Taro Map + POI Search Adapter；H5 地图专项独立不改 |
-| `src/components/TournamentPanels.tsx` | 图片 `Blob`/水印、上传、Router | **逻辑/数据复用，文件 UI 重写** | 微信 `chooseMedia`/本地临时路径/`uploadFile`/Canvas/保存权限单独验证 |
+| 现有模块                                                       | 已见代码依赖/特征                                                        | 小程序复用判定                         | 需要的动作                                                                       |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------ | -------------------------------------- | -------------------------------------------------------------------------------- |
+| `src/domain/ScoringEngine.ts`                                  | 仅引用领域 types/ensure；未见 DOM/浏览器 API                             | **高优先级直接验证**                   | 单独 TS 构建、相同评分单测在 Node/Taro 执行；不能以静态阅读替代编译证明          |
+| `src/domain/QuickGroupConfig.ts`、`ParticipantPointReceipt.ts` | 未见浏览器/React 依赖                                                    | **高优先级直接验证**                   | 规则与幂等收据逻辑共享、双端相同 fixture                                         |
+| `src/domain/VenueSelection.ts`                                 | 引用 `../utils/mapProvider` 类型                                         | **需要解耦类型**                       | 提取纯 POI/场馆 DTO，避免运行时误加载浏览器地图模块                              |
+| `src/domain/IdentitySession.ts`                                | 文件内部无 import，但封装了传入 storage 的清理逻辑                       | **逻辑部分可复用**                     | 以跨端 StoragePort 替换隐含 localStorage 语义；不能把旧昵称认证复用为正式登录    |
+| `src/pages/QuickStartPage.tsx`                                 | React hooks、`react-router-dom`、浏览器组件、直接仓库调用                | **页面需重写**                         | Taro Page + 路由 + 表单/导航/校验 adapter，保留纯业务规则                        |
+| `src/pages/EventPage.tsx`                                      | `Link/useNavigate/useParams/useSearchParams`、Web 地图、UI 组件          | **页面需重写**                         | 小程序页面栈、分享 path、map、状态缓存等独立适配                                 |
+| `src/components/UI.tsx`                                        | React Router、`window`                                                   | **不可直接复制**                       | 以 Taro View/Text/Button/导航组件实现新 UI，保持交互规范而非 DOM                 |
+| `src/hooks/useQuery.ts`                                        | `window`/`document` 事件与可见性轮询                                     | **拆分复用**                           | 抽离查询状态机，使用小程序 onShow/onHide/网络状态驱动轮询                        |
+| `src/repositories/supabase.ts`                                 | `@supabase/supabase-js`、`localStorage`、浏览器默认 fetch/WebSocket/上传 | **接口契约可复用，运行时实现不能照搬** | `RepositoryPort` + H5 adapter + 小程序网络/存储/WS/上传 adapter，先证明 SDK 可用 |
+| `src/utils/mapProvider.ts`、`src/components/EventVenueMap.tsx` | 浏览器 `navigator`、Leaflet、`window/document`                           | **地图实现不能直接复用**               | 微信 `<map>`/Taro Map + POI Search Adapter；H5 地图专项独立不改                  |
+| `src/components/TournamentPanels.tsx`                          | 图片 `Blob`/水印、上传、Router                                           | **逻辑/数据复用，文件 UI 重写**        | 微信 `chooseMedia`/本地临时路径/`uploadFile`/Canvas/保存权限单独验证             |
 
 重要判断：即使选择 Taro，**React 语法可延续不等于 DOM、React Router、Leaflet、浏览器 Supabase SDK 可运行**。应采用 `packages/shared-domain`（纯 TypeScript、无 `window`/`document`/`wx`）与两个客户端 adapter 的边界，而非把现有 H5 整站搬迁。
 
 ## 2. 框架横向比较（当前项目特定）
 
-| 维度 | Taro 4 + React/TS | 原生微信小程序 | uni-app（Vue） |
-|---|---|---|---|
-| 许可证/框架采购 | 官方仓库 MIT，框架使用本身无需付费 | 微信平台基础开发框架，工具可用于 PoC；上线资质另核 | 官方协议框架可免费使用，开源部分 Apache-2.0，商业插件/其他服务另计 |
-| 现有 React/TS 规则 | 纯 TS 可共享；React hooks 心智一致 | 纯 TS 可共享，UI 需原生 WXML/WXSS 重写 | 纯 TS 可共享，但 React 组件无法按原样运行；Vue 页面重写 |
-| 当前 22 个 React 页面 | 大部分仍要改路由、标签、事件、UI 组件 | 全部重新实现 | 全部转换 Vue SFC |
-| 地图/相册/分享 | Taro 封装微信组件与 API，但平台差异仍需测试 | 微信 API 直接，平台控制最强 | uni API 适配，微信原生能力仍需差异验证 |
-| 工程/维护 | 新增 Taro 构建、兼容层；可复用部分 TS | 新增微信原生技术栈，双 UI 维护 | 引入 Vue 技术栈，双 UI 维护、团队学习成本 |
-| 适配其他小程序平台 | 有潜力 | 低 | 有潜力 |
-| 当前建议 | **首选零成本 PoC** | **若 Taro 关键功能无法达标的兜底** | **不优先** |
+| 维度                  | Taro 4 + React/TS                           | 原生微信小程序                                     | uni-app（Vue）                                                     |
+| --------------------- | ------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------ |
+| 许可证/框架采购       | 官方仓库 MIT，框架使用本身无需付费          | 微信平台基础开发框架，工具可用于 PoC；上线资质另核 | 官方协议框架可免费使用，开源部分 Apache-2.0，商业插件/其他服务另计 |
+| 现有 React/TS 规则    | 纯 TS 可共享；React hooks 心智一致          | 纯 TS 可共享，UI 需原生 WXML/WXSS 重写             | 纯 TS 可共享，但 React 组件无法按原样运行；Vue 页面重写            |
+| 当前 22 个 React 页面 | 大部分仍要改路由、标签、事件、UI 组件       | 全部重新实现                                       | 全部转换 Vue SFC                                                   |
+| 地图/相册/分享        | Taro 封装微信组件与 API，但平台差异仍需测试 | 微信 API 直接，平台控制最强                        | uni API 适配，微信原生能力仍需差异验证                             |
+| 工程/维护             | 新增 Taro 构建、兼容层；可复用部分 TS       | 新增微信原生技术栈，双 UI 维护                     | 引入 Vue 技术栈，双 UI 维护、团队学习成本                          |
+| 适配其他小程序平台    | 有潜力                                      | 低                                                 | 有潜力                                                             |
+| 当前建议              | **首选零成本 PoC**                          | **若 Taro 关键功能无法达标的兜底**                 | **不优先**                                                         |
 
 决定性新证据：uni-app 官方文档明确其 JSX/TSX 在**小程序平台不支持**（H5-Vue3/App-Vue3 支持）；球搭子现有 `tsx` React 页面不能通过「uni-app 也支持 TSX」来推断低成本复用。Taro 官方明确 React 支持，同时提示小程序 React API 与浏览器 DOM、路由、Portal/lazy 有差异。Taro 不是零迁移成本。
 

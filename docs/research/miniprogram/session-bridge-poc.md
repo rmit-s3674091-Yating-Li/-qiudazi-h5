@@ -1,3 +1,5 @@
+> 当前状态校正（2026-10-27）：本文以下为原日期的研究/证据快照，不是当前实施状态。离线 Taro PoC 已落仓且已有 G1 记录；正式身份仍为 SESSION_BRIDGE_UNPROVEN。当前技术决定与状态分层以[实施 PRD](miniprogram-implementation-prd.md)及[融合入口](handoff.md)为准。本文历史“尚未批准 PoC/没有小程序代码”等句不覆盖较新的授权及源码。历史价格、资质与官方线索未在本轮重新核验。
+
 > 设计研究文档 · 本文记录研究证据与候选方案，不代表代码已实现、费用已批准或正式上线。
 > 来源：微信到 Supabase Auth 会话桥接的验证门槛；2026-10-21—22 的原始 Handoff，基线 HEAD 39e17fe。
 > 状态：DESIGN_COMPLETE_CANDIDATE_CONDITIONAL；用户尚未批准开发、数据库迁移或付费。
@@ -15,7 +17,7 @@ PR=Draft #26
 RESEARCH_MODE=READ_ONLY_GITHUB_SUPABASE_OFFICIAL_SOURCES  
 PERSISTENCE_SCOPE=ONLY_LIBRARY_HANDOFF  
 NO_PRODUCT_CODE_OR_DATABASE_OR_DEPLOYMENT_CHANGES=true  
-SUGGESTED_TARGET_FILES=docs/research/miniprogram/identity-architecture.md; docs/research/miniprogram/wechat-login-options.md; docs/research/miniprogram/miniprogram-implementation-prd.md; docs/research/miniprogram/official-sources.md; docs/research/miniprogram/handoff.md  
+SUGGESTED_TARGET_FILES=docs/research/miniprogram/identity-architecture.md; docs/research/miniprogram/wechat-login-options.md; docs/research/miniprogram/miniprogram-implementation-prd.md; docs/research/miniprogram/official-sources.md; docs/research/miniprogram/handoff.md
 
 ## 0. 本轮相对已有成果的净新增
 
@@ -40,12 +42,12 @@ SUGGESTED_TARGET_FILES=docs/research/miniprogram/identity-architecture.md; docs/
 
 ## 2. 四条可行路线的“会话究竟是谁签发”对照
 
-| 路线 | 验证微信主体 | 颁发给小程序的凭据 | 与现有 Supabase Auth/RLS 的关系 | 新增持续费用/TCO | 当前结论 |
-|---|---|---|---|---|---|
-| A. 微信后端校验 + **受控 Auth Admin OTP 交换 PoC** | 后端 `code2Session`，按 AppID+OpenID 唯一查私有绑定 | **必须**经 Supabase Auth `verifyOtp` 真正产生 Session/JWT/refresh token，不能自行伪造 | 理论上最大化复用既有 Supabase Auth、`auth.uid()`、RLS、Storage/Realtime；需要证明旧 Auth UUID/alias 一致性 | 现有 Supabase Edge/Auth 免费配额内可能无新增订阅；开发、安全测试/维护非零；微信资质/域名待官方核验 | **PoC 优先，未批准生产**；绝不可照抄按昵称返回 token_hash 的测试 Edge |
-| B. 标准 OAuth2/OIDC IdP + Supabase Custom OAuth Provider | 自建可信 IdP 先验证微信，提供标准 authorize/token/userinfo 或 discovery/JWKS | Supabase 标准 OAuth 登录后发行 Auth session | 能保留 Supabase Auth，但需真正符合 OAuth 浏览器/小程序交互和身份绑定规范 | Free 最多 3 个 custom providers；自建 issuer、证书、回调/域名/维护有成本 | 备选；**wx.login code 不是直接可填的 OAuth token** |
-| C. 自建 OIDC issuer + Supabase Third-Party Auth | 自建 issuer 验微信后签发非对称 JWT | **外部 issuer 的 JWT**，不是 Supabase Auth 原生 refresh token | Supabase Data/Storage/Realtime 可在配置后验证外部 JWT，但 `auth.uid()`/`auth.users` FK/Admin actor/旧 Auth 映射需单独适配 | Supabase Third-Party MAU Free 50k；自建 issuer 的安全运营/密钥轮换/域名成本非零 | 不作为低维护 MVP 默认；不是 A 的等价替换 |
-| D. 自建 BFF Session、所有写操作走代理 | 后端验微信并自行维护会话 | BFF cookie/token | 需证明每条 RPC、Storage、Realtime、Admin 的 server-side actor、最小权限和审计；不可把 service_role 下放客户端 | 高维护工时/请求流量/运维成本；免费基础额度并不降低安全责任 | 最后兜底，不作为省钱捷径 |
+| 路线                                                     | 验证微信主体                                                                 | 颁发给小程序的凭据                                                                    | 与现有 Supabase Auth/RLS 的关系                                                                                           | 新增持续费用/TCO                                                                                   | 当前结论                                                              |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| A. 微信后端校验 + **受控 Auth Admin OTP 交换 PoC**       | 后端 `code2Session`，按 AppID+OpenID 唯一查私有绑定                          | **必须**经 Supabase Auth `verifyOtp` 真正产生 Session/JWT/refresh token，不能自行伪造 | 理论上最大化复用既有 Supabase Auth、`auth.uid()`、RLS、Storage/Realtime；需要证明旧 Auth UUID/alias 一致性                | 现有 Supabase Edge/Auth 免费配额内可能无新增订阅；开发、安全测试/维护非零；微信资质/域名待官方核验 | **PoC 优先，未批准生产**；绝不可照抄按昵称返回 token_hash 的测试 Edge |
+| B. 标准 OAuth2/OIDC IdP + Supabase Custom OAuth Provider | 自建可信 IdP 先验证微信，提供标准 authorize/token/userinfo 或 discovery/JWKS | Supabase 标准 OAuth 登录后发行 Auth session                                           | 能保留 Supabase Auth，但需真正符合 OAuth 浏览器/小程序交互和身份绑定规范                                                  | Free 最多 3 个 custom providers；自建 issuer、证书、回调/域名/维护有成本                           | 备选；**wx.login code 不是直接可填的 OAuth token**                    |
+| C. 自建 OIDC issuer + Supabase Third-Party Auth          | 自建 issuer 验微信后签发非对称 JWT                                           | **外部 issuer 的 JWT**，不是 Supabase Auth 原生 refresh token                         | Supabase Data/Storage/Realtime 可在配置后验证外部 JWT，但 `auth.uid()`/`auth.users` FK/Admin actor/旧 Auth 映射需单独适配 | Supabase Third-Party MAU Free 50k；自建 issuer 的安全运营/密钥轮换/域名成本非零                    | 不作为低维护 MVP 默认；不是 A 的等价替换                              |
+| D. 自建 BFF Session、所有写操作走代理                    | 后端验微信并自行维护会话                                                     | BFF cookie/token                                                                      | 需证明每条 RPC、Storage、Realtime、Admin 的 server-side actor、最小权限和审计；不可把 service_role 下放客户端             | 高维护工时/请求流量/运维成本；免费基础额度并不降低安全责任                                         | 最后兜底，不作为省钱捷径                                              |
 
 **明确排除的伪方案**：`wx.login` code 直接传给 `signInWithOAuth` 或 `signInWithIdToken`；拿 OpenID/UnionID/昵称当 JWT `sub`；`Custom Access Token Hook` 当登录签发器；小程序打包 Supabase service-role 或微信 AppSecret；直接签自制 Supabase JWT 规避 Auth refresh/revocation；将已有旧 Profile 自动匹配到相同昵称的新用户。
 
@@ -101,16 +103,16 @@ SUGGESTED_TARGET_FILES=docs/research/miniprogram/identity-architecture.md; docs/
 
 ## 5. 最低总拥有成本：2026-10-21 官方证据与触发条件
 
-| 资源 | 官方可核实的当前免费额度/单价 | 本项目成本边界/触发条件 | 零元替代或延期 |
-|---|---|---|---|
-| Supabase Auth | Free 50,000 MAU；Pro 100,000 后 $0.00325/MAU | 真实微信绑定复用同一 Auth，避免人为重复计 MAU；超限、套餐及具体账单须查看实际项目 | Gate 0 纯 mock；先用现有测试项目，不能自行升级 |
-| Supabase Third-Party Auth | Free 50,000 Third-Party MAU；Pro 100,000 后 $0.00325/MAU | 仅适用于真正接入第三方 OIDC JWT 方案；不能把免费 MAU 当作“微信直接受支持” | 首选先测保留原 Auth 的 A；延后自建 issuer |
-| Supabase Edge | Free 500,000 invocations；Pro 2,000,000 后 $2/1,000,000 invocations（按包计） | `code2Session` 交换与绑定/恢复 API 增加调用；失败请求也计入调用，OPTIONS 不计 | 合并必要交互、限流、缓存非敏感配置；Gate 0 不调用 |
+| 资源                                | 官方可核实的当前免费额度/单价                                                         | 本项目成本边界/触发条件                                                                    | 零元替代或延期                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| Supabase Auth                       | Free 50,000 MAU；Pro 100,000 后 $0.00325/MAU                                          | 真实微信绑定复用同一 Auth，避免人为重复计 MAU；超限、套餐及具体账单须查看实际项目          | Gate 0 纯 mock；先用现有测试项目，不能自行升级                 |
+| Supabase Third-Party Auth           | Free 50,000 Third-Party MAU；Pro 100,000 后 $0.00325/MAU                              | 仅适用于真正接入第三方 OIDC JWT 方案；不能把免费 MAU 当作“微信直接受支持”                  | 首选先测保留原 Auth 的 A；延后自建 issuer                      |
+| Supabase Edge                       | Free 500,000 invocations；Pro 2,000,000 后 $2/1,000,000 invocations（按包计）         | `code2Session` 交换与绑定/恢复 API 增加调用；失败请求也计入调用，OPTIONS 不计              | 合并必要交互、限流、缓存非敏感配置；Gate 0 不调用              |
 | Supabase DB/Storage/Realtime/egress | Free DB 500 MB、Storage 1 GB、Realtime 2m messages、200 peak connections、egress 5 GB | 相册、图片/视频、记分实时广播可能比登录先碰到上限；超额价格/计划以官方账单页与实际项目核对 | 先共享现有数据与规则，图片压缩/访问控制；不新增第三方媒体 SaaS |
-| Supabase Custom OAuth Provider | Free 最多 3 个 custom providers | 额度不解决微信小程序协议不匹配和 IdP 维护 | 暂不创建 issuer/provider |
-| Vercel Hobby | 官方仅允许非商业个人用途 | 商业化/盈利运营必须重新选合法托管方案或付费；不能将 Hobby 作为正式商业免费基础设施 | 当前个人非商业 PoC 复用；商业部署前另作 TCO 决策 |
-| 微信主体/认证/备案/AppID/域名 | **待微信官方后台核验**（本轮微信开发者站点原文不可稳定读取） | 正式真机上线前的可能必需支出；不能用第三方流传的 300 元/30 元代替适用主体报价 | 仅离线 mock PoC；不注册、不认证、不购买 |
-| 公众号 OAuth / PC 扫码 / SMS / POI | **待官方核验** | 并非小程序 P0 的必要购买；独立 AppID/主体/回调与域名成本 | 首版保留 H5，采用合法可用的既有恢复渠道；不承诺昵称免密找回 |
+| Supabase Custom OAuth Provider      | Free 最多 3 个 custom providers                                                       | 额度不解决微信小程序协议不匹配和 IdP 维护                                                  | 暂不创建 issuer/provider                                       |
+| Vercel Hobby                        | 官方仅允许非商业个人用途                                                              | 商业化/盈利运营必须重新选合法托管方案或付费；不能将 Hobby 作为正式商业免费基础设施         | 当前个人非商业 PoC 复用；商业部署前另作 TCO 决策               |
+| 微信主体/认证/备案/AppID/域名       | **待微信官方后台核验**（本轮微信开发者站点原文不可稳定读取）                          | 正式真机上线前的可能必需支出；不能用第三方流传的 300 元/30 元代替适用主体报价              | 仅离线 mock PoC；不注册、不认证、不购买                        |
+| 公众号 OAuth / PC 扫码 / SMS / POI  | **待官方核验**                                                                        | 并非小程序 P0 的必要购买；独立 AppID/主体/回调与域名成本                                   | 首版保留 H5，采用合法可用的既有恢复渠道；不承诺昵称免密找回    |
 
 说明：官方“Free”额度不等于当前账户余量；免费计划超限可能限流/暂停而不是自动免费扩容。开发、测试、人工账号恢复、安全审计和双端维护的人力时间均计入 TCO。**任何新套餐、认证、计费或域名购买均须用户先授权**。
 
@@ -138,6 +140,7 @@ PATCH_STATUS=DESIGN_EVIDENCE_CONSUMED
 **消费计划**：交互式主 Chat 在最新远端 HEAD 读取本文件 + 既有两份未消费 handoff，按主题去重、审查安全/成本/测试门槛；经用户授权后低频批量写**设计文档**；开发/迁移/测试环境写入另行授权；成功核对目标文档与提交后再移动对应 handoff 至 consumed。当前任务不自行归档。
 
 **风险/依赖/决策点**：
+
 - BLOCKER `SESSION_BRIDGE_UNPROVEN`: 托管 Auth 正式会话签发的支持性和安全性尚未端到端证明。
 - BLOCKER `RLS_ALIAS_COMPATIBILITY_GATE`: `profiles` 直接 SELECT 与 alias RPC 行为需真实测试。
 - BLOCKER `TEST_NICKNAME_RETIREMENT_GATE`: 前端 + Edge + `complete_profile` 自动 alias 必须同批处理。
@@ -148,6 +151,7 @@ PATCH_STATUS=DESIGN_EVIDENCE_CONSUMED
 ## 8. 证据与官方来源（2026-10-21 查阅）
 
 **项目只读源码**
+
 - PR #26 / exact branch: https://github.com/rmit-s3674091-Yating-Li/-qiudazi-h5/tree/39e17febc23d5732c867bb2244a02fd2d99e36a8
 - V8 五项范围: https://github.com/rmit-s3674091-Yating-Li/-qiudazi-h5/blob/39e17febc23d5732c867bb2244a02fd2d99e36a8/docs/V8_CONFIRMED_SCOPE.md
 - 昵称测试身份交换: https://github.com/rmit-s3674091-Yating-Li/-qiudazi-h5/blob/39e17febc23d5732c867bb2244a02fd2d99e36a8/supabase/functions/test-identity-exchange/index.ts
@@ -155,6 +159,7 @@ PATCH_STATUS=DESIGN_EVIDENCE_CONSUMED
 - Admin 自身角色: https://github.com/rmit-s3674091-Yating-Li/-qiudazi-h5/blob/39e17febc23d5732c867bb2244a02fd2d99e36a8/supabase/migrations/20261011204000_v8_platform_admin_self_role.sql
 
 **官方产品文档**
+
 - Supabase Auth Hooks / Free 支持与作用: https://supabase.com/docs/guides/auth/auth-hooks
 - Supabase Custom Access Token Hook: https://supabase.com/docs/guides/auth/auth-hooks/custom-access-token-hook
 - Supabase Custom OAuth/OIDC Providers / Free 3 个: https://supabase.com/docs/guides/auth/custom-oauth-providers

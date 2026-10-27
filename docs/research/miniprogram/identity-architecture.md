@@ -1,3 +1,5 @@
+> 当前状态校正（2026-10-27）：本文以下为原日期的研究/证据快照，不是当前实施状态。离线 Taro PoC 已落仓且已有 G1 记录；正式身份仍为 SESSION_BRIDGE_UNPROVEN。当前技术决定与状态分层以[实施 PRD](miniprogram-implementation-prd.md)及[融合入口](handoff.md)为准。本文历史“尚未批准 PoC/没有小程序代码”等句不覆盖较新的授权及源码。历史价格、资质与官方线索未在本轮重新核验。
+
 > 设计研究文档 · 本文记录研究证据与候选方案，不代表代码已实现、费用已批准或正式上线。
 > 来源：现有别名、RLS 与管理员权限审计；2026-10-21—22 的原始 Handoff，基线 HEAD 39e17fe。
 > 状态：DESIGN_COMPLETE_CANDIDATE_CONDITIONAL；用户尚未批准开发、数据库迁移或付费。
@@ -54,13 +56,13 @@ PATCH_PACKAGE_ID=QD-MP-DOCS-20261021-0904-ALIAS-RLS
 
 2026-10-21 官方文档复核：
 
-| 机制 | 官方明确支持的内容 | 与微信小程序的缺口 | 本项目建议 |
-| --- | --- | --- | --- |
+| 机制                                 | 官方明确支持的内容                                                                                                                           | 与微信小程序的缺口                                                                                                                        | 本项目建议                                                         |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | Supabase Custom OAuth2/OIDC Provider | Custom OAuth2 需要 authorization/token/userinfo URL 并从 OAuth authorize 重定向开始；OIDC 需 discovery/JWKS；Free 最多 3 个 custom providers | `wx.login()` 给出的临时 code + 服务端 `code2Session` 不是 `signInWithOAuth` 标准浏览器回调流程；不能把 code 直接填成 Supabase OAuth token | **不直接使用**，除非单独证明具体微信入口实现兼容且可安全绑定老用户 |
-| Supabase Third-Party Custom OIDC | 接受具有 HTTPS issuer discovery、非对称签名 JWT、`kid`、`role` 的第三方 IdP；通过 `accessToken` 送 JWT | 微信 `code2Session` 不提供可直接作为上述 OIDC JWT 的 Supabase 凭据；另建 OIDC issuer 会新增运维与 RLS/issuer 风险 | MVP **不优先**，非“免费开关”；须评估维护和 Third-Party MAU 计费 |
-| Supabase `linkIdentity()` | 受支持的 OAuth 身份链接，要求已登录、完成 OAuth / ID token 验证 | 并非通用“任意 openid 绑定”API；微信小程序 code 不等于可传入的受支持 ID token | 只对真正支持的 OAuth 入口评估，不能拿它当小程序后端绑定方案 |
-| Auth Admin `generateLink()` | 官方生成 email magic link/OTP（用于邮件分发/受控管理） | 当前昵称测试 Edge 把 token_hash 回给未验证昵称请求方；不安全。即使前置微信 code2Session，也必须证明唯一外部身份绑定与安全会话兑换 | 仅作为**高风险受控协议 PoC 候选**，禁止直接复制测试 Edge 到生产 |
-| 自建后端 session / proxy | 可通过自有服务验证微信身份并保护业务接口 | 不会自动变成 Supabase Auth session；需重新证明所有 JWT/RLS/Storage/Realtime/Platform Admin 授权 | 安全备选，TCO 较高，未证实低成本 |
+| Supabase Third-Party Custom OIDC     | 接受具有 HTTPS issuer discovery、非对称签名 JWT、`kid`、`role` 的第三方 IdP；通过 `accessToken` 送 JWT                                       | 微信 `code2Session` 不提供可直接作为上述 OIDC JWT 的 Supabase 凭据；另建 OIDC issuer 会新增运维与 RLS/issuer 风险                         | MVP **不优先**，非“免费开关”；须评估维护和 Third-Party MAU 计费    |
+| Supabase `linkIdentity()`            | 受支持的 OAuth 身份链接，要求已登录、完成 OAuth / ID token 验证                                                                              | 并非通用“任意 openid 绑定”API；微信小程序 code 不等于可传入的受支持 ID token                                                              | 只对真正支持的 OAuth 入口评估，不能拿它当小程序后端绑定方案        |
+| Auth Admin `generateLink()`          | 官方生成 email magic link/OTP（用于邮件分发/受控管理）                                                                                       | 当前昵称测试 Edge 把 token_hash 回给未验证昵称请求方；不安全。即使前置微信 code2Session，也必须证明唯一外部身份绑定与安全会话兑换         | 仅作为**高风险受控协议 PoC 候选**，禁止直接复制测试 Edge 到生产    |
+| 自建后端 session / proxy             | 可通过自有服务验证微信身份并保护业务接口                                                                                                     | 不会自动变成 Supabase Auth session；需重新证明所有 JWT/RLS/Storage/Realtime/Platform Admin 授权                                           | 安全备选，TCO 较高，未证实低成本                                   |
 
 **关键结论**：现在没有足够官方证据证明“`code2Session` → Supabase Auth 原生 refreshable session”存在无需额外安全设计的一步式托管 API。不得声称微信正式登录桥接已解决。与第一轮相比，本轮确认了 **Supabase `linkIdentity()` 也不是通用 OpenID 绑定捷径**。
 
@@ -73,6 +75,7 @@ PATCH_PACKAGE_ID=QD-MP-DOCS-20261021-0904-ALIAS-RLS
 **重放/冲突规则**：单次 code；对 `(provider,app_id,openid)` 原子唯一；`request_id` 服务端绑定 nonce/客户端会话，限时幂等、禁止同一 request_id 变更 subject；重试不得重复创建 Profile；解绑需要近期重认证和审计；微信 `session_key`、AppSecret、service_role、任何 OTP/hash/token 均不进入客户端或日志。
 
 **两种安全候选优先级**：
+
 1. **优先验证“保持原有 Supabase Auth session”的受控桥接**：使用真实微信身份后服务端解析已明确绑定的 Auth UUID；评审 Supabase 官方受支持会话签发/兑换 API，确认能安全创建/刷新、撤销 session 且不会暴露可被其他主体重放的登录材料。`generateLink()` 不是默认生产答案。
 2. **如 1 不可行**，重新估算独立可信后端 session + BFF（Backend for Frontend）对现有 RLS、Storage、Realtime、Admin 的改造和持续成本；不允许为节省认证费而使用静态 service_role 客户端调用或无签名自制 JWT。
 
@@ -80,13 +83,13 @@ PATCH_PACKAGE_ID=QD-MP-DOCS-20261021-0904-ALIAS-RLS
 
 ## 4. G / 老郑迁移：两层身份与两条授权路径
 
-| 层 | 原有关系 | 新微信身份绑定后验收 |
-| --- | --- | --- |
-| 登录主体 | `auth.users.id`（可能存在历史别名） | 旧身份保留、微信新主体经过证明关联；刷新、退出、换端无串号 |
-| 业务主体 | `public.profiles.id` | 不变；赛事、成绩、玩家、好友、相册外键不改 |
+| 层           | 原有关系                                              | 新微信身份绑定后验收                                                                    |
+| ------------ | ----------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| 登录主体     | `auth.users.id`（可能存在历史别名）                   | 旧身份保留、微信新主体经过证明关联；刷新、退出、换端无串号                              |
+| 业务主体     | `public.profiles.id`                                  | 不变；赛事、成绩、玩家、好友、相册外键不改                                              |
 | Profile 读取 | `ensure_profile()` 与 `profiles_self_read` 不完全同构 | 已绑定 alias 的 Auth 通过 RPC 与直接读取的可见性一致或明确定义仅 RPC 入口；无跨用户泄露 |
-| Admin | `admin_members.auth_user_id` 直接匹配 JWT | 不能凭昵称、Profile alias 或 UnionID 自动提升权限；管理员切换必须独立授权审批、回归审计 |
-| 历史审计 | `admin_action_audit.actor_auth_user_id` | 保留旧 actor ID，不能覆盖/重写旧审计记录 |
+| Admin        | `admin_members.auth_user_id` 直接匹配 JWT             | 不能凭昵称、Profile alias 或 UnionID 自动提升权限；管理员切换必须独立授权审批、回归审计 |
+| 历史审计     | `admin_action_audit.actor_auth_user_id`               | 保留旧 actor ID，不能覆盖/重写旧审计记录                                                |
 
 **受控迁移顺序**：先匿名化 baseline/备份 → 停止新昵称绑定入口（必须覆盖 `complete_profile` 的自动 alias 逻辑）→ 测试库以两个可验证的旧会话分别绑定 → 逐项对账 → 管理员单独验证与授权 → 回滚演练 → 才考虑正式切换。**不可仅用昵称 G / 老郑识别数据库目标**；不在 handoff 中携带实际 ID、邮箱或密钥。
 
@@ -95,6 +98,7 @@ PATCH_PACKAGE_ID=QD-MP-DOCS-20261021-0904-ALIAS-RLS
 ### Patch A：身份架构文档
 
 在 `identity-architecture.md` 增加“Profile 读取的 alias-aware RLS 与 RPC 契约”小节：
+
 - 明确 `profiles_self_read` 当前只认 `auth_user_id=auth.uid()`，`players_owner_read` 使用 `current_profile_id()`；
 - 标记为 `RLS_ALIAS_COMPATIBILITY_GATE`；
 - 建议测试两条读取路径（authenticated alias session 下的直接 `profiles` SELECT 与 `ensure_profile()` RPC），并用非拥有者 session 测越权拒绝；
@@ -114,18 +118,18 @@ PATCH_PACKAGE_ID=QD-MP-DOCS-20261021-0904-ALIAS-RLS
 
 ## 6. 验收矩阵（供 Chat 后续批量实现前审查）
 
-| 测试 | 成功条件 | 失败应阻断什么 |
-| --- | --- | --- |
-| ALIAS-01 | 原 Auth 与经授权 alias Auth 均解析同一 Profile，`ensure_profile`/Profile 可见性契约明确 | 阻断切换默认微信登录 |
-| ALIAS-02 | 非拥有者 Auth 直接 SELECT、RPC、Storage 都不能读他人私有数据 | 阻断任何 RLS 扩权 migration |
-| ALIAS-03 | 重复昵称、同头像、UnionID 相似不得触发自动合并 | 阻断账号自动合并 |
-| ALIAS-04 | 新用户昵称撞上老用户昵称不能获得老 Profile 的历史赛事/照片 | 阻断正式开放 |
-| ADMIN-01 | 普通用户即使绑定管理员的业务 Profile 也不获得 admin 权限 | 阻断管理员上线 |
-| ADMIN-02 | 管理员 Auth UUID 变更需独立审批；旧审计不变 | 阻断删除旧 Auth/改写审计 |
-| BRIDGE-01 | 同一微信 code 不可重放，不同 AppID 同 OpenID 文本不碰撞 | 阻断会话签发 |
-| BRIDGE-02 | session JWT 的 `sub` 是真实且已关联的 Auth UUID；服务端 RLS/Edge 校验通过 | 阻断业务写操作 |
-| BRIDGE-03 | 断网重试/多端切换/登出清缓存，不串 G/老郑历史数据 | 阻断发布 |
-| BRIDGE-04 | 过期、撤销、异常刷新 token 能失败关闭且不会泄露服务端密钥 | 阻断正式认证上线 |
+| 测试      | 成功条件                                                                                | 失败应阻断什么              |
+| --------- | --------------------------------------------------------------------------------------- | --------------------------- |
+| ALIAS-01  | 原 Auth 与经授权 alias Auth 均解析同一 Profile，`ensure_profile`/Profile 可见性契约明确 | 阻断切换默认微信登录        |
+| ALIAS-02  | 非拥有者 Auth 直接 SELECT、RPC、Storage 都不能读他人私有数据                            | 阻断任何 RLS 扩权 migration |
+| ALIAS-03  | 重复昵称、同头像、UnionID 相似不得触发自动合并                                          | 阻断账号自动合并            |
+| ALIAS-04  | 新用户昵称撞上老用户昵称不能获得老 Profile 的历史赛事/照片                              | 阻断正式开放                |
+| ADMIN-01  | 普通用户即使绑定管理员的业务 Profile 也不获得 admin 权限                                | 阻断管理员上线              |
+| ADMIN-02  | 管理员 Auth UUID 变更需独立审批；旧审计不变                                             | 阻断删除旧 Auth/改写审计    |
+| BRIDGE-01 | 同一微信 code 不可重放，不同 AppID 同 OpenID 文本不碰撞                                 | 阻断会话签发                |
+| BRIDGE-02 | session JWT 的 `sub` 是真实且已关联的 Auth UUID；服务端 RLS/Edge 校验通过               | 阻断业务写操作              |
+| BRIDGE-03 | 断网重试/多端切换/登出清缓存，不串 G/老郑历史数据                                       | 阻断发布                    |
+| BRIDGE-04 | 过期、撤销、异常刷新 token 能失败关闭且不会泄露服务端密钥                               | 阻断正式认证上线            |
 
 ## 7. 成本与决策（零新增费用优先）
 
@@ -139,12 +143,14 @@ PATCH_PACKAGE_ID=QD-MP-DOCS-20261021-0904-ALIAS-RLS
 ## 8. 来源与只读证据（2026-10-21）
 
 **GitHub 现行源码**：
+
 - https://github.com/rmit-s3674091-Yating-Li/-qiudazi-h5/blob/39e17febc23d5732c867bb2244a02fd2d99e36a8/supabase/migrations/20260829075002_support_test_auth_aliases.sql
 - https://github.com/rmit-s3674091-Yating-Li/-qiudazi-h5/blob/39e17febc23d5732c867bb2244a02fd2d99e36a8/supabase/functions/test-identity-exchange/index.ts
 - https://github.com/rmit-s3674091-Yating-Li/-qiudazi-h5/blob/39e17febc23d5732c867bb2244a02fd2d99e36a8/src/hooks/Auth.tsx
 - https://github.com/rmit-s3674091-Yating-Li/-qiudazi-h5/blob/39e17febc23d5732c867bb2244a02fd2d99e36a8/supabase/migrations/20261011204000_v8_platform_admin_self_role.sql
 
 **Supabase 官方（本轮已读取）**：
+
 - https://supabase.com/docs/guides/auth/custom-oauth-providers
 - https://supabase.com/docs/guides/auth/third-party/custom-oidc
 - https://supabase.com/docs/guides/auth/third-party/overview

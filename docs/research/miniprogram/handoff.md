@@ -1,30 +1,29 @@
-# 球搭子｜小程序与统一身份设计融合索引
+# 球搭子｜小程序与统一身份融合入口
 
-**融合时间：2026-10-23。基线 SHA：39e17febc23d5732c867bb2244a02fd2d99e36a8。状态：DESIGN_COMPLETE_CANDIDATE_CONDITIONAL。**
+更新：2026-10-27。审阅基线 `3cdb135097014b81cbc043c0ce0ce4d5fcd8f578`；之后的实时 HEAD 必须重读。
 
-本页为设计唯一入口；专题文档保存可追溯原始研究/测试与官方线索，若与此页产品门槛冲突，按更严格的安全/合规 Gate 执行。设计已具备集中评审条件，**没有正式微信/短信登录、没有小程序代码落地、没有审批发布授权**。不更改 V8 已确认五项范围，也不触碰 H5 地图 P3。
+技术路线与验收门槛唯一正文为 [实施 PRD](miniprogram-implementation-prd.md)。机器状态索引为 [V8_CURRENT_STATE](../../V8_CURRENT_STATE.json)，范围真源仍是 [五项已确认范围](../../V8_CONFIRMED_SCOPE.md)。历史研究正文保留原日期、基准和证据，不再把旧的“未有小程序源码/PoC 尚未批准”当作当前状态。
 
-## 本次 7 份 Library handoff 的消费映射
+## 本轮融合与证据
 
-| 源研究批次 | 仓库设计文档 | 要点 |
-| --- | --- | --- |
-| 20261021-0904 alias/RLS | identity-architecture.md | RLS alias、昵称接管、Admin Auth UUID |
-| 20261021-1212 binding/recovery | legacy-user-migration.md | 显式绑定、冲突恢复、跨端会话隔离 |
-| 20261021-1511 session bridge | session-bridge-poc.md | 官方认证能力、Gate 0–2、可刷新 session 阻断 |
-| 20261021-1808 network/media | network-media-adaptation.md | Supabase/Taro 运行时、Storage/相册成本 |
-| 20261021-2112 phone OTP vs WeChat | wechat-login-options.md | 短信资质、成本与不同入口选择 |
-| 20261022-0010 MVP invites | cross-platform-product-scope.md | P1 分享邀请、六类 intent、回跳 |
-| 20261022-0307 share/filing | mini-program-feasibility.md | 匿名 RPC 不可达、E1/E2、备案、收口 |
+全量检查两个目录及 consumed，共208个文件：156个既有归档、52个根目录文件。另读此前批量融合和23:48真实诊断报告；源码备份只作历史，不当新 Handoff。完整逐文件 ID、日期、SHA-256、目标路径、重复/替代关系、消费层级及阻断见 [20261027 台账](../../V8_HANDOFF_RECONCILIATION_20261027.json)。
 
-综合开发入口：miniprogram-implementation-prd.md。保留此前已经消费的 identity-architecture-and-cost.md 与 framework-reuse-matrix.md；不重复另建产品范围事实源。
+已合并至第17批的离线 PoC 和已记录 G1 是代码/工程事实。第18–28批共11个代码 Handoff 的研究防护结论进入 PRD，但补丁未应用，必须保留根目录且不能标成代码已消费。本轮不改业务代码、数据库、环境或地图供应商。
 
-## 尚未解决的用户/技术决策
+地图40个历史证据/重复/替代文件的有效结论归入 [P3 状态](../../V8_P3_STATUS_20261025.md)，仅在本轮提交与回读成功后归档；保留最新完整外层包作为一项待处理代码队列。归档旧证据不意味着 P3 通过。
 
-1. 微信小程序的申请主体、已有 AppID、可用域名、备案及审核能力；是否商业化。
-2. 是否已有合规中国大陆短信签名主体/授权；手机号 OTP 与微信主登录方案按不同主体条件选择；国际号码是否必需。
-3. SESSION_BRIDGE_UNPROVEN：真实 wx.login/code2Session 不等于可刷新的 Supabase Auth session。
-4. ALIAS_RLS_COMPATIBILITY_GATE + TEST_NICKNAME_RETIREMENT_GATE + ADMIN_AUTH_SEPARATE_GATE：历史身份与权限迁移。
-5. 分享体验 E1 登录先行，还是 E2 最小脱敏匿名预览。
-6. 实际网络/媒体/地图合法域名、APP 备案、国内真机和成本账单，尚未最终核验。
+## 主题来源
 
-**下一步**：先 G0 产品/安全/成本评审，再经单独授权开展本地 0 元外部采购 PoC；真实 TEST Auth、迁移、备案、付费及部署每一阶段单独审批。Library 研究只有仓库回读成功后才能归档 consumed。
+| 主题             | 原研究与后续 Handoff                        | 当前落点                                                                     |
+| ---------------- | ------------------------------------------- | ---------------------------------------------------------------------------- |
+| 架构与共享领域   | framework reuse、身份成本首轮、G1 第11–17批 | 实施 PRD A；PoC README                                                       |
+| Session/绑定/RLS | 20261021-0904、1212、1511；第18–24批        | 实施 PRD B；identity-architecture、legacy-user-migration、session-bridge-poc |
+| 地图与候选       | 历史 P3 全链、V4、locale、23:48八接口诊断   | 实施 PRD C；P3 状态                                                          |
+| 分享、记分和媒体 | 20261021-1808、20261022-0010；第25–28批     | 实施 PRD D；cross-platform-product-scope、network-media-adaptation           |
+| 发布和成本       | 20261021-2112、20261022-0307、主体/备案线索 | 实施 PRD E；wechat-login-options、mini-program-feasibility                   |
+
+## 未闭环门槛
+
+SESSION_BRIDGE_UNPROVEN、ALIAS_RLS_COMPATIBILITY_GATE、TEST_NICKNAME_RETIREMENT_GATE、ADMIN_AUTH_SEPARATE_GATE、MINI_FETCH_STORAGE_RUNTIME_UNPROVEN、MEDIA_UPLOAD_WIRE_COMPAT_UNPROVEN，以及真实主体/AppID/类目、域名/备案/隐私、实际账单和中国真机验证均未关闭。不得将 mock 或已有 CI 推断成这些门槛通过。
+
+下一轮可对11批离线补丁做一次完整源码融合；地图先处理百度应用识别失败，获真实 status=0 和双门控后再执行30+9。腾讯/高德只保留候选，不自动接入。

@@ -1,3 +1,5 @@
+> 当前状态校正（2026-10-27）：本文以下为原日期的研究/证据快照，不是当前实施状态。离线 Taro PoC 已落仓且已有 G1 记录；正式身份仍为 SESSION_BRIDGE_UNPROVEN。当前技术决定与状态分层以[实施 PRD](miniprogram-implementation-prd.md)及[融合入口](handoff.md)为准。本文历史“尚未批准 PoC/没有小程序代码”等句不覆盖较新的授权及源码。历史价格、资质与官方线索未在本轮重新核验。
+
 > 设计研究文档 · 本文记录研究证据与候选方案，不代表代码已实现、费用已批准或正式上线。
 > 来源：账号绑定、冲突恢复与跨端会话隔离；2026-10-21—22 的原始 Handoff，基线 HEAD 39e17fe。
 > 状态：DESIGN_COMPLETE_CANDIDATE_CONDITIONAL；用户尚未批准开发、数据库迁移或付费。
@@ -22,6 +24,7 @@ DELIVERY_TYPE=DOCS_ONLY_PATCH_PACKAGE; NO_EXECUTABLE_MIGRATION; NO_LOGIN_IMPLEME
 已复用仓库 `docs/research/miniprogram/identity-architecture-and-cost.md`（首轮）、`framework-reuse-matrix.md`（第二轮），以及 Library 中 `20261021-0904_miniprogram-alias-rls-auth-bridge-audit_39e17fe.md`（第三轮，仍待 Chat 消费）。不重复 Taro 框架选型、`wx.login`/`code2Session` 概念、alias RLS 风险与 Admin UUID 独立授权结论。本轮输出的是**可交给产品/开发/安全共同验收的具体交互、协议、失败恢复规则**。实时 HEAD 与第三轮相同；本轮没有发生远端产品变更。
 
 新增源码核对：
+
 - `src/hooks/Auth.tsx`：`start()` 允许 guest-session 创建测试凭据；`loginByNickname()` 经 `test-identity-exchange` 和 `verifyOtp()`；登录异步响应已有 `AuthAccountGeneration` 与 `NicknameLoginAttempt` 防旧响应覆盖机制；`observeSession()` 在 **Auth UUID** 改变时清查询缓存、Profile 缓存。
 - `src/domain/IdentitySession.ts`：`PROFILE_CACHE_KEY` 与 `GUEST_CREDENTIALS_KEY`、`LOGIN_REQUIRED_KEY` 存在浏览器 `localStorage`；`clearIdentityClientStorage` 清除特定前缀，但不等同于清理小程序端持久化 Storage/离线请求队列。
 - `src/domain/AuthAccountGeneration.ts`：基于 Auth UUID + generation，JWT 同主体刷新不改变 generation；小程序跨端不能直接复用 Web Storage，必须保留同等防串号语义。
@@ -33,13 +36,13 @@ DELIVERY_TYPE=DOCS_ONLY_PATCH_PACKAGE; NO_EXECUTABLE_MIGRATION; NO_LOGIN_IMPLEME
 
 ## 1. 五类入口的最小登录/恢复 UX（产品可直接写 PRD）
 
-| 入口 | 首次访问 | 已有账号恢复 | 绑定前置条件 | MVP 约束 |
-|---|---|---|---|---|
-| 微信小程序 | 展示赛事只读内容（以现有匿名读权限为准）；点击报名/记分等受限动作才引导微信登录 | 已绑定微信身份经服务端验证恢复原 Profile；未绑定的显示“已有球搭子账号？先绑定” | 旧 Auth session 或受控人工核验；不可仅填昵称 | `wx.login` 不等于业务会话；失败可回到只读入口 |
-| 微信内 H5 | 维持 H5 功能与邀请链接；不要假设小程序 AppID 可用于公众号网页授权 | 若存在受支持 H5 正式登录渠道，独立完成认证；可从小程序分享进入但不得自动共享 token | 经验证的双方凭据/同一已登录旧账号 | 未获公众号资质前不假设网页授权可用 |
-| 微信外手机 H5 | 保留可访问邀请/赛事页 | 使用经过验证的现有 Auth 登录/恢复方式；正式方案未定时标记阻断 | 旧 Auth session/经验证恢复 | 不强迫安装微信或付费短信 |
-| PC H5 | 保留后台和赛事管理 | 原有正式认证方式或未来已获资质的网站扫码；不可把小程序 code 用于 PC 网页 | 已验证当前 Auth 主体 | Admin 继续只在 H5，单独授权 |
-| 小程序 ↔ H5 切换 | 分享链接只承载赛事/邀请引用，不携带 access/refresh token | 新端分别完成身份认证后通过同一稳定 Profile 查历史记录 | 绑定前必须证明对旧 Profile 的控制权 | 不因昵称/头像/UnionID 相似自动合并 |
+| 入口              | 首次访问                                                                        | 已有账号恢复                                                                       | 绑定前置条件                                 | MVP 约束                                      |
+| ----------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------- | --------------------------------------------- |
+| 微信小程序        | 展示赛事只读内容（以现有匿名读权限为准）；点击报名/记分等受限动作才引导微信登录 | 已绑定微信身份经服务端验证恢复原 Profile；未绑定的显示“已有球搭子账号？先绑定”     | 旧 Auth session 或受控人工核验；不可仅填昵称 | `wx.login` 不等于业务会话；失败可回到只读入口 |
+| 微信内 H5         | 维持 H5 功能与邀请链接；不要假设小程序 AppID 可用于公众号网页授权               | 若存在受支持 H5 正式登录渠道，独立完成认证；可从小程序分享进入但不得自动共享 token | 经验证的双方凭据/同一已登录旧账号            | 未获公众号资质前不假设网页授权可用            |
+| 微信外手机 H5     | 保留可访问邀请/赛事页                                                           | 使用经过验证的现有 Auth 登录/恢复方式；正式方案未定时标记阻断                      | 旧 Auth session/经验证恢复                   | 不强迫安装微信或付费短信                      |
+| PC H5             | 保留后台和赛事管理                                                              | 原有正式认证方式或未来已获资质的网站扫码；不可把小程序 code 用于 PC 网页           | 已验证当前 Auth 主体                         | Admin 继续只在 H5，单独授权                   |
+| 小程序 ↔ H5 切换 | 分享链接只承载赛事/邀请引用，不携带 access/refresh token                        | 新端分别完成身份认证后通过同一稳定 Profile 查历史记录                              | 绑定前必须证明对旧 Profile 的控制权          | 不因昵称/头像/UnionID 相似自动合并            |
 
 **关键 UX 文案状态**：`未登录` → `正在验证微信身份` → `正在确认球搭子账号` → `进入赛事`；对于未绑定旧账号，必须显示“新建账号”和“绑定已有账号”两条**明确且可撤销**的路径，默认不替用户选择。存在历史冲突时显示“账号需要核验；现有赛事和照片不会删除”，而非“系统已自动合并”。
 
@@ -63,38 +66,44 @@ DELIVERY_TYPE=DOCS_ONLY_PATCH_PACKAGE; NO_EXECUTABLE_MIGRATION; NO_LOGIN_IMPLEME
 ## 3. API 契约草案（非已实现接口）
 
 ### 3.1 `POST /identity/wechat-mini/exchange`
+
 请求：`{login_code:string, request_id:uuid, client_nonce:string}`。请求不得携带 `openid/unionid/profile_id/auth_user_id/role`。服务端调用 code2Session 并按 AppID + OpenID 唯一解析。**成功返回值必须分阶段**：`{status:'BOUND_AUTH_FOUND'|'UNBOUND_IDENTITY'|'CONFLICT_LOCKED'|'SESSION_BRIDGE_UNSUPPORTED', correlation_id, next_action, expires_at}`；只有在支持性 PoC 通过后才定义真实 Supabase session 的安全交换载荷。客户端不能把 `BOUND_AUTH_FOUND` 当作“已登录”。
 
 ### 3.2 `POST /identity/bind/start`（已认证旧会话）
+
 Authorization: Bearer `<现有 Supabase access JWT>`；body `{provider:'wechat_miniprogram', challenge_id, request_id}`。后端 `getUser(jwt)` 或验证 JWT claims，并以服务端 resolver 取 Profile；校验账号近期重新认证策略（何种强证明仍待 PoC）。返回短期绑定 challenge（不得是可登录 token）。
 
 ### 3.3 `POST /identity/bind/confirm`
+
 请求 `{challenge_id, verified_wechat_proof_ref, user_confirmation:true, request_id}`；`verified_wechat_proof_ref` 必须是后端持有的已验证单次微信身份证明引用，**不是客户端自报 OpenID**。同事务检查 challenge 的 Auth UUID、Profile、外部身份、TTL、状态、nonce、已消费标记；写绑定+审计。返回 `{status:'BIND_COMMITTED', profile_ref, correlation_id}`；`profile_ref` 仅用于展示，不作为后续鉴权凭据。需再走独立会话验证关卡。
 
 ### 3.4 `POST /identity/recovery/request`
+
 请求只提交最少必要联系/问题描述；返回统一 `RECOVERY_REVIEW`，不暴露“某昵称是否存在”、关联邮箱、旧账号 ID 或管理员身份。恢复结果必须人工受控审计，不能通过客户端 self-service 提交目标 Profile ID 直接换绑。免费恢复渠道可先考虑**已登录旧设备确认**；如果旧设备也不可用，人工核验成本非零，应作为服务承诺与 SLA 决策，不假设可用免费短信。
 
 ### 3.5 `GET /identity/me`（会话真实性和 UI 一致性）
+
 由后端基于**经过验证的 JWT**返回 `{auth_session_state, profile_state, profile_display, binding_state, capabilities}`；能力列表由服务端确定，不允许客户端推导管理员角色。若直接表 SELECT 的 alias-aware RLS 尚未修复/统一，先明确仅通过安全 RPC/服务端 resolver 获取 Profile，禁止绕过 RLS。
 
 ### 3.6 幂等与错误响应格式
+
 统一 `{error:{code, message_key, correlation_id, retryable}, request_id}`；相同 `request_id` + 相同 actor/nonce/操作在有效期内返回同一逻辑结果；相同 ID 携带不同主体/载荷必须拒绝。日志记录不可逆脱敏关联号，不写 token、`session_key`、openid 原值。重试时服务端判断已提交状态，禁止客户端重复创建 Profile。
 
 ## 4. 错误码 × 用户恢复动作 × 安全策略
 
-| code | HTTP 建议 | 前端动作 | 服务端硬边界 |
-|---|---:|---|---|
-| `WECHAT_CODE_EXPIRED` / `WECHAT_CODE_REPLAYED` | 401/409 | 重新点击登录，重新获取 code；不自动无限重试 | 单次 code、TTL、请求幂等 |
-| `WECHAT_UPSTREAM_UNAVAILABLE` | 503 | 保留赛事上下文，稍后重试/继续只读 | 不能将超时当作“新用户” |
-| `IDENTITY_UNBOUND` | 200（状态响应） | 明确选择新建或绑定旧号 | 不静默新建重复 Profile |
-| `BIND_PROOF_REQUIRED` | 403 | 返回旧账号认证步骤 | 禁止昵称、头像、UnionID 作为证明 |
-| `BIND_SUBJECT_CONFLICT` | 409 | 暂停绑定，申请人工恢复 | 不覆盖已有绑定，不泄露被占账号资料 |
-| `BIND_REQUEST_MISMATCH` | 409 | 重新开始完整流程 | challenge 必须绑定 actor/nonce/TTL |
-| `SESSION_BRIDGE_UNSUPPORTED` | 501/503 | 明确提示“微信身份已验证，但暂无法完成登录”；回只读页 | 不能把 code/session_key 当 JWT |
-| `PROFILE_ALIAS_VISIBILITY_MISMATCH` | 409/500 | 不展示别人的 Profile；联系支持 | RPC/SELECT/RLS 契约未统一不得切换 |
-| `AUTH_SESSION_EXPIRED` | 401 | 安全刷新或重新认证，保留非敏感草稿 | 不把 `getSession()` 本地 user 对象当服务器权限证据 |
-| `ADMIN_AUTH_NOT_GRANTED` | 403 | 展示无管理权限；单独联系管理员 | `admin_members` 仍按可信 Auth UUID 授权，不因 Profile 绑定提升 |
-| `ACCOUNT_SWITCH_STALE_RESPONSE` | 客户端状态 | 丢弃旧异步响应并清旧 actor 缓存 | 不允许 A→B→A 竞态污染页面 |
+| code                                           |       HTTP 建议 | 前端动作                                             | 服务端硬边界                                                   |
+| ---------------------------------------------- | --------------: | ---------------------------------------------------- | -------------------------------------------------------------- |
+| `WECHAT_CODE_EXPIRED` / `WECHAT_CODE_REPLAYED` |         401/409 | 重新点击登录，重新获取 code；不自动无限重试          | 单次 code、TTL、请求幂等                                       |
+| `WECHAT_UPSTREAM_UNAVAILABLE`                  |             503 | 保留赛事上下文，稍后重试/继续只读                    | 不能将超时当作“新用户”                                         |
+| `IDENTITY_UNBOUND`                             | 200（状态响应） | 明确选择新建或绑定旧号                               | 不静默新建重复 Profile                                         |
+| `BIND_PROOF_REQUIRED`                          |             403 | 返回旧账号认证步骤                                   | 禁止昵称、头像、UnionID 作为证明                               |
+| `BIND_SUBJECT_CONFLICT`                        |             409 | 暂停绑定，申请人工恢复                               | 不覆盖已有绑定，不泄露被占账号资料                             |
+| `BIND_REQUEST_MISMATCH`                        |             409 | 重新开始完整流程                                     | challenge 必须绑定 actor/nonce/TTL                             |
+| `SESSION_BRIDGE_UNSUPPORTED`                   |         501/503 | 明确提示“微信身份已验证，但暂无法完成登录”；回只读页 | 不能把 code/session_key 当 JWT                                 |
+| `PROFILE_ALIAS_VISIBILITY_MISMATCH`            |         409/500 | 不展示别人的 Profile；联系支持                       | RPC/SELECT/RLS 契约未统一不得切换                              |
+| `AUTH_SESSION_EXPIRED`                         |             401 | 安全刷新或重新认证，保留非敏感草稿                   | 不把 `getSession()` 本地 user 对象当服务器权限证据             |
+| `ADMIN_AUTH_NOT_GRANTED`                       |             403 | 展示无管理权限；单独联系管理员                       | `admin_members` 仍按可信 Auth UUID 授权，不因 Profile 绑定提升 |
+| `ACCOUNT_SWITCH_STALE_RESPONSE`                |      客户端状态 | 丢弃旧异步响应并清旧 actor 缓存                      | 不允许 A→B→A 竞态污染页面                                      |
 
 ## 5. 多端/弱网/分享与缓存隔离的 12 个验收场景
 

@@ -1,3 +1,5 @@
+> 当前状态校正（2026-10-27）：本文以下为原日期的研究/证据快照，不是当前实施状态。离线 Taro PoC 已落仓且已有 G1 记录；正式身份仍为 SESSION_BRIDGE_UNPROVEN。当前技术决定与状态分层以[实施 PRD](miniprogram-implementation-prd.md)及[融合入口](handoff.md)为准。本文历史“尚未批准 PoC/没有小程序代码”等句不覆盖较新的授权及源码。历史价格、资质与官方线索未在本轮重新核验。
+
 > 设计研究文档 · 本文记录研究证据与候选方案，不代表代码已实现、费用已批准或正式上线。
 > 来源：正式发布备案、匿名赛事预览与设计收口；2026-10-21—22 的原始 Handoff，基线 HEAD 39e17fe。
 > 状态：DESIGN_COMPLETE_CANDIDATE_CONDITIONAL；用户尚未批准开发、数据库迁移或付费。
@@ -42,13 +44,13 @@ PATCH_PACKAGE_ID=QD-MP-DOCS-20261022-ENTRY-AUTH-FILING-CLOSURE
 
 查询 `pg_proc`/`pg_namespace` 与 `has_function_privilege('anon',p.oid,'EXECUTE')`，获得：
 
-| `public` 函数 | `anon EXECUTE` | `authenticated EXECUTE` | `SECURITY DEFINER` |
-|---|---|---|---|
-| `get_event_snapshot(p_event_id uuid)` | **false** | true | true |
-| `get_private_event_preview(p_event_id uuid)` | **false** | true | true |
-| `get_my_event_entry_id(p_event_id uuid)` | **false** | true | true |
-| `get_connection_invite_by_token(p_token uuid)` | **false** | true | true |
-| `get_player_claim_invite(p_token uuid)` | **false** | true | true |
+| `public` 函数                                  | `anon EXECUTE` | `authenticated EXECUTE` | `SECURITY DEFINER` |
+| ---------------------------------------------- | -------------- | ----------------------- | ------------------ |
+| `get_event_snapshot(p_event_id uuid)`          | **false**      | true                    | true               |
+| `get_private_event_preview(p_event_id uuid)`   | **false**      | true                    | true               |
+| `get_my_event_entry_id(p_event_id uuid)`       | **false**      | true                    | true               |
+| `get_connection_invite_by_token(p_token uuid)` | **false**      | true                    | true               |
+| `get_player_claim_invite(p_token uuid)`        | **false**      | true                    | true               |
 
 另查所有名称含 `event`/`preview` 且 anon 可执行的 public 函数，仅见 `event_registration_open(e events)` 辅助函数；**没有发现可直接替代上述读取流程的已授权匿名赛事详情 RPC**。这只证明当前权限和代码路径，不证明不存在其它 HTTP/Edge 或未来扩展；不得据此笼统声称系统绝对无法匿名展示任何内容。
 
@@ -56,10 +58,10 @@ PATCH_PACKAGE_ID=QD-MP-DOCS-20261022-ENTRY-AUTH-FILING-CLOSURE
 
 ### 1.3 两条合规且低成本的实现路线（由用户确认，不擅自选择）
 
-| 方案 | 用户打开赛事分享 | 额外开发/运维 | 风险与验收 | 推荐条件 |
-|---|---|---|---|---|
-| **E1：登录先行** | 打开分享后先展示非业务敏感的静态说明，再进入正式登录，成功后服务端查询赛事 | 最少新增公开数据面；继续现有 authenticated RPC；仍需完成正式登录 | 分享转化率可能受影响；必须保留 intent、失败/取消/过期回跳，不能使用测试昵称/guest 代替正式登录 | **最小工程/TCO 的保守首版默认候选**，尤其身份方案未闭环时 |
-| **E2：最小脱敏匿名预览** | 分享链接打开后先读赛事标题/日期/城市/公开场馆概览等经批准字段，报名/记分/好友操作时再登录 | 需要新增受控只读 RPC/Edge、字段白名单、枚举/限流、缓存与隐私审计 | 匿名 token 不授予加入/相册/私有成员读取；测试私有赛事、取消、过期、滥用爬取、隐私泄漏 | 真实增长目标重视“先看赛事再注册”，且愿意批准独立 API 设计与安全测试时 |
+| 方案                     | 用户打开赛事分享                                                                          | 额外开发/运维                                                    | 风险与验收                                                                                     | 推荐条件                                                              |
+| ------------------------ | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **E1：登录先行**         | 打开分享后先展示非业务敏感的静态说明，再进入正式登录，成功后服务端查询赛事                | 最少新增公开数据面；继续现有 authenticated RPC；仍需完成正式登录 | 分享转化率可能受影响；必须保留 intent、失败/取消/过期回跳，不能使用测试昵称/guest 代替正式登录 | **最小工程/TCO 的保守首版默认候选**，尤其身份方案未闭环时             |
+| **E2：最小脱敏匿名预览** | 分享链接打开后先读赛事标题/日期/城市/公开场馆概览等经批准字段，报名/记分/好友操作时再登录 | 需要新增受控只读 RPC/Edge、字段白名单、枚举/限流、缓存与隐私审计 | 匿名 token 不授予加入/相册/私有成员读取；测试私有赛事、取消、过期、滥用爬取、隐私泄漏          | 真实增长目标重视“先看赛事再注册”，且愿意批准独立 API 设计与安全测试时 |
 
 **不得做的“省事方案”**：直接把 `get_event_snapshot`/`get_private_event_preview` 的 EXECUTE 授予 `anon`，或把原 `SECURITY DEFINER` 函数复制后移除角色检查。若选择 E2，必须设计新的字段最小化读取面，经过数据分类/隐私评审、限流与独立安全测试后再申请代码/DB 授权。
 
@@ -100,14 +102,14 @@ PATCH_PACKAGE_ID=QD-MP-DOCS-20261022-ENTRY-AUTH-FILING-CLOSURE
 
 ## 4. 阶段与验收矩阵：区分设计完成、技术 PoC 和可上线
 
-| Gate | 必须有的证据 | 失败时处理 |
-|---|---|---|
-| G0 文档设计评审 | 主 Chat 将本文件与前六份 handoff 去重融合至建议八份文档，用户确认小程序 MVP 与 E1/E2；成本假设、主体资质、官方证据均有状态 | 保持 `DESIGN_COMPLETE_CANDIDATE_CONDITIONAL`，不标 `APPROVED` |
-| G1 本地零新增付费 mock | Taro 编译、共享评分规则单测、NavigationIntent/邀请六分类、身份状态机、账号切换防串号、模拟短信/微信费用计算 | 不接入真实服务；失败则调整 adapter |
-| G2 Auth 隔离 TEST | SMS 原生 Session 或微信桥接受支持的可刷新 Session；`getUser`/RLS/alias/Storage/Edge/刷新/撤销/重放/冲突/管理员拒绝全绿 | 不启用正式登录；不使用昵称 token_hash 作为替代 |
-| G3 分享与隐私 | E1 登录后回跳正常；若 E2，最小匿名预览字段白名单、私有/取消/过期、枚举/滥用、相册与受邀权限拒绝全绿 | 不开放 `anon` 读取原业务 RPC |
-| G4 小程序合法运行 | APP 备案/主体/合法域名/权限说明/国内真机/分享二维码/地图/上传/弱网/安全审核均有证据 | 不发布，不把开发工具模拟当真机 |
-| G5 业务闭环 | 创建→分享→打开→登录→报名→记分；G/老郑历史数据不变；Admin 不串号；两端照片授权一致 | 不发布，不自动进入 V8 Release Gate |
+| Gate                   | 必须有的证据                                                                                                               | 失败时处理                                                    |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| G0 文档设计评审        | 主 Chat 将本文件与前六份 handoff 去重融合至建议八份文档，用户确认小程序 MVP 与 E1/E2；成本假设、主体资质、官方证据均有状态 | 保持 `DESIGN_COMPLETE_CANDIDATE_CONDITIONAL`，不标 `APPROVED` |
+| G1 本地零新增付费 mock | Taro 编译、共享评分规则单测、NavigationIntent/邀请六分类、身份状态机、账号切换防串号、模拟短信/微信费用计算                | 不接入真实服务；失败则调整 adapter                            |
+| G2 Auth 隔离 TEST      | SMS 原生 Session 或微信桥接受支持的可刷新 Session；`getUser`/RLS/alias/Storage/Edge/刷新/撤销/重放/冲突/管理员拒绝全绿     | 不启用正式登录；不使用昵称 token_hash 作为替代                |
+| G3 分享与隐私          | E1 登录后回跳正常；若 E2，最小匿名预览字段白名单、私有/取消/过期、枚举/滥用、相册与受邀权限拒绝全绿                        | 不开放 `anon` 读取原业务 RPC                                  |
+| G4 小程序合法运行      | APP 备案/主体/合法域名/权限说明/国内真机/分享二维码/地图/上传/弱网/安全审核均有证据                                        | 不发布，不把开发工具模拟当真机                                |
+| G5 业务闭环            | 创建→分享→打开→登录→报名→记分；G/老郑历史数据不变；Admin 不串号；两端照片授权一致                                          | 不发布，不自动进入 V8 Release Gate                            |
 
 **正式身份尚未实现**：`SESSION_BRIDGE_UNPROVEN`、`SMS_DOMESTIC_QUALIFICATION_UNPROVEN`、`WECHAT_APPID_DOMAIN_QUALIFICATION_UNPROVEN`、`ALIAS_RLS_GATE`、`TEST_IDENTITY_RETIREMENT_GATE`、`ADMIN_AUTH_SEPARATE_GATE`、`APP_FILING_PENDING`、`ANONYMOUS_PREVIEW_PRODUCT_DECISION`。G 的后台权限故障仍是独立运行时问题，不能归因于微信登录。
 
@@ -129,6 +131,7 @@ PATCH_PACKAGE_ID=QD-MP-DOCS-20261022-ENTRY-AUTH-FILING-CLOSURE
 ## 6. 官方来源、状态与可复核性
 
 **本轮 2026-10-22 官方核验：**
+
 - 工信部 APP 备案通知（2023-08-04 发布，含小程序平台、先备案后服务）：https://www.miit.gov.cn/jgsj/xgj/wjfb/art/2023/art_dd783a581c9644a4aee10afa582811db.html
 - 工信部 APP 备案官方解读（2023-08-04 发布，材料齐全准确 20 工作日，平台提交）：https://www.miit.gov.cn/jgsj/xgj/hlwgl/art/2023/art_564bf0759d7e41d5b4aa8ce4996b9e84.html
 - Supabase Custom OAuth/OIDC（2026-10-22 读取；标准 OAuth2 授权/回调/Token/UserInfo，不能视作直接支持小程序 wx.login code）：https://supabase.com/docs/guides/auth/custom-oauth-providers
