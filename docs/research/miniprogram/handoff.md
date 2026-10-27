@@ -27,3 +27,5 @@
 SESSION_BRIDGE_UNPROVEN、ALIAS_RLS_COMPATIBILITY_GATE、TEST_NICKNAME_RETIREMENT_GATE、ADMIN_AUTH_SEPARATE_GATE、MINI_FETCH_STORAGE_RUNTIME_UNPROVEN、MEDIA_UPLOAD_WIRE_COMPAT_UNPROVEN，以及真实主体/AppID/类目、域名/备案/隐私、实际账单和中国真机验证均未关闭。不得将 mock 或已有 CI 推断成这些门槛通过。
 
 下一轮可对11批离线补丁做一次完整源码融合；地图先处理百度应用识别失败，获真实 status=0 和双门控后再执行30+9。腾讯/高德只保留候选，不自动接入。
+
+首批提交后新增12份见[执行增量台账](../../V8_HANDOFF_DELTA_20261027.json)。小程序待应用已增至15份（18–32批）；地图出现V5/V5.1，优先候选已更新，二进制完整性仍待独立重验，不沿用旧的“仅12份剩余”数量。

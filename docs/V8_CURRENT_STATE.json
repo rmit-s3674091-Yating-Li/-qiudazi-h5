@@ -46,7 +46,8 @@
     "batching": "Prefer low-frequency semantic batch integration after rechecking live exact HEAD.",
     "miniprogram_path": "/球搭子/V8/miniprogram-research/handoffs/",
     "latest_reconciliation": "docs/V8_HANDOFF_RECONCILIATION_20261027.json",
-    "consumption_layers": "Research integration, code application, automated tests and real-device verification must be recorded separately; archive only after actual landing/readback. Original unapplied patches stay pending."
+    "consumption_layers": "Research integration, code application, automated tests and real-device verification must be recorded separately; archive only after actual landing/readback. Original unapplied patches stay pending.",
+    "execution_delta": "docs/V8_HANDOFF_DELTA_20261027.json"
   },
   "read_chain": [
     "docs/V8_CONFIRMED_SCOPE.md",
@@ -84,7 +85,9 @@
       "research": "RESEARCH_INTEGRATED",
       "authorization": "OFFLINE_POC_AUTHORIZED",
       "code": "OFFLINE_POC_IMPLEMENTED_THROUGH_BATCH_17",
-      "pending_code_batches": [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28],
+      "pending_code_batches": [
+        18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32
+      ],
       "automation": "G1_PASSED_AT_3cdb135",
       "real_auth": "SESSION_BRIDGE_UNPROVEN",
       "real_device": "NOT_VERIFIED",
@@ -95,7 +98,7 @@
       "live_service": "FAILED_BUSINESS_STATUS_200_8_OF_8",
       "matrix_30_plus_9": "NOT_TESTED",
       "selection_fill_real_device": "NOT_VERIFIED",
-      "pending_candidate": "V4_PLUS_DEPENDENT_LOCALE_ADDENDUM_NOT_APPLIED",
+      "pending_candidate": "V5_1_REPORTED_LATEST_NOT_APPLIED_PACKAGE_REVIEW_PENDING",
       "evidence_owner": "docs/V8_P3_STATUS_20261025.md"
     }
   }
