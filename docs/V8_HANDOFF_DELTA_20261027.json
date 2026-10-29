@@ -1,0 +1,141 @@
+{
+  "reviewed_at": "2026-10-27",
+  "initial_inventory": 208,
+  "added_during_execution": 12,
+  "total_inventory": 220,
+  "original_commit": "6ff8ac1d5887e5d5e285f3d14f581f514810878a",
+  "items": [
+    {
+      "id": "libfile_11891458bfc88191930ec2c432001a9a",
+      "path": "/球搭子/V8/handoffs/qiudazi_v8_p3_20261027_0841_readonly_gate.md",
+      "date": "2026-10-27T00:43:05.619909+00:00",
+      "disposition": "EVIDENCE_INTEGRATED_ARCHIVE_AFTER_READBACK",
+      "repository_targets": [
+        "docs/research/miniprogram/miniprogram-implementation-prd.md",
+        "docs/V8_P3_STATUS_20261025.md"
+      ],
+      "code_applied": false
+    },
+    {
+      "id": "libfile_a0a852851ba08191b79bcedc22561404",
+      "path": "/球搭子/V8/handoffs/qiudazi_v8_p3_20261027_0714_env_deploy_chronology_gate.md",
+      "date": "2026-10-26T23:16:21.127341+00:00",
+      "disposition": "EVIDENCE_INTEGRATED_ARCHIVE_AFTER_READBACK",
+      "repository_targets": [
+        "docs/research/miniprogram/miniprogram-implementation-prd.md",
+        "docs/V8_P3_STATUS_20261025.md"
+      ],
+      "code_applied": false
+    },
+    {
+      "id": "libfile_bd4e6a93c5608191aae3f318179bab9a",
+      "path": "/球搭子/V8/handoffs/qiudazi_v8_p3_20261027_0611_coordinate_contract_and_live_gate.md",
+      "date": "2026-10-26T22:14:03.818814+00:00",
+      "disposition": "EVIDENCE_INTEGRATED_ARCHIVE_AFTER_READBACK",
+      "repository_targets": [
+        "docs/research/miniprogram/miniprogram-implementation-prd.md",
+        "docs/V8_P3_STATUS_20261025.md"
+      ],
+      "code_applied": false
+    },
+    {
+      "id": "libfile_fb244727ddbc819195211af2d8a0e3f5",
+      "path": "/球搭子/V8/handoffs/qiudazi_v8_p3_20261027_0522_live_gate_and_v5_1_integrity.md",
+      "date": "2026-10-26T21:23:57.089393+00:00",
+      "disposition": "EVIDENCE_INTEGRATED_ARCHIVE_AFTER_READBACK",
+      "repository_targets": [
+        "docs/research/miniprogram/miniprogram-implementation-prd.md",
+        "docs/V8_P3_STATUS_20261025.md"
+      ],
+      "code_applied": false
+    },
+    {
+      "id": "libfile_98559acf85ec8191b05ae221fc357e32",
+      "path": "/球搭子/V8/handoffs/qiudazi_v8_p3_20261027_0142_preview_gate_correction.md",
+      "date": "2026-10-26T17:44:38.173827+00:00",
+      "disposition": "EVIDENCE_INTEGRATED_ARCHIVE_AFTER_READBACK",
+      "repository_targets": [
+        "docs/research/miniprogram/miniprogram-implementation-prd.md",
+        "docs/V8_P3_STATUS_20261025.md"
+      ],
+      "code_applied": false
+    },
+    {
+      "id": "libfile_d3c17fb9a7d481918f1f32e01ec982f2",
+      "path": "/球搭子/V8/handoffs/qiudazi_v8_p3_20261027_0142_v5_1_preview_guard_3cdb1350.zip",
+      "date": "2026-10-26T17:44:37.233910+00:00",
+      "disposition": "PENDING_PACKAGE_INTEGRITY_AND_FRESH_HEAD_REVIEW",
+      "repository_targets": [
+        "docs/research/miniprogram/miniprogram-implementation-prd.md",
+        "docs/V8_P3_STATUS_20261025.md"
+      ],
+      "code_applied": false
+    },
+    {
+      "id": "libfile_33ece91612208191ba0073da82aa70e8",
+      "path": "/球搭子/V8/handoffs/qiudazi_v8_p3_20261027_0030_exact_sha_rebase_and_preview_gap.md",
+      "date": "2026-10-26T16:32:50.559295+00:00",
+      "disposition": "EVIDENCE_INTEGRATED_ARCHIVE_AFTER_READBACK",
+      "repository_targets": [
+        "docs/research/miniprogram/miniprogram-implementation-prd.md",
+        "docs/V8_P3_STATUS_20261025.md"
+      ],
+      "code_applied": false
+    },
+    {
+      "id": "libfile_5569030a3fb08191ac4df9ce3a78f4ea",
+      "path": "/球搭子/V8/handoffs/qiudazi_v8_p3_20261027_0030_v5_rebased_3cdb1350.zip",
+      "date": "2026-10-26T16:32:50.327994+00:00",
+      "disposition": "PENDING_PACKAGE_INTEGRITY_AND_FRESH_HEAD_REVIEW",
+      "repository_targets": [
+        "docs/research/miniprogram/miniprogram-implementation-prd.md",
+        "docs/V8_P3_STATUS_20261025.md"
+      ],
+      "code_applied": false
+    },
+    {
+      "id": "libfile_c0c3a683a2148191a250789b40f1224d",
+      "path": "/球搭子/V8/miniprogram-research/handoffs/20261027-0911_miniprogram-offline-venue-picker-ui_patch_3cdb135.md",
+      "date": "2026-10-27T01:15:59.780738+00:00",
+      "disposition": "RESEARCH_INTEGRATED_CODE_PENDING",
+      "repository_targets": [
+        "docs/research/miniprogram/miniprogram-implementation-prd.md",
+        "docs/V8_P3_STATUS_20261025.md"
+      ],
+      "code_applied": false
+    },
+    {
+      "id": "libfile_e801c38cebf081919f03bdb5067216f5",
+      "path": "/球搭子/V8/miniprogram-research/handoffs/20261027-0611_miniprogram-strict-storage-read-fail-closed_patch_3cdb135.md",
+      "date": "2026-10-26T22:15:52.357691+00:00",
+      "disposition": "RESEARCH_INTEGRATED_CODE_PENDING",
+      "repository_targets": [
+        "docs/research/miniprogram/miniprogram-implementation-prd.md",
+        "docs/V8_P3_STATUS_20261025.md"
+      ],
+      "code_applied": false
+    },
+    {
+      "id": "libfile_88f5279f245c8191a794298e6e1523c4",
+      "path": "/球搭子/V8/miniprogram-research/handoffs/20261027-0310_miniprogram-patch-mode-safe-preview_patch_3cdb135.md",
+      "date": "2026-10-26T19:15:17.196791+00:00",
+      "disposition": "RESEARCH_INTEGRATED_CODE_PENDING",
+      "repository_targets": [
+        "docs/research/miniprogram/miniprogram-implementation-prd.md",
+        "docs/V8_P3_STATUS_20261025.md"
+      ],
+      "code_applied": false
+    },
+    {
+      "id": "libfile_fb2ee7599a1c81918c2a64a152b2fa76",
+      "path": "/球搭子/V8/miniprogram-research/handoffs/20261027-0012_miniprogram-sequential-batch-merge-preview_patch_3cdb135.md",
+      "date": "2026-10-26T16:12:59.947338+00:00",
+      "disposition": "RESEARCH_INTEGRATED_CODE_PENDING",
+      "repository_targets": [
+        "docs/research/miniprogram/miniprogram-implementation-prd.md",
+        "docs/V8_P3_STATUS_20261025.md"
+      ],
+      "code_applied": false
+    }
+  ]
+}

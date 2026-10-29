@@ -5,7 +5,9 @@
 ## 1. 文档/证据四层模型
 
 ### A. Canonical policy / product baseline
+
 用于定义“现在应该怎样工作”。包括：
+
 - `docs/NEXT_VERSION_PRODUCT_BASELINE_20260902.md` — 2026-09-02 起下一版本已批准变更总基线；其明确修改的 Quick/Scoring/Photo/Hall/Lifecycle/Presentation 规则优先于旧版本描述
 - `docs/PRD_V6_EVENT_LIFECYCLE_PRIVACY_I18N.md`
 - `docs/PRODUCT_BASELINE.md`
@@ -30,12 +32,15 @@
 专项规则仍放在专项基线。处于下一版本开发期间，若 `NEXT_VERSION_PRODUCT_BASELINE_20260902.md` 明确写出“变更/新增”规则，则该变更是专项文件下一次同步更新的输入；未被明确修改的既有规则继续有效。禁止因为旧专项文件尚未完成逐段迁移而回退已批准产品决策。
 
 ### B. Runtime truth
+
 用于回答“现在实际上是什么状态”。GitHub 当前 main/开发 PR exact head、repository visibility、Supabase live schema/RPC/RLS/Storage、Vercel deployment、自动化状态等运行时事实优先于静态文档中的旧状态描述。Repository visibility 是 owner-controlled runtime fact，不是应用安全边界；visibility 变更前置条件与授权边界以 `docs/PUBLIC_READINESS.md` 为准。
 
 ### C. Evidence / changelog
+
 Git commit/PR、CHANGELOG、CI/Browser evidence 用于证明某时点发生了什么，但不能覆盖当前 canonical policy。
 
 ### D. Historical snapshot
+
 旧 PRD、旧交付包、旧 audit snapshot 只作为历史参考，不得反向覆盖当前产品规则。
 
 ## 1.1 Rule Owner Registry + Change Impact Manifest
@@ -43,6 +48,7 @@ Git commit/PR、CHANGELOG、CI/Browser evidence 用于证明某时点发生了�
 为减少同一规则在多份文档、Workboard 与 automation prompt 中重复抄写造成的漂移，`docs/CURRENT_STATE.json` 是**机器可读索引/Change Impact Manifest**，不是第二份产品规范。
 
 治理约束：
+
 - `topic_owners` 是当前 V7 受治理主题的完整 registry；每个受治理 topic 只能有一个 `owner canonical`。完整产品规则只写在 owner；supporting docs 只写本层必须补充的 AC / 交互 / 视觉 / 测试边界，并引用 owner，不复制完整定义。新增受治理主题时必须先登记 owner，禁止形成“有 canonical 文件但无 owner registry”的灰区。
 - `CURRENT_STATE.json` 只记录 topic owner、受影响文档、supersede/invalidation 关系、automation impact 与 drift markers；不得承载一份可与 owner 竞争的完整 PRD。
 - 可观察产品语义发生变化时，必须产生一个 `change_id`，并记录 topic、owner、implementation state、supersedes、verification impact、affected docs、affected automations、required/forbidden markers。
@@ -52,17 +58,18 @@ Git commit/PR、CHANGELOG、CI/Browser evidence 用于证明某时点发生了�
 ## 1.2 Product truth / Implementation truth / Verification truth / Runtime truth
 
 四类事实严格拆分：
+
 - **Product truth**：topic owner canonical → supporting canonical → README 摘要。
 - **Implementation truth**：`docs/V7_WORKBOARD.md`，且只允许 `TODO / IN_PROGRESS / IMPLEMENTED / BLOCKED`。
 - **Verification truth**：PR #24 唯一 ledger marker `<!-- v7-verification-ledger -->`；允许 `NEEDS_VERIFY / VERIFIED / REOPENED / SUPERSEDED` 等验证 verdict。
 - **Runtime truth**：PR exact head / CI / Supabase / Vercel / live service state。
 
 禁止：
+
 - Workboard 使用 `VERIFIED / NEEDS_VERIFY / BROWSER_PENDING` 作为实施状态；
 - ledger 反过来充当产品规范；
 - runtime 新旧 SHA 变化自动抹掉 unaffected scope 的既有验证；
 - automation 使用聊天记忆或硬编码旧产品事实覆盖 owner canonical。
-
 
 ### Verification ledger contract
 
@@ -83,6 +90,7 @@ PR #24 唯一 verification ledger 不只是自由文本评论，而是受治理�
 - **Verification ledger**：PR #24 唯一 marker `<!-- v7-verification-ledger -->`。只记录 scope verdict、evidence head、evidence layer、继承依据与独立验证结论。Verifier 不实现产品代码，不移动 release-candidate。
 
 每轮总控结束前必须完成一次 mandatory reconciliation，至少核对：
+
 1. Workboard implementation state；
 2. evidence / blocker 文本是否仍然成立；
 3. MR / branch / SHA 上下文；
@@ -106,6 +114,7 @@ Verifier 每个 verdict 必须显式标记 evidence layer。层级至少区分 `
 ## 3. 下一版本文档联动矩阵
 
 本轮开发至少同步以下主题：
+
 - Scoring：PRODUCT / INTERACTION / USER_STORY / UNIT / INTEGRATION / TOURNAMENT_PRESENTATION。
 - Quick Start：QUICK_START / PRODUCT / INTERACTION / EVENT_LIFECYCLE / USER_STORY。
 - Photo：PHOTO_ALBUM / PRODUCT / INTERACTION / USER_STORY；涉及 Storage/RLS 时同步 Integration。
@@ -128,6 +137,7 @@ Verifier 每个 verdict 必须显式标记 evidence layer。层级至少区分 `
 ## 5. 当前关键产品决策索引
 
 本节仅作人类可读摘要，不是规则 Owner；若与 `docs/CURRENT_STATE.json` 指向的 topic owner 冲突，以 topic owner 为准。当前包括：
+
 - Match → Set → Game → Point；Point Log 单一真源；Advantage/No-Ad/Tiebreak；规则参数化；局/盘进度明确。
 - 记分 UI optimistic near-instant，后台可靠持久化且保持幂等/版本/失败恢复。
 - Quick city/venue optional，禁止默认北京；最低前置为参赛者 + 赛制/计分规则。
@@ -141,6 +151,7 @@ Verifier 每个 verdict 必须显式标记 evidence layer。层级至少区分 `
 ## 6. Automation 读取链与禁止硬编码
 
 所有 Builder / 黑盒 / Browser / 白盒 / 安全 automation 每轮按以下顺序读取：
+
 1. `docs/DOCUMENT_GOVERNANCE.md`
 2. `docs/CURRENT_STATE.json`
 3. 本轮 topic 的 owner canonical
@@ -160,6 +171,7 @@ Automation prompt 只应硬编码**读取顺序、角色边界和禁止事项**�
 治理检查分两层：仓库内 CI 只检查可由 repository content 确定的静态 contract；automation enable/disable、PR ledger freshness、current exact-head/live 状态属于 runtime checks，由活跃 verifier 每轮检查，禁止在 unit test 中伪装成已检查。
 
 仓库内机器检查至少覆盖：
+
 - Workboard State 列出现非 `TODO / IN_PROGRESS / IMPLEMENTED / BLOCKED` 值；
 - Workboard 将 verification verdict 当作当前状态；
 - `CURRENT_STATE.json` 中 topic 缺 owner、同 topic 多 owner、active change 缺 change_id；
@@ -174,3 +186,11 @@ Automation prompt 只应硬编码**读取顺序、角色边界和禁止事项**�
 Runtime checks 至少覆盖：唯一 ledger marker 数量、ledger `reviewed_exact_head` freshness、旧-head evidence 的 inheritance basis、实际 automation topology 是否与 manifest 一致、prompt 是否重新硬编码 current SHA/产品事实，以及 current exact-head / live evidence。
 
 Drift check 只报告治理问题，不得自行修改产品规则、verification verdict、`release-candidate`、main 或 Production。
+
+## V8 跨端研究与 Handoff 消费（2026-10-27）
+
+V8 先读 `V8_CONFIRMED_SCOPE.md`、`V8_CURRENT_STATE.json`，再按 `topic_owners_v8` 进入唯一正文；V7 Workboard/ledger 只作继承历史，不创建第二个 V8 实施真源。当前没有 `V8_WORKBOARD.md`，本轮不为重复状态另建一份。
+
+研究融合 `RESEARCH_INTEGRATED`、授权 `OFFLINE_POC_AUTHORIZED`、代码 `IMPLEMENTED`、某 SHA 自动化 `G1_PASSED_AT_RECORDED_SHA`、真实服务 `FAILED/BLOCKED`、真机 `NOT_VERIFIED`、发布 `NOT_AUTHORIZED` 分字段记录。本文不替换 V7 原状态机。历史文档中的否定实施句按原日期解释，不能反向推翻实际源码。
+
+Handoff 台账逐文件记录来源、日期、基准、摘要、目标及消费层级；只在内容落仓且回读成功后移动 consumed。重复归档须有字节一致证据；被替代包须记录有效替代关系。纯证据归档不关闭其真实验收阻断。混合研究/代码 Handoff 的结论写入文档后，其未应用代码仍保留根目录，不标 code consumed。不得为了清零批量将待验证补丁标成完成。

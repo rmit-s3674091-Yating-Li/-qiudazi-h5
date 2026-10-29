@@ -6,6 +6,26 @@ const panel=fs.readFileSync("src/components/TournamentPanels.tsx","utf8");
 const eventPage=fs.readFileSync("src/pages/EventPage.tsx","utf8");
 const css=fs.readFileSync("src/polish.css","utf8");
 const expect=(v,m)=>{if(!v)throw new Error(m);};
+const navCss = fs.readFileSync("src/styles.css", "utf8");
+expect(
+  navCss.includes("flex: 1 1 0;") && navCss.includes("min-width: 0;"),
+  "bottom navigation items must retain equal widths",
+);
+expect(
+  navCss.includes(".bottom-nav a.active span {") &&
+    navCss.includes("font-weight: 800;") &&
+    navCss.includes("font-size: 11px;"),
+  "active navigation labels must be bold and larger",
+);
+expect(
+  navCss.includes(".bottom-nav a.active svg {") &&
+    navCss.includes("stroke-width: 2.5;"),
+  "active navigation icons must be emphasized",
+);
+expect(
+  navCss.includes("prefers-reduced-motion: reduce"),
+  "navigation animation must respect reduced motion",
+);
 expect(ui.includes('tabIndex={-1}')&&ui.includes('focus({preventScroll:true})'),"sheet must focus dialog, not Close button");
 expect(css.includes('.sheet:focus{outline:none}'),"sheet focus ring must not render as oversized close pill");
 expect(me.includes('profile-menu-button'),"sign-out card needs explicit visible card-button styling");

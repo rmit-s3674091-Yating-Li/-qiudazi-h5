@@ -1,0 +1,443 @@
+{
+  "review_base_sha": "edc43707c9bb4d07cb1be10e917585799305cf3f",
+  "applied_count": 32,
+  "rows": [
+    {
+      "batch": 18,
+      "source": "20261025-1509_miniprogram-pending-intent-fail-closed_patch_b33f0b5.md",
+      "handoff_id": "QD-MP-20261025-1509-PENDING-INTENT-FAIL-CLOSED",
+      "patch_sha256": "d1df38b1042757c6f65134f0e14e570057005c09ab0b914158420eb508636ec9",
+      "declared_digest": false,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/pending-intent.ts",
+        "apps/wechat-mini/tests/pending-intent-fail-closed.test.mjs"
+      ]
+    },
+    {
+      "batch": 19,
+      "source": "20261025-1806_miniprogram-launch-intent-parse-fail-closed_patch_b33f0b5.md",
+      "handoff_id": "QD-MP-20261025-1806-LAUNCH-INTENT-FAIL-CLOSED",
+      "patch_sha256": "f74b3f65d2b280262ce3353004eae6a21d18712e576fe72db6e2df6d2666c7aa",
+      "declared_digest": false,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/launch-intent.ts",
+        "apps/wechat-mini/tests/launch-intent-throwing-input.test.mjs"
+      ]
+    },
+    {
+      "batch": 20,
+      "source": "20261025-2110_miniprogram-identity-proof-clock-fail-closed_patch_b33f0b5.md",
+      "handoff_id": "QD-MP-20261025-2110-IDENTITY-PROOF-CLOCK-FAIL-CLOSED",
+      "patch_sha256": "1eea9f86e2712b017be2715a41e71c26e4ba43abb85f845dc995ca3f8a568e83",
+      "declared_digest": false,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/identity-mock.ts",
+        "apps/wechat-mini/tests/identity-proof-time-fail-closed.test.mjs"
+      ]
+    },
+    {
+      "batch": 21,
+      "source": "20261026-0010_miniprogram-venue-search-outcome-fail-closed_patch_b33f0b5.md",
+      "handoff_id": "QD-MP-20261026-0010-VENUE-SEARCH-OUTCOME",
+      "patch_sha256": "9bcffd39f83450128beffd3755ae2100d8a0548f978dea8b1cc6ae539a694eb8",
+      "declared_digest": false,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/ports.ts",
+        "apps/wechat-mini/src/core/venue-search.ts",
+        "apps/wechat-mini/tests/venue-search-status.test.mjs",
+        "apps/wechat-mini/tests/offline.test.mjs"
+      ]
+    },
+    {
+      "batch": 22,
+      "source": "20261026-0310_miniprogram-actor-scoped-async-read_patch_b33f0b5.md",
+      "handoff_id": "QD-MP-20261026-0310-ACTOR-SCOPED-ASYNC-READ",
+      "patch_sha256": "4ebf4649c9fe17a21c707a99a02157f2418a5dd645456312856f4c4e5c0db328",
+      "declared_digest": false,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/actor-scoped-read.ts",
+        "apps/wechat-mini/tests/actor-scoped-read.test.mjs"
+      ]
+    },
+    {
+      "batch": 23,
+      "source": "20261026-0610_miniprogram-credential-url-header-guard_patch_b33f0b5.md",
+      "handoff_id": "QD-MP-20261026-0610-CREDENTIAL-URL-HEADER-GUARD",
+      "patch_sha256": "4e989bfc1bd5913b789d3711feedad811cdd7f3ea4cab1977a045f858b500082",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/trusted-endpoint.ts",
+        "apps/wechat-mini/tests/trusted-endpoint-credential-leak.test.mjs"
+      ]
+    },
+    {
+      "batch": 24,
+      "source": "20261026-0910_miniprogram-actor-scoped-cache-fail-closed_patch_b33f0b5.md",
+      "handoff_id": "QD-MP-20261026-0910-ACTOR-SCOPED-CACHE",
+      "patch_sha256": "e1114b6e1b372f0eed848001c386f295c76a41998ee051ecfe37bcae4fa8819e",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/scoped-cache.ts",
+        "apps/wechat-mini/tests/scoped-cache.test.mjs"
+      ]
+    },
+    {
+      "batch": 25,
+      "source": "20261026-1211_miniprogram-photo-upload-consent-actor-gate_patch_b33f0b5.md",
+      "handoff_id": "QD-MP-20261026-1211-PHOTO-UPLOAD-GATE",
+      "patch_sha256": "6b65cae8e7340e27d79df2fb02b84f5693fd56935d20cb7f163dc2152b2cd454",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/photo-upload-gate.ts",
+        "apps/wechat-mini/tests/photo-upload-gate.test.mjs"
+      ]
+    },
+    {
+      "batch": 26,
+      "source": "20261026-1512_miniprogram-participant-score-receipt-integrity_patch_b33f0b5.md",
+      "handoff_id": "QD-MP-20261026-1512-SCORE-RECEIPT-GATE",
+      "patch_sha256": "29ef60e9b26e7e2a19fd483c63756534a51fad404f65ede54d265f0b2b471db5",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/participant-score-receipt-gate.ts",
+        "apps/wechat-mini/tests/participant-score-receipt-gate.test.mjs"
+      ]
+    },
+    {
+      "batch": 27,
+      "source": "20261026-1809_miniprogram-handoff-batch-preflight_patch_b33f0b5.md",
+      "handoff_id": "QD-MP-20261026-1809-HANDOFF-PREFLIGHT",
+      "patch_sha256": "2903c409ef3464051f996bcb059edf47b80740759124da6e08167eeefa9bae2a",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/scripts/verify-handoff-patches.mjs",
+        "apps/wechat-mini/tests/verify-handoff-patches.test.mjs"
+      ]
+    },
+    {
+      "batch": 28,
+      "source": "20261026-2201_miniprogram-share-intent-offline-ui-wiring_patch_b33f0b5.md",
+      "handoff_id": "QD-MP-20261026-2201-SHARE-FLOW-MOCK-UI",
+      "patch_sha256": "ed7fb6e344a59ff898b456c5382fbf4f681e94e74ed39caff2acfd0eafbd5def",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/share-flow-mock.ts",
+        "apps/wechat-mini/tests/share-flow-mock.test.mjs",
+        "apps/wechat-mini/src/pages/index/index.tsx"
+      ]
+    },
+    {
+      "batch": 29,
+      "source": "20261027-0012_miniprogram-sequential-batch-merge-preview_patch_3cdb135.md",
+      "handoff_id": "QD-MP-20261027-0012-SEQUENTIAL-BATCH-PREVIEW",
+      "patch_sha256": "7dc7caf012607a96943f9042eec0206009a6a0195f2432d59e2a75e9a1b0eb78",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/scripts/preview-handoff-batch.mjs",
+        "apps/wechat-mini/tests/preview-handoff-batch.test.mjs"
+      ]
+    },
+    {
+      "batch": 30,
+      "source": "20261027-0310_miniprogram-patch-mode-safe-preview_patch_3cdb135.md",
+      "handoff_id": "QD-MP-20261027-0310-BATCH-MODE-SAFETY",
+      "patch_sha256": "ff0ba55618772b72a968e64d08d6efc7da8b92f7a9495ed39512ff9740b5bd3b",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/scripts/preview-handoff-batch-safe.mjs",
+        "apps/wechat-mini/tests/preview-handoff-batch-safe.test.mjs"
+      ]
+    },
+    {
+      "batch": 31,
+      "source": "20261027-0611_miniprogram-strict-storage-read-fail-closed_patch_3cdb135.md",
+      "handoff_id": "QD-MP-20261027-0611-STRICT-STORAGE-READ",
+      "patch_sha256": "6cbb5dcf4dc04d95b5a2810f4229a0ddf8be70ba2ddb0086974fd8a320840f88",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/strict-storage-read.ts",
+        "apps/wechat-mini/src/platform/taro-ports.ts",
+        "apps/wechat-mini/tests/strict-storage-read.test.mjs"
+      ]
+    },
+    {
+      "batch": 32,
+      "source": "20261027-0911_miniprogram-offline-venue-picker-ui_patch_3cdb135.md",
+      "handoff_id": "QD-MP-20261027-0911-OFFLINE-VENUE-PICKER",
+      "patch_sha256": "8abe3648643fe10179d4346913a9b8cfe9b7c4e1e3d38e744eeeb3f2ea8c2acb",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/app.config.ts",
+        "apps/wechat-mini/src/core/venue-selection-poc.ts",
+        "apps/wechat-mini/src/pages/venue-poc/index.tsx",
+        "apps/wechat-mini/tests/venue-selection-poc.test.mjs"
+      ]
+    },
+    {
+      "batch": 33,
+      "source": "20261027-1203_miniprogram-coordinate-provenance-gate_patch_b2a29b6.md",
+      "handoff_id": "QD-MP-20261027-1203-BATCH33-COORDINATE-PROVENANCE",
+      "patch_sha256": "d3a4366eebaedc49558a6c91d0429fba7b8c25480e1579ee779d294016ceb411",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-coordinate-contract.ts",
+        "apps/wechat-mini/tests/venue-coordinate-contract.test.mjs"
+      ]
+    },
+    {
+      "batch": 34,
+      "source": "20261027-1506_miniprogram-venue-map-draft-bridge_patch_b2a29b6.md",
+      "handoff_id": "QD-MP-20261027-1506-BATCH34-VENUE-MAP-DRAFT-BRIDGE",
+      "patch_sha256": "31b4894fefc0844cf6c69c78da4c41e555cfbfa405cffbb189c07534b5569daf",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-map-draft-bridge.ts",
+        "apps/wechat-mini/tests/venue-map-draft-bridge.test.mjs"
+      ]
+    },
+    {
+      "batch": 35,
+      "source": "20261027-1810_miniprogram-specific-court-offline-preview_patch_5cc0ccc.md",
+      "handoff_id": "QD-MP-20261027-1810-COURT-DETAIL-OFFLINE-UI",
+      "patch_sha256": "f9d419df322be88a46f6f5277ab560517b01fa0c246ce20c66824c737f3bb136",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-court-draft.ts",
+        "apps/wechat-mini/src/pages/venue-poc/index.tsx",
+        "apps/wechat-mini/tests/venue-court-draft.test.mjs"
+      ]
+    },
+    {
+      "batch": 36,
+      "source": "20261027-2109_miniprogram-venue-draft-return-one-shot_patch_5cc0ccc.md",
+      "handoff_id": "QD-MP-20261027-2109-BATCH36-VENUE-DRAFT-RETURN",
+      "patch_sha256": "e3075614873d74aefd0a1b6cae8f535992f151610f9cf4905a4dadde2ca0fe26",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-draft-return.ts",
+        "apps/wechat-mini/tests/venue-draft-return.test.mjs"
+      ]
+    },
+    {
+      "batch": 37,
+      "source": "20261028-0011_miniprogram-event-create-venue-offline-flow_patch_b63b211.md",
+      "handoff_id": "QD-MP-20261028-0011-EVENT-CREATE-VENUE-FLOW",
+      "patch_sha256": "a3b6ebe0ea0256e9e6bf0cf51132013fcefcaa799af0e2097280ab21f4f998e7",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/app.config.ts",
+        "apps/wechat-mini/src/core/event-create-venue-flow.ts",
+        "apps/wechat-mini/src/pages/event-create-poc/index.tsx",
+        "apps/wechat-mini/tests/event-create-venue-flow.test.mjs"
+      ]
+    },
+    {
+      "batch": 38,
+      "source": "20261028-0303_miniprogram-cross-page-route-handoff-offline_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH38-CROSS-PAGE-VENUE-NAVIGATION",
+      "patch_sha256": "1267c61eadbb76ecd2031f80676b5ea168bce77cd81b6127c08ad4599327fc48",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-navigation-bridge.ts",
+        "apps/wechat-mini/tests/venue-navigation-bridge.test.mjs"
+      ]
+    },
+    {
+      "batch": 39,
+      "source": "20261028-0604_miniprogram-taro-route-lifecycle-parent-return_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH39-TARO-ROUTE-LIFECYCLE-RETURN",
+      "patch_sha256": "3af37c4d379f7140ad3becd1c05a17b2a0cfa268b6bcef86951ed5cb0aa05ab5",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-route-driver.ts",
+        "apps/wechat-mini/src/platform/offline-venue-route-runtime.ts",
+        "apps/wechat-mini/src/platform/taro-venue-navigation.ts",
+        "apps/wechat-mini/tests/venue-route-driver.test.mjs"
+      ]
+    },
+    {
+      "batch": 40,
+      "source": "20261028-0904_miniprogram-real-taro-two-page-route-ui_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH40-TARO-TWO-PAGE-OFFLINE-ROUTE-UI",
+      "patch_sha256": "aab237512e3bd3d8827ca35cb7b70e46ecc97a5ee44e55018f679121dcf51b04",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/app.config.ts",
+        "apps/wechat-mini/src/core/event-route-form.ts",
+        "apps/wechat-mini/src/core/venue-navigation-bridge.ts",
+        "apps/wechat-mini/src/core/venue-route-driver.ts",
+        "apps/wechat-mini/src/pages/event-route-poc/index.tsx",
+        "apps/wechat-mini/src/pages/venue-route-poc/index.tsx",
+        "apps/wechat-mini/src/platform/offline-event-route-session.ts",
+        "apps/wechat-mini/tests/event-route-form.test.mjs",
+        "apps/wechat-mini/tests/venue-navigation-bridge.test.mjs",
+        "apps/wechat-mini/tests/venue-route-driver.test.mjs"
+      ]
+    },
+    {
+      "batch": 41,
+      "source": "20261028-1206_miniprogram-parent-route-receive-race-fail-closed_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH41-PARENT-RECEIVE-RACE-FAIL-CLOSED",
+      "patch_sha256": "e13452f00bee90e407d1ed03538833a858720766acdf4a8387b985b349ddb16b",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/event-route-form.ts",
+        "apps/wechat-mini/tests/event-route-form-lifecycle-race.test.mjs"
+      ]
+    },
+    {
+      "batch": 42,
+      "source": "20261028-1505_miniprogram-route-confirm-retry-safe_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH42-ROUTE-CONFIRM-RETRY-SAFE",
+      "patch_sha256": "a49584ba807522980843952fe836901ca366403d30000d7692acc1c69d992986",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED_AFTER_SEMANTIC_CONTEXT_REPLAY",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-selection-poc.ts",
+        "apps/wechat-mini/src/pages/venue-route-poc/index.tsx",
+        "apps/wechat-mini/tests/venue-route-retry.test.mjs"
+      ]
+    },
+    {
+      "batch": 43,
+      "source": "20261028-1814_miniprogram-venue-input-stale-draft-guard_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH43-VENUE-INPUT-STALE-DRAFT-GUARD",
+      "patch_sha256": "49c585415f3e33a17a1165de3de953d4563f7cae6dbfe1a518a0f6516c6b54d3",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-selection-poc.ts",
+        "apps/wechat-mini/src/pages/venue-route-poc/index.tsx",
+        "apps/wechat-mini/tests/venue-input-invalidation.test.mjs"
+      ]
+    },
+    {
+      "batch": 44,
+      "source": "20261028-2112_miniprogram-route-confirm-atomic-ui-gate_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH44-ROUTE-CONFIRM-ATOMIC-UI-GATE",
+      "patch_sha256": "8f462241bc596f157c1ca8c839f11fe6b7e4ca006a15886903277ca48d609219",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED_AFTER_FORMAT_CONTEXT_REPLAY",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-route-interaction-gate.ts",
+        "apps/wechat-mini/src/pages/venue-route-poc/index.tsx",
+        "apps/wechat-mini/tests/venue-input-invalidation.test.mjs",
+        "apps/wechat-mini/tests/venue-route-interaction-gate.test.mjs",
+        "apps/wechat-mini/tests/venue-route-retry.test.mjs"
+      ]
+    },
+    {
+      "batch": 45,
+      "source": "20261029-0007_miniprogram-route-latest-identity-inputs_handoff_b63b211.md",
+      "handoff_id": "QD-MP-BATCH45-ROUTE-LATEST-IDENTITY-INPUTS",
+      "patch_sha256": "1d163032dc8da0a348f7b2738e2224ca4a3bd7b6f413bd380bebc4c856f3755b",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED_AFTER_FORMAT_CONTEXT_REPLAY",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-route-input-buffer.ts",
+        "apps/wechat-mini/src/pages/venue-route-poc/index.tsx",
+        "apps/wechat-mini/tests/venue-route-input-buffer.test.mjs",
+        "apps/wechat-mini/tests/venue-route-interaction-gate.test.mjs"
+      ]
+    },
+    {
+      "batch": 46,
+      "source": "20261029-0310_miniprogram-g1-multipage-build-evidence_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH46-G1-MULTIPAGE-BUILD-EVIDENCE",
+      "patch_sha256": "2251901d1826ea535b2485f84a7b79005e4fecd7a2448cf6ba4ddad0530289b7",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/scripts/g1-build-output.mjs",
+        "apps/wechat-mini/tests/g1-build-output.test.mjs",
+        "apps/wechat-mini/tests/g1-repo-state.test.mjs"
+      ]
+    },
+    {
+      "batch": 47,
+      "source": "20261029-0612_miniprogram-g1-source-ast-manifest-integrity_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH47-G1-SOURCE-AST-MANIFEST-INTEGRITY",
+      "patch_sha256": "f62cc1d9d3a0980700d63debb2c87ad2f4edaf3cada9610b1857d7d2fd15e446",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/scripts/g1-build-output.mjs",
+        "apps/wechat-mini/tests/g1-source-manifest-integrity.test.mjs"
+      ]
+    },
+    {
+      "batch": 48,
+      "source": "20261029-0908_miniprogram-g1-registered-page-source-integrity_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH48-G1-REGISTERED-PAGE-SOURCE-INTEGRITY",
+      "patch_sha256": "6b0855037df7beea13606c91b5a3d909ba9218bef43839da925ae46e54d0b5d8",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/scripts/g1-build-output.mjs",
+        "apps/wechat-mini/tests/g1-source-page-presence.test.mjs",
+        "apps/wechat-mini/tests/g1-repo-state.test.mjs"
+      ]
+    },
+    {
+      "batch": 49,
+      "source": "20261029-1211_miniprogram-browser-only-import-ast-boundary_patch_edc4370.md",
+      "handoff_id": "QD-MP-BATCH49-BROWSER-ONLY-IMPORT-AST-BOUNDARY",
+      "patch_sha256": "34add6540d4851d66142b6f6975959c6bd13cbe6bf84adad65ca5da327e2d30e",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/scripts/check-boundaries.mjs",
+        "apps/wechat-mini/tests/browser-import-boundary.test.mjs"
+      ]
+    }
+  ],
+  "checks": {
+    "original_apply_check": "batches 46-49 applied in dependency order; batches 44-45 required reviewed semantic replay after Prettier context drift; 6/6 declared patch digests matched",
+    "offline_unit": "519/519 PASS including G2 readiness and strengthened G1 fixtures",
+    "boundary": "PASS 43 files including AST browser-only import checks",
+    "typecheck": "PASS",
+    "format": "PASS",
+    "taro_build": "PASS actual webpack",
+    "g1": "PASS fresh app.json/app.js and all nine registered page JS/WXML/source entries",
+    "h5_unit": "PASS",
+    "h5_build": "PASS",
+    "h5_tracked_source_isolation": "PASS for mini batches 44-49; map changes are separately covered by H5 unit/build"
+  },
+  "map": {
+    "selected": "20261029-1352 exact-edc43707 delta/source-smoke package; 0121 and 0233 older complete packages superseded for current HEAD",
+    "older_versions": "V5/V5.1 child archives 5/5 byte-identical; V5.2 changes reviewed base metadata",
+    "integrity": "3 ZIP CRC PASS; 5/5 child hashes each PASS",
+    "isolated_tests": "short-core client rank 4/4 and server recall 3/3 PASS; exact patch SHA256 PASS",
+    "real_worktree_stage": "PASS after preserving observed candidate failures as primary failure_stage while retaining degraded_upstream and partial_upstream_error independently",
+    "applied_to_branch": true,
+    "local_verification": "H5 unit/build/format and V5.2 post-apply suites PASS; DB integration script BLOCKED locally because psql is unavailable and must be confirmed by Integration Contract CI",
+    "live_baidu": "BLOCKED last 8/8 business 200; no new status=0 evidence and no repeated live calls",
+    "exact_sha_package": "01:21 adds client short-core rank; 02:33 supersedes it with server recall; 11:34 adds static audit only; 13:52 rebases the two remaining patches to edc43707 and applies cleanly",
+    "query_budget": "distinctive two-character sports cores may add one bounded server variant; real endpoint request budget remains NOT VERIFIED"
+  },
+  "archive_rule": "Archive batches 44-49 and reconciled 20261029 map packages only after commit, remote readback and green CI; live Baidu acceptance remains a separate blocked gate."
+}
