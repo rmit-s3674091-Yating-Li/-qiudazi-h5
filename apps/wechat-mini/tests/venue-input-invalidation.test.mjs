@@ -117,8 +117,6 @@ test("Taro child page invalidates all venue identity inputs, not court", () => {
       ),
     );
   }
-  assert.match(
-    source,
-    /onInput=\{\(event\) => setCourt\(event\.detail\.value\)\}/,
-  );
+  assert.match(source, /latestCourt\.current = event\.detail\.value/);
+  assert.match(source, /setCourt\(event\.detail\.value\)/);
 });

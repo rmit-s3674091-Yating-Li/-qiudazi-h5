@@ -1,6 +1,7 @@
 import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { createRequire } from "node:module";
 
 const defaultSrcRoot = resolve(
   fileURLToPath(new URL("../src/", import.meta.url)),
@@ -35,6 +36,70 @@ function maskDefensiveQueryKey(source, relativePath) {
   );
 }
 
+/**
+ * React/TS source can import browser-only packages without mentioning window
+ * or document. Parse actual module references rather than matching comments.
+ * This is an offline PoC compatibility gate, not a dependency security audit.
+ */
+const browserOnlyPackages = [
+  "react-router-dom",
+  "react-router",
+  "react-dom",
+  "leaflet",
+  "react-leaflet",
+  "@supabase/supabase-js",
+  "vite",
+];
+const localRequire = createRequire(import.meta.url);
+
+function checkBrowserOnlyImports(source, relativePath) {
+  const ts = localRequire("typescript"); // Existing pinned devDependency.
+  const sourceFile = ts.createSourceFile(
+    relativePath,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    relativePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  const checkSpecifier = (literal) => {
+    if (!literal || !ts.isStringLiteralLike(literal)) {
+      throw new Error(`Mini dynamic import unverified: ${relativePath}`);
+    }
+    const specifier = literal.text;
+    if (
+      browserOnlyPackages.some(
+        (name) => specifier === name || specifier.startsWith(`${name}/`),
+      )
+    ) {
+      throw new Error(
+        `Mini browser-only import: ${relativePath} -> ${specifier}`,
+      );
+    }
+  };
+  const visit = (node) => {
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+      if (node.moduleSpecifier) checkSpecifier(node.moduleSpecifier);
+    } else if (
+      ts.isImportEqualsDeclaration(node) &&
+      ts.isExternalModuleReference(node.moduleReference)
+    ) {
+      checkSpecifier(node.moduleReference.expression);
+    } else if (
+      ts.isCallExpression(node) &&
+      (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+        (ts.isIdentifier(node.expression) &&
+          node.expression.text === "require"))
+    ) {
+      if (node.arguments.length !== 1) {
+        throw new Error(`Mini dynamic import unverified: ${relativePath}`);
+      }
+      checkSpecifier(node.arguments[0]);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+}
+
 export function checkMiniBoundaries(srcRoot = defaultSrcRoot) {
   const root = resolve(srcRoot);
   if (lstatSync(root).isSymbolicLink())
@@ -53,6 +118,7 @@ export function checkMiniBoundaries(srcRoot = defaultSrcRoot) {
         if (forbidden.some((rule) => rule.test(inspected))) {
           throw new Error(`Mini boundary violation: ${relativePath}`);
         }
+        checkBrowserOnlyImports(source, relativePath);
         checked++;
       }
     }

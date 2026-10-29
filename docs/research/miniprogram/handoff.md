@@ -1,4 +1,4 @@
-> 最新代码批次：第18–43批共26份现已实际融合，461项离线测试、边界、类型、格式、真实Taro构建及G1通过；`SESSION_BRIDGE_UNPROVEN` 保留。地图0653 exact-SHA包已按当前基线融合并通过自动化，百度真实服务仍因业务 `status=200` 阻断。下文历史快照由[代码消费台账](../../V8_CODE_BATCH_20261027.json)、[P3状态](../../V8_P3_STATUS_20261025.md)与[G2准备](g2-test-integration-readiness.md)覆盖。
+> 最新代码批次：第18–49批共32份现已实际融合，519项离线测试、AST边界、类型、格式、真实Taro构建及G1通过；`SESSION_BRIDGE_UNPROVEN` 保留。地图0653与20261029 exact-HEAD短核心修复已通过自动化，百度真实服务仍因业务 `status=200` 阻断。下文历史快照由[代码消费台账](../../V8_CODE_BATCH_20261027.json)、[P3状态](../../V8_P3_STATUS_20261025.md)与[G2准备](g2-test-integration-readiness.md)覆盖。
 
 # 球搭子｜小程序与统一身份融合入口
 
@@ -28,7 +28,7 @@
 
 SESSION_BRIDGE_UNPROVEN、ALIAS_RLS_COMPATIBILITY_GATE、TEST_NICKNAME_RETIREMENT_GATE、ADMIN_AUTH_SEPARATE_GATE、MINI_FETCH_STORAGE_RUNTIME_UNPROVEN、MEDIA_UPLOAD_WIRE_COMPAT_UNPROVEN，以及真实主体/AppID/类目、域名/备案/隐私、实际账单和中国真机验证均未关闭。不得将 mock 或已有 CI 推断成这些门槛通过。
 
-第18–43批离线补丁均已完成源码融合。进入真实TEST前仍需用户批准微信 AppID/主体与合法域名、受支持的 Supabase Session Bridge、隔离测试账号/项目、历史 Profile/RLS/媒体验证范围；地图须先解决百度应用识别失败，获真实 status=0 和双门控后再执行30+9。腾讯/高德只保留候选，不自动接入。
+第18–49批离线补丁均已完成源码融合。进入真实TEST前仍需用户批准微信 AppID/主体与合法域名、受支持的 Supabase Session Bridge、隔离测试账号/项目、历史 Profile/RLS/媒体验证范围；地图须先解决百度应用识别失败，获真实 status=0 和双门控后再执行30+9。腾讯/高德只保留候选，不自动接入。
 
 本轮提交冻结后自动任务新增第44–48批，状态均为 `CHAT_WRITE_REQUIRED / NOT_APPLIED`；它们依赖本轮35–43批并涵盖确认事务锁、最新输入身份以及G1多页面/AST/源码完整性门禁，留待下一批按44→48集中融合，不混入已经完成验证的本次提交。
 

@@ -1,6 +1,6 @@
 {
-  "review_base_sha": "b63b211fa4ee20dd872895810a4cef6e75ed9fa1",
-  "applied_count": 26,
+  "review_base_sha": "edc43707c9bb4d07cb1be10e917585799305cf3f",
+  "applied_count": 32,
   "rows": [
     {
       "batch": 18,
@@ -334,31 +334,110 @@
         "apps/wechat-mini/src/pages/venue-route-poc/index.tsx",
         "apps/wechat-mini/tests/venue-input-invalidation.test.mjs"
       ]
+    },
+    {
+      "batch": 44,
+      "source": "20261028-2112_miniprogram-route-confirm-atomic-ui-gate_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH44-ROUTE-CONFIRM-ATOMIC-UI-GATE",
+      "patch_sha256": "8f462241bc596f157c1ca8c839f11fe6b7e4ca006a15886903277ca48d609219",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED_AFTER_FORMAT_CONTEXT_REPLAY",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-route-interaction-gate.ts",
+        "apps/wechat-mini/src/pages/venue-route-poc/index.tsx",
+        "apps/wechat-mini/tests/venue-input-invalidation.test.mjs",
+        "apps/wechat-mini/tests/venue-route-interaction-gate.test.mjs",
+        "apps/wechat-mini/tests/venue-route-retry.test.mjs"
+      ]
+    },
+    {
+      "batch": 45,
+      "source": "20261029-0007_miniprogram-route-latest-identity-inputs_handoff_b63b211.md",
+      "handoff_id": "QD-MP-BATCH45-ROUTE-LATEST-IDENTITY-INPUTS",
+      "patch_sha256": "1d163032dc8da0a348f7b2738e2224ca4a3bd7b6f413bd380bebc4c856f3755b",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED_AFTER_FORMAT_CONTEXT_REPLAY",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-route-input-buffer.ts",
+        "apps/wechat-mini/src/pages/venue-route-poc/index.tsx",
+        "apps/wechat-mini/tests/venue-route-input-buffer.test.mjs",
+        "apps/wechat-mini/tests/venue-route-interaction-gate.test.mjs"
+      ]
+    },
+    {
+      "batch": 46,
+      "source": "20261029-0310_miniprogram-g1-multipage-build-evidence_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH46-G1-MULTIPAGE-BUILD-EVIDENCE",
+      "patch_sha256": "2251901d1826ea535b2485f84a7b79005e4fecd7a2448cf6ba4ddad0530289b7",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/scripts/g1-build-output.mjs",
+        "apps/wechat-mini/tests/g1-build-output.test.mjs",
+        "apps/wechat-mini/tests/g1-repo-state.test.mjs"
+      ]
+    },
+    {
+      "batch": 47,
+      "source": "20261029-0612_miniprogram-g1-source-ast-manifest-integrity_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH47-G1-SOURCE-AST-MANIFEST-INTEGRITY",
+      "patch_sha256": "f62cc1d9d3a0980700d63debb2c87ad2f4edaf3cada9610b1857d7d2fd15e446",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/scripts/g1-build-output.mjs",
+        "apps/wechat-mini/tests/g1-source-manifest-integrity.test.mjs"
+      ]
+    },
+    {
+      "batch": 48,
+      "source": "20261029-0908_miniprogram-g1-registered-page-source-integrity_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH48-G1-REGISTERED-PAGE-SOURCE-INTEGRITY",
+      "patch_sha256": "6b0855037df7beea13606c91b5a3d909ba9218bef43839da925ae46e54d0b5d8",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/scripts/g1-build-output.mjs",
+        "apps/wechat-mini/tests/g1-source-page-presence.test.mjs",
+        "apps/wechat-mini/tests/g1-repo-state.test.mjs"
+      ]
+    },
+    {
+      "batch": 49,
+      "source": "20261029-1211_miniprogram-browser-only-import-ast-boundary_patch_edc4370.md",
+      "handoff_id": "QD-MP-BATCH49-BROWSER-ONLY-IMPORT-AST-BOUNDARY",
+      "patch_sha256": "34add6540d4851d66142b6f6975959c6bd13cbe6bf84adad65ca5da327e2d30e",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/scripts/check-boundaries.mjs",
+        "apps/wechat-mini/tests/browser-import-boundary.test.mjs"
+      ]
     }
   ],
   "checks": {
-    "original_apply_check": "batches 35-41 and 43 applied in dependency order; batch 42 required reviewed semantic replay after Prettier context drift; 9/9 declared patch digests matched",
-    "offline_unit": "461/461 PASS including 3 G2 readiness contract tests",
-    "boundary": "PASS 41 files",
+    "original_apply_check": "batches 46-49 applied in dependency order; batches 44-45 required reviewed semantic replay after Prettier context drift; 6/6 declared patch digests matched",
+    "offline_unit": "519/519 PASS including G2 readiness and strengthened G1 fixtures",
+    "boundary": "PASS 43 files including AST browser-only import checks",
     "typecheck": "PASS",
     "format": "PASS",
     "taro_build": "PASS actual webpack",
-    "g1": "PASS fresh app.json/app.js and all nine page entries",
+    "g1": "PASS fresh app.json/app.js and all nine registered page JS/WXML/source entries",
     "h5_unit": "PASS",
     "h5_build": "PASS",
-    "h5_tracked_source_isolation": "PASS; batches 35-43 and G2 contract add mini-only source/tests"
+    "h5_tracked_source_isolation": "PASS for mini batches 44-49; map changes are separately covered by H5 unit/build"
   },
   "map": {
-    "selected": "20261028-0653 complete exact-SHA package",
+    "selected": "20261029-1352 exact-edc43707 delta/source-smoke package; 0121 and 0233 older complete packages superseded for current HEAD",
     "older_versions": "V5/V5.1 child archives 5/5 byte-identical; V5.2 changes reviewed base metadata",
     "integrity": "3 ZIP CRC PASS; 5/5 child hashes each PASS",
-    "isolated_tests": "acceptance 10 and generic variants 19 PASS; JS syntax PASS",
+    "isolated_tests": "short-core client rank 4/4 and server recall 3/3 PASS; exact patch SHA256 PASS",
     "real_worktree_stage": "PASS after preserving observed candidate failures as primary failure_stage while retaining degraded_upstream and partial_upstream_error independently",
     "applied_to_branch": true,
     "local_verification": "H5 unit/build/format and V5.2 post-apply suites PASS; DB integration script BLOCKED locally because psql is unavailable and must be confirmed by Integration Contract CI",
     "live_baidu": "BLOCKED last 8/8 business 200; no new status=0 evidence and no repeated live calls",
-    "exact_sha_package": "manifest and both patch SHA256 PASS at b63b211; patch 0002 had stale unified-diff line numbers and was semantically replayed against its exact target blob",
-    "query_budget": "client sends one Chinese term; server owns expansion and endpoint fallback; live request budget remains NOT VERIFIED"
+    "exact_sha_package": "01:21 adds client short-core rank; 02:33 supersedes it with server recall; 11:34 adds static audit only; 13:52 rebases the two remaining patches to edc43707 and applies cleanly",
+    "query_budget": "distinctive two-character sports cores may add one bounded server variant; real endpoint request budget remains NOT VERIFIED"
   },
-  "archive_rule": "Archive batches 35-43 and the 0653 exact-SHA package only after commit, remote readback and green CI; live Baidu acceptance remains a separate blocked gate."
+  "archive_rule": "Archive batches 44-49 and reconciled 20261029 map packages only after commit, remote readback and green CI; live Baidu acceptance remains a separate blocked gate."
 }

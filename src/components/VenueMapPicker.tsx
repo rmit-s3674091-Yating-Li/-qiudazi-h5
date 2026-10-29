@@ -124,10 +124,24 @@ function rankPlaces(items: VenuePlace[], term: string) {
       };
     })
     .filter(({ item, coverage, direct }) => {
+      const candidateName = normalizeText(item.name);
       const knownShortAlias =
-        core === "奥森" && normalizeText(item.name).includes("奥林匹克森林");
-      const relevant =
-        direct || knownShortAlias || (core.length > 2 && coverage >= 0.75);
+        core === "奥森" && candidateName.includes("奥林匹克森林");
+      // A two-character distinctive core can be separated from its venue type
+      // in the official POI name, e.g. 旗忠...网球中心. Match both in the name,
+      // not only in the address, and never infer a tennis venue from a park.
+      const shortCoreCategoryQuery =
+        core.length === 2 && /网球|公园|体育/u.test(needle);
+      const shortCoreCategoryMatch =
+        candidateName.includes(core) &&
+        ((needle.includes("网球") && candidateName.includes("网球")) ||
+          (needle.includes("公园") && candidateName.includes("公园")) ||
+          (needle.includes("体育") && candidateName.includes("体育")));
+      // For short-core category searches, address-only overlap is too weak:
+      // it can show an unrelated tennis facility on a road with the same name.
+      const relevant = shortCoreCategoryQuery
+        ? shortCoreCategoryMatch
+        : direct || knownShortAlias || (core.length > 2 && coverage >= 0.75);
       return (
         relevant &&
         (!tennisQuery || /网球|tennis/i.test(`${item.name} ${item.address}`))

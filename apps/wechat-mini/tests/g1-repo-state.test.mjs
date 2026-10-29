@@ -157,11 +157,20 @@ function installFakeG1(root, finalScript) {
   mkdirSync(join(mini, "node_modules/.bin"), { recursive: true });
   for (const name of ["taro", "tsc", "prettier"])
     writeFileSync(join(mini, "node_modules/.bin", name), "");
+  mkdirSync(join(mini, "src/pages/index"), { recursive: true });
+  writeFileSync(
+    join(mini, "src/app.config.ts"),
+    'export default defineAppConfig({ pages: ["pages/index/index"] });\n',
+  );
+  writeFileSync(
+    join(mini, "src/pages/index/index.tsx"),
+    "export default function Index() { return null; }\n",
+  );
   return mini;
 }
 
 const validMockBuild =
-  "node -e \"const fs=require('fs');fs.mkdirSync('dist/pages/index',{recursive:true});fs.writeFileSync('dist/app.json',JSON.stringify({pages:['pages/index/index']}));fs.writeFileSync('dist/app.js','mock');fs.writeFileSync('dist/pages/index/index.js','mock')\"";
+  "node -e \"const fs=require('fs');fs.mkdirSync('dist/pages/index',{recursive:true});fs.writeFileSync('dist/app.json',JSON.stringify({pages:['pages/index/index']}));fs.writeFileSync('dist/app.js','mock');fs.writeFileSync('dist/pages/index/index.js','mock');fs.writeFileSync('dist/pages/index/index.wxml','mock')\"";
 
 test("full G1 wrapper records an unchanged exact HEAD after five mock local commands", () =>
   withRepo((root) => {

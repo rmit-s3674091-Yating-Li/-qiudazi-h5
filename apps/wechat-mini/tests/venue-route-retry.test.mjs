@@ -100,9 +100,6 @@ test("Taro child confirmation uses non-consuming preview, not irreversible confi
   );
   assert.match(source, /active\.previewDraft\(\)/);
   assert.doesNotMatch(source, /active\.confirm\(\)/);
-  assert.match(
-    source,
-    /if \(!claimed \|\| !active \|\| confirming\.current\) return;/,
-  );
-  assert.match(source, /finally \{\s*confirming\.current = false;/);
+  assert.match(source, /interaction\.current\.beginConfirm\(\)/);
+  assert.match(source, /interaction\.current\.settleConfirm\(returned\)/);
 });

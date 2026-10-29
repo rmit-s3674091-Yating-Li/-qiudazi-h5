@@ -12,12 +12,17 @@ import {
 } from "../../core/venue-court-draft.ts";
 import { offlineVenueRouteDriver } from "../../platform/offline-venue-route-runtime.ts";
 import { currentOfflineRouteContext } from "../../platform/offline-event-route-session.ts";
+import { OfflineRouteInteractionGate } from "../../core/venue-route-interaction-gate.ts";
+import { OfflineVenueRouteInputBuffer } from "../../core/venue-route-input-buffer.ts";
 
 /** Dedicated child page: direct entry or missing handoff is rejected. */
 export default function VenueRoutePoc() {
   const picker = useRef<VenueSelectionPoc | null>(null);
   const alive = useRef(true);
-  const confirming = useRef(false);
+  const interaction = useRef(new OfflineRouteInteractionGate());
+  const latestCourt = useRef("");
+  const latestInputs = useRef(new OfflineVenueRouteInputBuffer());
+  const [locked, setLocked] = useState(false);
   const [claimed, setClaimed] = useState(false);
   const [view, setView] = useState<VenuePocSnapshot | null>(null);
   const [query, setQuery] = useState("模拟");
@@ -46,25 +51,33 @@ export default function VenueRoutePoc() {
   });
   useUnload(() => {
     alive.current = false;
+    interaction.current.unload();
     offlineVenueRouteDriver.childUnloaded();
   });
 
   const update = () => setView(picker.current?.snapshot() ?? null);
   const search = async () => {
     const active = picker.current;
-    if (!active || !claimed) return;
+    if (!active || !claimed || !interaction.current.canEdit()) return;
+    latestCourt.current = "";
     setCourt("");
-    const pending = active.search(query);
+    const pending = active.search(latestInputs.current.searchQuery());
     update();
     await pending;
-    if (alive.current && picker.current === active) update();
+    if (
+      alive.current &&
+      picker.current === active &&
+      interaction.current.canEdit()
+    )
+      update();
   };
   const confirm = async () => {
     const active = picker.current;
-    if (!claimed || !active || confirming.current) return;
-    confirming.current = true;
+    if (!claimed || !active || !interaction.current.beginConfirm()) return;
+    setLocked(true);
+    let returned = false;
     try {
-      const validation = validateSpecificCourt(court);
+      const validation = validateSpecificCourt(latestCourt.current);
       if (!validation.ok) {
         setMessage("具体场地无效");
         return;
@@ -81,15 +94,20 @@ export default function VenueRoutePoc() {
         preview,
         Date.now(),
       );
+      returned = result.status === "returned_mock_only";
       if (alive.current && result.status === "blocked") {
         setMessage(`回填失败：${result.reason}`);
       }
-      // On success navigateBack already ran; parent onShow consumes the draft.
+    } catch {
+      if (alive.current) setMessage("回填失败：UNEXPECTED_ERROR");
     } finally {
-      confirming.current = false;
+      interaction.current.settleConfirm(returned);
+      if (alive.current) setLocked(!interaction.current.canEdit());
     }
   };
   const cancel = async () => {
+    if (!interaction.current.cancel()) return;
+    setLocked(true);
     offlineVenueRouteDriver.childUnloaded();
     try {
       await Taro.navigateBack({ delta: 1 });
@@ -108,15 +126,21 @@ export default function VenueRoutePoc() {
             <Text>父表单选定城市：{view.city}（本页不可更改）</Text>
             <Input
               value={query}
+              disabled={locked}
               onInput={(event) => {
+                if (!interaction.current.canEdit()) return;
+                if (!latestInputs.current.update("query", event.detail.value))
+                  return;
                 setQuery(event.detail.value);
                 picker.current?.invalidateInputDraft();
+                latestCourt.current = "";
                 setCourt("");
                 update();
               }}
               placeholder="搜索模拟场馆"
             />
             <Button
+              disabled={locked}
               onClick={() => {
                 void search();
               }}
@@ -131,8 +155,11 @@ export default function VenueRoutePoc() {
                 </Text>
                 <Button
                   size="mini"
+                  disabled={locked}
                   onClick={() => {
+                    if (!interaction.current.canEdit()) return;
                     picker.current?.chooseCandidate(item.id);
+                    latestCourt.current = "";
                     setCourt("");
                     update();
                   }}
@@ -144,9 +171,14 @@ export default function VenueRoutePoc() {
             <Text>手填场馆（无结果时仍可继续）</Text>
             <Input
               value={name}
+              disabled={locked}
               onInput={(event) => {
+                if (!interaction.current.canEdit()) return;
+                if (!latestInputs.current.update("name", event.detail.value))
+                  return;
                 setName(event.detail.value);
                 picker.current?.invalidateInputDraft();
+                latestCourt.current = "";
                 setCourt("");
                 update();
               }}
@@ -154,18 +186,32 @@ export default function VenueRoutePoc() {
             />
             <Input
               value={address}
+              disabled={locked}
               onInput={(event) => {
+                if (!interaction.current.canEdit()) return;
+                if (!latestInputs.current.update("address", event.detail.value))
+                  return;
                 setAddress(event.detail.value);
                 picker.current?.invalidateInputDraft();
+                latestCourt.current = "";
                 setCourt("");
                 update();
               }}
               placeholder="场馆地址"
             />
             <Button
+              disabled={locked}
               onClick={() => {
-                const ok = picker.current?.useManual(name, address) ?? false;
-                if (ok) setCourt("");
+                if (!interaction.current.canEdit()) return;
+                const { name: currentName, address: currentAddress } =
+                  latestInputs.current.manualValues();
+                const ok =
+                  picker.current?.useManual(currentName, currentAddress) ??
+                  false;
+                if (ok) {
+                  latestCourt.current = "";
+                  setCourt("");
+                }
                 setMessage(ok ? "已选择手填场馆" : "手填内容无效");
                 update();
               }}
@@ -174,12 +220,20 @@ export default function VenueRoutePoc() {
             </Button>
             <Input
               value={court}
-              onInput={(event) => setCourt(event.detail.value)}
+              disabled={locked}
+              onInput={(event) => {
+                if (!interaction.current.canEdit()) return;
+                latestCourt.current = event.detail.value;
+                setCourt(event.detail.value);
+              }}
               placeholder="具体场地（可选）"
             />
             <Text>已选：{view.selected?.name ?? "未选择"}</Text>
             <Button
-              disabled={view.status !== "SELECTED" && view.status !== "MANUAL"}
+              disabled={
+                locked ||
+                (view.status !== "SELECTED" && view.status !== "MANUAL")
+              }
               onClick={() => {
                 void confirm();
               }}
@@ -189,6 +243,7 @@ export default function VenueRoutePoc() {
           </View>
         )}
         <Button
+          disabled={locked}
           onClick={() => {
             void cancel();
           }}

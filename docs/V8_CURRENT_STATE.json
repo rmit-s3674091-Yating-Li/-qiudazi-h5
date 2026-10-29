@@ -72,8 +72,8 @@
     "Research candidates do not enter development unless explicitly confirmed by the user.",
     "No automation may merge main, deploy Production, or move release-candidate without explicit authorization."
   ],
-  "reviewed_at": "2026-10-28",
-  "review_base_sha": "b63b211fa4ee20dd872895810a4cef6e75ed9fa1",
+  "reviewed_at": "2026-10-29",
+  "review_base_sha": "edc43707c9bb4d07cb1be10e917585799305cf3f",
   "topic_owners_v8": {
     "scope": "docs/V8_CONFIRMED_SCOPE.md",
     "cross_platform_technology": "docs/research/miniprogram/miniprogram-implementation-prd.md",
@@ -85,20 +85,20 @@
     "miniprogram": {
       "research": "RESEARCH_INTEGRATED",
       "authorization": "OFFLINE_POC_AUTHORIZED",
-      "code": "OFFLINE_POC_IMPLEMENTED_THROUGH_BATCH_43",
-      "pending_code_batches": [44, 45, 46, 47, 48],
-      "automation": "G1_PASSED_461_TESTS_ON_INTEGRATION_WORKTREE_AT_RECORDED_BASE",
+      "code": "OFFLINE_POC_IMPLEMENTED_THROUGH_BATCH_49",
+      "pending_code_batches": [],
+      "automation": "G1_PASSED_519_TESTS_WITH_REGISTERED_PAGE_SOURCE_AND_BROWSER_IMPORT_AST_GATES",
       "g2_preparation": "OFFLINE_CONTRACT_READY_EXTERNAL_AUTHORIZATION_REQUIRED",
       "real_auth": "SESSION_BRIDGE_UNPROVEN",
       "real_device": "NOT_VERIFIED",
       "release": "NOT_AUTHORIZED"
     },
     "map": {
-      "code": "V5_2_AND_20261028_0653_EXACT_SHA_AUTOMATED_FIXES_APPLIED_BAIDU_PROXY_RETAINED",
+      "code": "V5_2_0653_AND_20261029_EDC43707_SHORT_CORE_FIXES_APPLIED_BAIDU_PROXY_RETAINED",
       "live_service": "FAILED_BUSINESS_STATUS_200_8_OF_8",
       "matrix_30_plus_9": "NOT_TESTED",
       "selection_fill_real_device": "NOT_VERIFIED",
-      "pending_candidate": "NEW_20261029_PACKAGES_NOT_APPLIED_0121_COMPLETE_0233_RECALL_1134_STATIC_AUDIT",
+      "pending_candidate": "NONE_FROM_FROZEN_0121_0233_1134_SET; 0121_SUPERSEDED_BY_0233_AND_1352; 1134_STATIC_AUDIT_ONLY",
       "evidence_owner": "docs/V8_P3_STATUS_20261025.md"
     }
   }

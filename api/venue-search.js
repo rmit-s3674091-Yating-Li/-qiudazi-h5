@@ -121,7 +121,7 @@ function childResults(parent) {
     .map((child) => {
       const differentProvince = Boolean(
         child?.province &&
-        normalizeCity(child.province) !== normalizeCity(parent?.province),
+          normalizeCity(child.province) !== normalizeCity(parent?.province),
       );
       return {
         uid: child?.uid || undefined,
@@ -249,9 +249,19 @@ function queryVariants(query, region = "全国") {
     )
     .trim();
   const variants = [clean];
+  // A distinctive two-Han-character venue core can be useful when the official
+  // POI name contains intervening words (e.g. 旗忠...网球中心). Only broaden
+  // explicit sports-venue queries, not generic "中心" or station queries.
+  const shortVenueCore =
+    /^[\p{Script=Han}]{2}$/u.test(relaxed) &&
+    clean.length >= 4 &&
+    /(?:网球中心|网球场|网球俱乐部|体育中心|体育馆)$/u.test(clean) &&
+    !/^(国家|国际|体育|运动|网球|中心|公园|城市|北京|上海|成都)$/u.test(
+      relaxed,
+    );
   if (
     relaxed !== clean &&
-    (relaxed.length >= 3 || Object.hasOwn(aliases, relaxed))
+    (relaxed.length >= 3 || Object.hasOwn(aliases, relaxed) || shortVenueCore)
   )
     variants.push(relaxed);
   for (const key of [clean, relaxed])
