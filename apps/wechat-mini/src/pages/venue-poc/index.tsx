@@ -2,6 +2,11 @@ import { useRef, useState } from "react";
 import { Button, Input, Text, View } from "@tarojs/components";
 import { OfflineVenuePort } from "../../core/ports.ts";
 import {
+  prepareOfflineCourtPreview,
+  validateSpecificCourt,
+  type OfflineCourtPreviewDecision,
+} from "../../core/venue-court-draft.ts";
+import {
   OfflineFixtureVenuePort,
   POC_CITIES,
   VenueSelectionPoc,
@@ -20,6 +25,15 @@ export default function VenuePoc() {
   const [manualAddress, setManualAddress] = useState("");
   const [offlineMode, setOfflineMode] = useState(false);
   const [manualError, setManualError] = useState(false);
+  const [specificCourt, setSpecificCourt] = useState("");
+  const [courtError, setCourtError] = useState(false);
+  const [courtPreview, setCourtPreview] =
+    useState<OfflineCourtPreviewDecision | null>(null);
+  const resetCourt = () => {
+    setSpecificCourt("");
+    setCourtError(false);
+    setCourtPreview(null);
+  };
 
   const selectCity = (city: PocCity) => {
     poc.setCity(city);
@@ -27,29 +41,43 @@ export default function VenuePoc() {
     setManualError(false);
     setManualName("");
     setManualAddress("");
+    resetCourt();
   };
   const search = async () => {
+    resetCourt();
     const pending = poc.search(query);
     setView(poc.snapshot());
     await pending;
     if (controller.current === poc) setView(poc.snapshot());
   };
   const choose = (id: string) => {
+    resetCourt();
     poc.chooseCandidate(id);
     setView(poc.snapshot());
   };
   const useManual = () => {
     const ok = poc.useManual(manualName, manualAddress);
     setManualError(!ok);
+    if (ok) resetCourt();
     setView(poc.snapshot());
   };
   const confirm = () => {
-    poc.confirm();
+    // Validate before consuming the one-shot VenueSelectionPoc.confirm().
+    const validated = validateSpecificCourt(specificCourt);
+    if (!validated.ok) {
+      setCourtError(true);
+      return;
+    }
+    const venue = poc.confirm();
+    const preview = prepareOfflineCourtPreview(venue, validated.value ?? "");
+    setCourtPreview(preview);
+    setCourtError(preview.status === "blocked");
     setView(poc.snapshot());
   };
   const toggleService = () => {
     const next = !offlineMode;
     setOfflineMode(next);
+    resetCourt();
     // Replacing the controller also invalidates every previous in-flight result.
     controller.current = new VenueSelectionPoc(
       next ? new OfflineVenuePort() : new OfflineFixtureVenuePort(),
@@ -126,12 +154,32 @@ export default function VenuePoc() {
             待确认：{view.selected.name} / {view.selected.address}
           </Text>
         )}
+        <View className="note">具体场地（可选，不参与场馆/POI 搜索）</View>
+        <Input
+          value={specificCourt}
+          disabled={view.status === "CONFIRMED"}
+          onInput={(event) => {
+            setSpecificCourt(event.detail.value);
+            setCourtError(false);
+            setCourtPreview(null);
+          }}
+          placeholder="例如：3号场、B区2号场（最多80字符）"
+        />
+        {courtError && (
+          <Text>具体场地无效，请删除控制字符或缩短至80字符。</Text>
+        )}
         <Button
           disabled={view.status !== "SELECTED" && view.status !== "MANUAL"}
           onClick={confirm}
         >
           确认离线草稿
         </Button>
+        {courtPreview?.status === "ready_mock_only" && (
+          <View className="note">
+            具体场地：{courtPreview.preview.specificCourt ?? "未填写"}
+            ；仅离线预览，禁止持久化。
+          </View>
+        )}
         {view.draft && (
           <View className="note">
             DRAFT_ONLY：{view.draft.city} / {view.draft.name} /{" "}

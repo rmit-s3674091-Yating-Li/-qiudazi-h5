@@ -1,6 +1,6 @@
 {
-  "review_base_sha": "5cc0cccc7a02edb156170b22dd27230dc9c21e89",
-  "applied_count": 17,
+  "review_base_sha": "b63b211fa4ee20dd872895810a4cef6e75ed9fa1",
+  "applied_count": 26,
   "rows": [
     {
       "batch": 18,
@@ -211,29 +211,154 @@
         "apps/wechat-mini/src/core/venue-map-draft-bridge.ts",
         "apps/wechat-mini/tests/venue-map-draft-bridge.test.mjs"
       ]
+    },
+    {
+      "batch": 35,
+      "source": "20261027-1810_miniprogram-specific-court-offline-preview_patch_5cc0ccc.md",
+      "handoff_id": "QD-MP-20261027-1810-COURT-DETAIL-OFFLINE-UI",
+      "patch_sha256": "f9d419df322be88a46f6f5277ab560517b01fa0c246ce20c66824c737f3bb136",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-court-draft.ts",
+        "apps/wechat-mini/src/pages/venue-poc/index.tsx",
+        "apps/wechat-mini/tests/venue-court-draft.test.mjs"
+      ]
+    },
+    {
+      "batch": 36,
+      "source": "20261027-2109_miniprogram-venue-draft-return-one-shot_patch_5cc0ccc.md",
+      "handoff_id": "QD-MP-20261027-2109-BATCH36-VENUE-DRAFT-RETURN",
+      "patch_sha256": "e3075614873d74aefd0a1b6cae8f535992f151610f9cf4905a4dadde2ca0fe26",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-draft-return.ts",
+        "apps/wechat-mini/tests/venue-draft-return.test.mjs"
+      ]
+    },
+    {
+      "batch": 37,
+      "source": "20261028-0011_miniprogram-event-create-venue-offline-flow_patch_b63b211.md",
+      "handoff_id": "QD-MP-20261028-0011-EVENT-CREATE-VENUE-FLOW",
+      "patch_sha256": "a3b6ebe0ea0256e9e6bf0cf51132013fcefcaa799af0e2097280ab21f4f998e7",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/app.config.ts",
+        "apps/wechat-mini/src/core/event-create-venue-flow.ts",
+        "apps/wechat-mini/src/pages/event-create-poc/index.tsx",
+        "apps/wechat-mini/tests/event-create-venue-flow.test.mjs"
+      ]
+    },
+    {
+      "batch": 38,
+      "source": "20261028-0303_miniprogram-cross-page-route-handoff-offline_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH38-CROSS-PAGE-VENUE-NAVIGATION",
+      "patch_sha256": "1267c61eadbb76ecd2031f80676b5ea168bce77cd81b6127c08ad4599327fc48",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-navigation-bridge.ts",
+        "apps/wechat-mini/tests/venue-navigation-bridge.test.mjs"
+      ]
+    },
+    {
+      "batch": 39,
+      "source": "20261028-0604_miniprogram-taro-route-lifecycle-parent-return_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH39-TARO-ROUTE-LIFECYCLE-RETURN",
+      "patch_sha256": "3af37c4d379f7140ad3becd1c05a17b2a0cfa268b6bcef86951ed5cb0aa05ab5",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-route-driver.ts",
+        "apps/wechat-mini/src/platform/offline-venue-route-runtime.ts",
+        "apps/wechat-mini/src/platform/taro-venue-navigation.ts",
+        "apps/wechat-mini/tests/venue-route-driver.test.mjs"
+      ]
+    },
+    {
+      "batch": 40,
+      "source": "20261028-0904_miniprogram-real-taro-two-page-route-ui_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH40-TARO-TWO-PAGE-OFFLINE-ROUTE-UI",
+      "patch_sha256": "aab237512e3bd3d8827ca35cb7b70e46ecc97a5ee44e55018f679121dcf51b04",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/app.config.ts",
+        "apps/wechat-mini/src/core/event-route-form.ts",
+        "apps/wechat-mini/src/core/venue-navigation-bridge.ts",
+        "apps/wechat-mini/src/core/venue-route-driver.ts",
+        "apps/wechat-mini/src/pages/event-route-poc/index.tsx",
+        "apps/wechat-mini/src/pages/venue-route-poc/index.tsx",
+        "apps/wechat-mini/src/platform/offline-event-route-session.ts",
+        "apps/wechat-mini/tests/event-route-form.test.mjs",
+        "apps/wechat-mini/tests/venue-navigation-bridge.test.mjs",
+        "apps/wechat-mini/tests/venue-route-driver.test.mjs"
+      ]
+    },
+    {
+      "batch": 41,
+      "source": "20261028-1206_miniprogram-parent-route-receive-race-fail-closed_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH41-PARENT-RECEIVE-RACE-FAIL-CLOSED",
+      "patch_sha256": "e13452f00bee90e407d1ed03538833a858720766acdf4a8387b985b349ddb16b",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/event-route-form.ts",
+        "apps/wechat-mini/tests/event-route-form-lifecycle-race.test.mjs"
+      ]
+    },
+    {
+      "batch": 42,
+      "source": "20261028-1505_miniprogram-route-confirm-retry-safe_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH42-ROUTE-CONFIRM-RETRY-SAFE",
+      "patch_sha256": "a49584ba807522980843952fe836901ca366403d30000d7692acc1c69d992986",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED_AFTER_SEMANTIC_CONTEXT_REPLAY",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-selection-poc.ts",
+        "apps/wechat-mini/src/pages/venue-route-poc/index.tsx",
+        "apps/wechat-mini/tests/venue-route-retry.test.mjs"
+      ]
+    },
+    {
+      "batch": 43,
+      "source": "20261028-1814_miniprogram-venue-input-stale-draft-guard_patch_b63b211.md",
+      "handoff_id": "QD-MP-BATCH43-VENUE-INPUT-STALE-DRAFT-GUARD",
+      "patch_sha256": "49c585415f3e33a17a1165de3de953d4563f7cae6dbfe1a518a0f6516c6b54d3",
+      "declared_digest": true,
+      "code_status": "IMPLEMENTED_AND_G1_PASSED",
+      "targets": [
+        "apps/wechat-mini/src/core/venue-selection-poc.ts",
+        "apps/wechat-mini/src/pages/venue-route-poc/index.tsx",
+        "apps/wechat-mini/tests/venue-input-invalidation.test.mjs"
+      ]
     }
   ],
   "checks": {
-    "original_apply_check": "15/15 PASS; no forced SHA equality; unchanged mini base context",
-    "offline_unit": "316/316 PASS",
-    "boundary": "PASS 28 files",
-    "typecheck": "PASS after Taro getStorageInfo unknown/object guard",
+    "original_apply_check": "batches 35-41 and 43 applied in dependency order; batch 42 required reviewed semantic replay after Prettier context drift; 9/9 declared patch digests matched",
+    "offline_unit": "461/461 PASS including 3 G2 readiness contract tests",
+    "boundary": "PASS 41 files",
+    "typecheck": "PASS",
     "format": "PASS",
     "taro_build": "PASS actual webpack",
-    "g1": "PASS fresh app.json/app.js/pages/index/index.js",
+    "g1": "PASS fresh app.json/app.js and all nine page entries",
     "h5_unit": "PASS",
     "h5_build": "PASS",
-    "h5_tracked_source_isolation": "PASS; batches 33-34 add mini-only source/tests"
+    "h5_tracked_source_isolation": "PASS; batches 35-43 and G2 contract add mini-only source/tests"
   },
   "map": {
-    "selected": "V5.2",
+    "selected": "20261028-0653 complete exact-SHA package",
     "older_versions": "V5/V5.1 child archives 5/5 byte-identical; V5.2 changes reviewed base metadata",
     "integrity": "3 ZIP CRC PASS; 5/5 child hashes each PASS",
     "isolated_tests": "acceptance 10 and generic variants 19 PASS; JS syntax PASS",
     "real_worktree_stage": "PASS after preserving observed candidate failures as primary failure_stage while retaining degraded_upstream and partial_upstream_error independently",
     "applied_to_branch": true,
     "local_verification": "H5 unit/build/format and V5.2 post-apply suites PASS; DB integration script BLOCKED locally because psql is unavailable and must be confirmed by Integration Contract CI",
-    "live_baidu": "BLOCKED last 8/8 business 200; no new live calls"
+    "live_baidu": "BLOCKED last 8/8 business 200; no new status=0 evidence and no repeated live calls",
+    "exact_sha_package": "manifest and both patch SHA256 PASS at b63b211; patch 0002 had stale unified-diff line numbers and was semantically replayed against its exact target blob",
+    "query_budget": "client sends one Chinese term; server owns expansion and endpoint fallback; live request budget remains NOT VERIFIED"
   },
-  "archive_rule": "Archive batches 33-34 and V5.2/evidence only after commit, remote readback and green CI; live Baidu acceptance remains a separate blocked gate."
+  "archive_rule": "Archive batches 35-43 and the 0653 exact-SHA package only after commit, remote readback and green CI; live Baidu acceptance remains a separate blocked gate."
 }

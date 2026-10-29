@@ -319,7 +319,7 @@ try {
       /tile\.openstreetmap\.org/,
       /venue-map-crosshair/,
       /ensureLeaflet/,
-      /searchVariants\(term\)/,
+      /variants=\[term\]/,
       /rankPlaces\(mergePlaces\(groups\),term\)/,
       /collectVenueSearch<VenuePlace>\(/,
       /createConfiguredBaiduMapProvider/,
@@ -347,6 +347,11 @@ try {
       /onConfirm\(position\.lat,position\.lng,place\)/,
     ],
     "V8 venue picker",
+  );
+  assert.doesNotMatch(
+    sourceContractText(pickerSource),
+    /searchVariants\(/,
+    "V8 picker must send one client query and leave expansion to the server",
   );
   assert.match(
     sourceContractText(pickerSource),

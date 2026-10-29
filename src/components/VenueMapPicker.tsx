@@ -56,19 +56,6 @@ type PickedPlace = Pick<
 function normalizeText(value: string) {
   return value.replace(/[\s·•・()（）\-_/]/g, "").toLowerCase();
 }
-function searchVariants(term: string) {
-  const clean = term.trim(),
-    relaxed = clean
-      .replace(
-        /(网球运动中心|网球俱乐部|网球中心|网球场|体育中心|运动中心|体育馆|运动馆|场馆|球场|中心)$/u,
-        "",
-      )
-      .trim(),
-    noTennis = clean.replace(/网球$/u, "").trim();
-  return Array.from(
-    new Set([clean, relaxed, noTennis].filter((value) => value.length >= 2)),
-  ).slice(0, 3);
-}
 function mergePlaces(groups: readonly VenuePlace[][]) {
   const seen = new Set<string>(),
     merged: VenuePlace[] = [];
@@ -282,7 +269,7 @@ export function VenueMapPicker({
                 partialUpstream = true;
               },
             ),
-        variants = !useBaiduSearch ? [term] : searchVariants(term);
+        variants = [term];
       const { groups, hadFailure, cancelled } =
         await collectVenueSearch<VenuePlace>(
           variants,

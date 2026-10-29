@@ -109,7 +109,7 @@ function cityEvidence(place, city) {
       : "WRONG_CITY"
     : "CITY_UNVERIFIED";
 }
-function nameMatch(name, query, canonical) {
+export function nameMatch(name, query, canonical, city = "") {
   const n = normalize(name),
     q = normalize(query),
     c = normalize(canonical);
@@ -117,6 +117,14 @@ function nameMatch(name, query, canonical) {
   if (n === q) return "EXACT_NAME";
   // A parking lot, gate, or nearby shop must not count as the canonical POI.
   if (n === c) return "ALIAS";
+  // Some official POIs omit the city prefix present in the reference name.
+  // Call only after cityEvidence has independently proven the candidate city.
+  const cityPrefix = normalize(city);
+  const citylessCanonical =
+    cityPrefix && c.startsWith(cityPrefix)
+      ? c.slice(cityPrefix.length).replace(/^市/u, "")
+      : "";
+  if (citylessCanonical.length >= 4 && n === citylessCanonical) return "ALIAS";
   if (n.includes(c) || n.includes(q) || (q.includes(n) && n.length >= 4))
     return "PARTIAL";
   return "NONE";
@@ -202,10 +210,12 @@ export async function checkOne({
     (place) => cityEvidence(place, city) === "CITY_MATCH",
   );
   const matched = selectable.filter((place) =>
-    ["EXACT_NAME", "ALIAS"].includes(nameMatch(place.name, query, canonical)),
+    ["EXACT_NAME", "ALIAS"].includes(
+      nameMatch(place.name, query, canonical, city),
+    ),
   );
   const partial = selectable.filter(
-    (place) => nameMatch(place.name, query, canonical) === "PARTIAL",
+    (place) => nameMatch(place.name, query, canonical, city) === "PARTIAL",
   );
   const diagnostics = body?.search_diagnostics;
   const endpoints = asArray(diagnostics?.endpoints);
@@ -303,7 +313,7 @@ export async function checkOne({
     partial_count: partial.length,
     match_types: [
       ...new Set(
-        matched.map((place) => nameMatch(place.name, query, canonical)),
+        matched.map((place) => nameMatch(place.name, query, canonical, city)),
       ),
     ],
     wrong_city: wrongCity,

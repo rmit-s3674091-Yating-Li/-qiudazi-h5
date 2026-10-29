@@ -1,4 +1,4 @@
-> 代码更新：第18–34批17份已融合，316项离线测试与真实Taro G1通过；第33批增加坐标来源/坐标系失败关闭门禁，第34批增加已确认场馆草稿与坐标来源关联门禁。二者均为 `OFFLINE_MOCK_ONLY`，正式身份仍为 `SESSION_BRIDGE_UNPROVEN`。[逐批代码台账](../../docs/V8_CODE_BATCH_20261027.json)。下文旧批次状态按历史快照理解。
+> 代码更新：第18–43批26份已融合，461项离线测试与真实Taro G1通过。第35–43批完成具体场地草稿、同页/跨页演示、Taro返回回填、竞态/重试/旧草稿失效防护；全部仍为 `OFFLINE_MOCK_ONLY`。G2仅新增失败关闭的TEST证据契约，正式身份仍为 `SESSION_BRIDGE_UNPROVEN`。[逐批代码台账](../../docs/V8_CODE_BATCH_20261027.json)；[G2准备](../../docs/research/miniprogram/g2-test-integration-readiness.md)。下文旧批次状态按历史快照理解。
 
 # 球搭子微信小程序 · 零新增外部付费离线 PoC
 

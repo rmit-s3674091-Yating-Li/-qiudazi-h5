@@ -243,6 +243,28 @@ export class VenueSelectionPoc {
     return true;
   }
 
+  /** Input changed after selection or while search is pending. Never reuse stale venue. */
+  invalidateInputDraft(): void {
+    ++this.revision;
+    this.reset();
+  }
+
+  /** Read-only draft for cross-page navigation; retry must not consume selection. */
+  previewDraft(): VenueDraft | null {
+    if (
+      (this.status !== "SELECTED" && this.status !== "MANUAL") ||
+      !this.selected
+    )
+      return null;
+    return {
+      city: this.city,
+      name: this.selected.name,
+      address: this.selected.address,
+      source: this.status === "MANUAL" ? "manual" : "mock_poi",
+      status: "DRAFT_ONLY",
+    };
+  }
+
   confirm(): VenueDraft | null {
     if (
       (this.status !== "SELECTED" && this.status !== "MANUAL") ||
