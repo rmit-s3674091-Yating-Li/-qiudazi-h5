@@ -102,6 +102,7 @@ async function invoke(status, query = "奥森") {
 }
 try {
   for (const [status, http, error] of [
+    [200, 502, "BAIDU_PLACE_APP_CONFIGURATION_ERROR"],
     [240, 502, "BAIDU_PLACE_PERMISSION_DENIED"],
     [302, 429, "BAIDU_PLACE_QUOTA_EXCEEDED"],
     [401, 429, "BAIDU_PLACE_CONCURRENCY_LIMIT"],

@@ -1,4 +1,4 @@
-> 代码更新：第18–49批32份已融合，519项离线测试与真实Taro G1通过。第35–45批完成具体场地草稿、同页/跨页演示、Taro返回回填及输入/确认竞态防护；第46–49批强化多页面构建产物、注册页面源码和浏览器专属依赖 AST 门禁；全部仍为 `OFFLINE_MOCK_ONLY`。G2仅具备失败关闭的TEST证据契约，正式身份仍为 `SESSION_BRIDGE_UNPROVEN`。[逐批代码台账](../../docs/V8_CODE_BATCH_20261027.json)；[G2准备](../../docs/research/miniprogram/g2-test-integration-readiness.md)。下文旧批次状态按历史快照理解。
+> 代码更新：第18–99批共82份来源 Handoff 已完成语义收敛；第50–87批由单次整合包落地，第88–99批按依赖追加。938项离线测试与真实Taro G1通过，涵盖自有数据快照、身份终态锁、导航代次、响应包、补丁完整性及安全诊断；全部仍为 `OFFLINE_MOCK_ONLY`。正式身份保持 `SESSION_BRIDGE_UNPROVEN`，`wx.chooseLocation` 也未完成真实微信环境验收。[代码台账](../../docs/V8_CODE_BATCH_20261027.json)；[G2准备](../../docs/research/miniprogram/g2-test-integration-readiness.md)。下文旧批次状态按历史快照理解。
 
 # 球搭子微信小程序 · 零新增外部付费离线 PoC
 

@@ -1,4 +1,4 @@
-> 最新代码批次：第18–49批共32份现已实际融合，519项离线测试、AST边界、类型、格式、真实Taro构建及G1通过；`SESSION_BRIDGE_UNPROVEN` 保留。地图0653与20261029 exact-HEAD短核心修复已通过自动化，百度真实服务仍因业务 `status=200` 阻断。下文历史快照由[代码消费台账](../../V8_CODE_BATCH_20261027.json)、[P3状态](../../V8_P3_STATUS_20261025.md)与[G2准备](g2-test-integration-readiness.md)覆盖。
+> 最新代码批次：第18–99批共82份来源 Handoff 已实际收敛，50–87以B87单次整合包落地，88–99按依赖追加；938项离线测试、AST边界、类型、格式、真实Taro构建及G1通过。`SESSION_BRIDGE_UNPROVEN` 与 `WX_CHOOSELOCATION_NOT_REAL_DEVICE_VERIFIED` 均保留。百度真实服务仍因业务 `status=200` 阻断。下文历史快照由[代码消费台账](../../V8_CODE_BATCH_20261027.json)、[P3状态](../../V8_P3_STATUS_20261025.md)与[G2准备](g2-test-integration-readiness.md)覆盖。
 
 # 球搭子｜小程序与统一身份融合入口
 

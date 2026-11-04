@@ -1,6 +1,6 @@
 {
-  "review_base_sha": "edc43707c9bb4d07cb1be10e917585799305cf3f",
-  "applied_count": 32,
+  "review_base_sha": "93384522c831b86dc8c6e2fef45454325c4a4a01",
+  "applied_count": 82,
   "rows": [
     {
       "batch": 18,
@@ -415,17 +415,33 @@
       ]
     }
   ],
+  "batch_50_99_reconciliation": {
+    "source_handoffs": 50,
+    "effective_packages_applied": 13,
+    "unified_package": {
+      "batch": 87,
+      "source": "20261103-0603_miniprogram-b86-globalthis-alias-boundary-b87_patch_9338452.md",
+      "covers": "batches 50-87; supersedes the earlier B50-B86 originals and consolidation packages",
+      "patch_sha256": "a488ea161e9b94273ed3bf96270abfa042188c4d57766614cfc30394d3cf0ef0",
+      "targets": 47
+    },
+    "incremental_batches": [88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99],
+    "compatibility_resolution": "Seven old regression expectations conflicted with stricter terminal identity, exact own-data navigation and Taro response-envelope semantics. Tests were updated to retain fail-closed behavior; no production assertion or security boundary was weakened.",
+    "integrity_note": "B87 and B88 exact declared digests matched. B92's prose digest did not match its fenced diff bytes; the B92 content was retained only as the reviewed ancestor of B93/B94 and the final B94 behavior is covered by repository tests.",
+    "code_status": "IMPLEMENTED_AND_G1_PASSED",
+    "real_auth": "SESSION_BRIDGE_UNPROVEN"
+  },
   "checks": {
-    "original_apply_check": "batches 46-49 applied in dependency order; batches 44-45 required reviewed semantic replay after Prettier context drift; 6/6 declared patch digests matched",
-    "offline_unit": "519/519 PASS including G2 readiness and strengthened G1 fixtures",
-    "boundary": "PASS 43 files including AST browser-only import checks",
+    "original_apply_check": "B87 exact one-shot package applied cleanly at 93384522; B88-B99 applied in dependency order; earlier B50-B86 originals and consolidation packages were not replayed",
+    "offline_unit": "938/938 PASS including G2 evidence, identity terminal locks, navigation generation isolation and safe session diagnostics",
+    "boundary": "PASS 49 files including AST browser globals, secret identifiers and generated shared-domain checks",
     "typecheck": "PASS",
     "format": "PASS",
     "taro_build": "PASS actual webpack",
     "g1": "PASS fresh app.json/app.js and all nine registered page JS/WXML/source entries",
     "h5_unit": "PASS",
     "h5_build": "PASS",
-    "h5_tracked_source_isolation": "PASS for mini batches 44-49; map changes are separately covered by H5 unit/build"
+    "h5_tracked_source_isolation": "PASS for mini batches 50-99; map test-wiring changes are separately covered by H5 unit/build"
   },
   "map": {
     "selected": "20261029-1352 exact-edc43707 delta/source-smoke package; 0121 and 0233 older complete packages superseded for current HEAD",
@@ -437,7 +453,8 @@
     "local_verification": "H5 unit/build/format and V5.2 post-apply suites PASS; DB integration script BLOCKED locally because psql is unavailable and must be confirmed by Integration Contract CI",
     "live_baidu": "BLOCKED last 8/8 business 200; no new status=0 evidence and no repeated live calls",
     "exact_sha_package": "01:21 adds client short-core rank; 02:33 supersedes it with server recall; 11:34 adds static audit only; 13:52 rebases the two remaining patches to edc43707 and applies cleanly",
-    "query_budget": "distinctive two-character sports cores may add one bounded server variant; real endpoint request budget remains NOT VERIFIED"
+    "query_budget": "distinctive two-character sports cores may add one bounded server variant; real endpoint request budget remains NOT VERIFIED",
+    "20261104_deterministic_followup": "wired short-core client/server tests into pretest:unit and added business status=200 terminal-classification coverage; live Baidu remained blocked and was not called"
   },
-  "archive_rule": "Archive batches 44-49 and reconciled 20261029 map packages only after commit, remote readback and green CI; live Baidu acceptance remains a separate blocked gate."
+  "archive_rule": "Archive batches 50-99 and reconciled map materials only after commit, remote readback and green CI; live Baidu and real wx.chooseLocation acceptance remain separate blocked gates."
 }

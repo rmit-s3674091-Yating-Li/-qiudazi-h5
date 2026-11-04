@@ -93,7 +93,7 @@ test("throwing exchange clock returns conflict without burning an unused code", 
   });
   assert.deepEqual(server.exchange(request), { status: "CONFLICT_LOCKED" });
   shouldThrow = false;
-  assert.deepEqual(server.exchange(request), { status: "UNBOUND_IDENTITY" });
+  assert.deepEqual(server.exchange(request), { status: "CONFLICT_LOCKED" });
 });
 
 test("throwing binding clock revokes pending challenge and never creates a binding", () => {

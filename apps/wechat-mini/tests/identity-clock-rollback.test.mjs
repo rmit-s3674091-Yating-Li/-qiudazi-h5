@@ -78,7 +78,7 @@ test("non-finite clock never creates a binding challenge or verifies a replay", 
   setClock(Number.NaN);
   assert.deepEqual(server.exchange(request), { status: "CONFLICT_LOCKED" });
   setClock(1000);
-  assert.deepEqual(server.exchange(request), { status: "UNBOUND_IDENTITY" });
+  assert.deepEqual(server.exchange(request), { status: "CONFLICT_LOCKED" });
   setClock(Number.POSITIVE_INFINITY);
   assert.deepEqual(server.exchange(request), { status: "CONFLICT_LOCKED" });
   setClock(1001);

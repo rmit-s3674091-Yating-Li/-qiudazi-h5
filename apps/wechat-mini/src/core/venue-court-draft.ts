@@ -54,7 +54,7 @@ export function validateSpecificCourt(input: unknown): CourtDetailValidation {
   }
 }
 
-/** Only allowlisted venue fields are copied. No coordinates or actor IDs. */
+/** Only allowlisted, own data fields are copied. No coordinates or actor IDs. */
 export function prepareOfflineCourtPreview(
   venueDraft: unknown,
   specificCourt: unknown,
@@ -66,13 +66,27 @@ export function prepareOfflineCourtPreview(
       Array.isArray(venueDraft)
     )
       return { status: "blocked", reason: "INVALID_VENUE_DRAFT" };
-    const draft = venueDraft as Record<string, unknown>;
+
+    // Read each own data descriptor once. Never invoke inherited properties or
+    // accessors, and never re-read mutable input during preview construction.
+    const ownData = (key: string): unknown => {
+      const descriptor = Object.getOwnPropertyDescriptor(venueDraft, key);
+      return descriptor && descriptor.enumerable && "value" in descriptor
+        ? descriptor.value
+        : undefined;
+    };
+    const city = ownData("city");
+    const name = ownData("name");
+    const address = ownData("address");
+    const source = ownData("source");
+    const status = ownData("status");
     if (
-      draft.status !== "DRAFT_ONLY" ||
-      !CITIES.has(draft.city as string) ||
-      (draft.source !== "manual" && draft.source !== "mock_poi") ||
-      !plainText(draft.name, 160) ||
-      !plainText(draft.address, 400)
+      status !== "DRAFT_ONLY" ||
+      typeof city !== "string" ||
+      !CITIES.has(city) ||
+      (source !== "manual" && source !== "mock_poi") ||
+      !plainText(name, 160) ||
+      !plainText(address, 400)
     )
       return { status: "blocked", reason: "INVALID_VENUE_DRAFT" };
     const court = validateSpecificCourt(specificCourt);
@@ -82,10 +96,10 @@ export function prepareOfflineCourtPreview(
       verification: "OFFLINE_MOCK_ONLY",
       canPersist: false,
       preview: {
-        city: draft.city as "北京" | "上海" | "成都",
-        venueName: draft.name,
-        venueAddress: draft.address,
-        venueSource: draft.source,
+        city: city as "北京" | "上海" | "成都",
+        venueName: name,
+        venueAddress: address,
+        venueSource: source,
         specificCourt: court.value,
         status: "DRAFT_ONLY",
       },

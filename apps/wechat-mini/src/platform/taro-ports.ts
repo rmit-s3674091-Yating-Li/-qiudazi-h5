@@ -5,6 +5,10 @@ import {
   type TrustedEndpointPolicy,
 } from "../core/trusted-endpoint.ts";
 import { readStorageStrict } from "../core/strict-storage-read.ts";
+import {
+  parseTaroRequestResponse,
+  parseTaroUploadResponse,
+} from "../core/taro-response-contract.ts";
 
 /**
  * An explicit endpoint policy is mandatory even for the offline PoC.
@@ -29,7 +33,7 @@ export class TaroTransport implements TransportPort {
         data,
         header: jwt ? { Authorization: `Bearer ${jwt}` } : {},
       });
-      return { status: result.statusCode, data: result.data };
+      return parseTaroRequestResponse<T>(result);
     });
   }
 }
@@ -75,7 +79,7 @@ export class TaroUpload implements UploadPort {
           name: fieldName,
           header: { Authorization: `Bearer ${jwt}` }, // multipart boundary belongs to platform
         });
-        return { status: response.statusCode, rawBody: response.data };
+        return parseTaroUploadResponse(response);
       },
       true,
     );

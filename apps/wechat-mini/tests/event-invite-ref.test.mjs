@@ -33,7 +33,7 @@ test("kind-only or malformed event invite cannot resolve or be captured", () => 
     assert.equal(decodeMiniPath(url), null, url);
   assert.throws(
     () => encodeMiniPath({ kind: "event_invite", inviteKind: "standard" }),
-    /INVALID_INVITE_REF/,
+    /INVALID_INTENT_SHAPE/,
   );
   assert.throws(
     () =>

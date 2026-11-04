@@ -1,8 +1,12 @@
 # 微信小程序 G2 TEST 集成准备
 
-更新：2026-10-28。状态：`OFFLINE_CONTRACT_READY / EXTERNAL_AUTHORIZATION_REQUIRED`。
+更新：2026-11-04。状态：`OFFLINE_CONTRACT_READY / EXTERNAL_AUTHORIZATION_REQUIRED`。
 
 本文件只定义 TEST 验收契约和联调顺序，不证明真实微信登录、Supabase 会话、RLS、Storage 或真机通过。离线执行器见 `apps/wechat-mini/src/core/g2-readiness.ts`；任一证据缺失时固定返回 `G2_BLOCKED` 和 `SESSION_BRIDGE_UNPROVEN`。
+
+**离线声明不等于会话证明（第72批合并第50/66批）**：`evaluateG2Readiness` 仅接受自有布尔数据字段并报告清单缺项。即使全部 15 项被本地声明为 `true`，`G2_READY_FOR_TEST` 也只表示清单已填齐；`sessionBridge` 必须保持 `SESSION_BRIDGE_UNPROVEN`，并返回 `evidenceLevel=OFFLINE_DECLARATION_ONLY`。只有经另行授权的真实 TEST 服务端验证、刷新/撤销和 RLS 证据闭环，才可在独立的可信验收流程中确认真实 Auth；本地函数不得签发或声称 `SESSION_VERIFIED`。
+
+第67–99批进一步补齐单次登录尝试、响应包失败关闭、旧账号绑定/交换终态锁、自有数据快照、canonical导航、跨账号异步结果代次隔离和脱敏诊断。它们只提高离线边界和验收证据质量，不接入 `wx.login`、不签发JWT，也不把诊断输出当成会话证明。
 
 ## 会话桥接契约
 

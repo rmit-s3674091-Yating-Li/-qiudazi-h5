@@ -47,27 +47,101 @@ type PendingBinding = {
 
 const keyFor = (s: MockWechatSubject) =>
   JSON.stringify(["wechat_mini", s.appId, s.openId]);
-const validOpaque = (s: string) =>
+const validOpaque = (s: unknown) =>
   typeof s === "string" && /^[A-Za-z0-9_-]{6,128}$/.test(s);
-const validSubject = (s: MockWechatSubject) =>
-  !!s &&
-  typeof s.appId === "string" &&
-  s.appId.length > 0 &&
-  typeof s.openId === "string" &&
-  s.openId.length > 0;
+
+/** Take one immutable, own-data-only snapshot of a mock protocol boundary. */
+function ownData(
+  input: unknown,
+  required: readonly string[],
+  optional: readonly string[] = [],
+): Record<string, unknown> | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  try {
+    const prototype = Object.getPrototypeOf(input);
+    if (prototype !== Object.prototype && prototype !== null) return null;
+    const descriptors = Object.getOwnPropertyDescriptors(input);
+    const keys = Reflect.ownKeys(descriptors);
+    if (
+      !required.every((key) => Object.hasOwn(descriptors, key)) ||
+      keys.some(
+        (key) =>
+          typeof key !== "string" ||
+          (!required.includes(key) && !optional.includes(key)),
+      )
+    )
+      return null;
+    const result: Record<string, unknown> = Object.create(null);
+    for (const key of keys) {
+      if (typeof key !== "string") return null;
+      const descriptor = descriptors[key];
+      if (!descriptor.enumerable || !("value" in descriptor)) return null;
+      result[key] = descriptor.value;
+    }
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+function snapshotSubject(input: unknown): MockWechatSubject | null {
+  const value = ownData(input, ["appId", "openId"], ["unionId"]);
+  if (!value) return null;
+  const { appId, openId, unionId = null } = value;
+  if (
+    ![appId, openId].every(
+      (field) =>
+        typeof field === "string" &&
+        field.length > 0 &&
+        field.length <= 256 &&
+        field.trim() === field,
+    ) ||
+    (unionId !== null &&
+      (typeof unionId !== "string" ||
+        unionId.length === 0 ||
+        unionId.length > 256 ||
+        unionId.trim() !== unionId))
+  )
+    return null;
+  return Object.freeze({
+    appId: appId as string,
+    openId: openId as string,
+    unionId: unionId as string | null,
+  });
+}
+
+function snapshotLegacy(input: unknown): VerifiedLegacy | null {
+  const value = ownData(input, ["authUserId", "profileId"]);
+  if (
+    !value ||
+    ![value.authUserId, value.profileId].every(
+      (field) =>
+        typeof field === "string" &&
+        field.length > 0 &&
+        field.length <= 256 &&
+        field.trim() === field,
+    )
+  )
+    return null;
+  return Object.freeze({
+    authUserId: value.authUserId as string,
+    profileId: value.profileId as string,
+  });
+}
 
 export class MockWechatCodeVerifier {
   private codes = new Map<string, MockWechatSubject>();
   private consumed = new Set<string>();
   register(code: string, subject: MockWechatSubject): void {
+    const snapshot = snapshotSubject(subject);
     if (
       !validOpaque(code) ||
-      !validSubject(subject) ||
+      !snapshot ||
       this.consumed.has(code) ||
       this.codes.has(code)
     )
       throw new Error("INVALID_MOCK_CODE");
-    this.codes.set(code, Object.freeze({ ...subject }));
+    this.codes.set(code, snapshot);
   }
   verifyOnce(code: string): MockWechatSubject | null {
     if (this.consumed.has(code)) return null;
@@ -83,29 +157,34 @@ export class MockLegacyProofVerifier {
   private proofs = new Map<string, StoredProof>();
   private consumed = new Set<string>();
   register(proof: string, fixture: LegacyBindingProofFixture): void {
+    const fields = ownData(fixture, [
+      "legacy",
+      "requestId",
+      "subject",
+      "expiresAt",
+      "consentRecorded",
+    ]);
+    const subject = fields && snapshotSubject(fields.subject);
+    const legacy = fields && snapshotLegacy(fields.legacy);
     if (
       !validOpaque(proof) ||
       this.proofs.has(proof) ||
       this.consumed.has(proof) ||
-      !fixture ||
-      typeof fixture !== "object" ||
-      !validOpaque(fixture.requestId) ||
-      !validSubject(fixture.subject) ||
-      !fixture.legacy ||
-      typeof fixture.legacy.authUserId !== "string" ||
-      !fixture.legacy.authUserId.trim() ||
-      typeof fixture.legacy.profileId !== "string" ||
-      !fixture.legacy.profileId.trim() ||
-      !Number.isSafeInteger(fixture.expiresAt) ||
-      fixture.expiresAt < 1
+      !fields ||
+      !subject ||
+      !legacy ||
+      !validOpaque(fields.requestId) ||
+      !Number.isSafeInteger(fields.expiresAt) ||
+      (fields.expiresAt as number) < 1 ||
+      typeof fields.consentRecorded !== "boolean"
     )
       throw new Error("INVALID_PROOF_FIXTURE");
     this.proofs.set(proof, {
-      legacy: Object.freeze({ ...fixture.legacy }),
-      requestId: fixture.requestId,
-      subjectKey: keyFor(fixture.subject),
-      expiresAt: fixture.expiresAt,
-      consentRecorded: fixture.consentRecorded === true,
+      legacy,
+      requestId: fields.requestId as string,
+      subjectKey: keyFor(subject),
+      expiresAt: fields.expiresAt as number,
+      consentRecorded: fields.consentRecorded as boolean,
     });
   }
   consume(
@@ -118,14 +197,15 @@ export class MockLegacyProofVerifier {
     // Even a wrong-audience attempt burns this one-use fixture.
     this.proofs.delete(proof);
     if (stored) this.consumed.add(proof);
+    const subjectSnapshot = snapshotSubject(subject);
     if (
       !stored ||
       !Number.isSafeInteger(now) ||
       now < 0 ||
       !validOpaque(requestId) ||
-      !validSubject(subject) ||
+      !subjectSnapshot ||
       stored.requestId !== requestId ||
-      stored.subjectKey !== keyFor(subject) ||
+      stored.subjectKey !== keyFor(subjectSnapshot) ||
       !stored.consentRecorded ||
       now >= stored.expiresAt
     )
@@ -138,6 +218,8 @@ export class MockIdentityServer {
   private requests = new Map<string, StoredRequest>();
   private bindings = new Map<string, VerifiedLegacy>();
   private pending = new Map<string, PendingBinding>();
+  // In-memory replay tombstones: this mock must never recycle a failed request ID.
+  private readonly terminalRequests = new Set<string>();
   private readonly wechat: MockWechatCodeVerifier;
   private readonly legacy: MockLegacyProofVerifier;
   private readonly now: () => number;
@@ -158,49 +240,44 @@ export class MockIdentityServer {
 
   exchange(input: ExchangeInput): ExchangeResult {
     // The transport boundary may pass malformed JSON despite static TS types.
-    if (!input || typeof input !== "object")
+    const fields = ownData(input, ["loginCode", "requestId", "clientNonce"]);
+    if (
+      !fields ||
+      ![fields.loginCode, fields.requestId, fields.clientNonce].every(
+        validOpaque,
+      )
+    )
       return { status: "CONFLICT_LOCKED" };
-    let fields: [string, string, string];
-    try {
-      fields = [input.loginCode, input.requestId, input.clientNonce];
-    } catch {
+    const loginCode = fields.loginCode as string;
+    const requestId = fields.requestId as string;
+    const clientNonce = fields.clientNonce as string;
+    if (this.terminalRequests.has(requestId))
       return { status: "CONFLICT_LOCKED" };
-    }
-    if (!fields.every(validOpaque)) return { status: "CONFLICT_LOCKED" };
-    const [loginCode, requestId, clientNonce] = fields;
     let now: number;
     try {
       now = this.now();
     } catch {
-      this.requests.delete(requestId);
-      this.pending.delete(requestId);
-      return { status: "CONFLICT_LOCKED" };
+      return this.lockPendingBinding(requestId);
     }
     if (
       !Number.isSafeInteger(now) ||
       now < 0 ||
       !Number.isSafeInteger(now + this.ttlMs)
     ) {
-      this.requests.delete(requestId);
-      this.pending.delete(requestId);
-      return { status: "CONFLICT_LOCKED" };
+      return this.lockPendingBinding(requestId);
     }
     // This is an offline fixture fingerprint. Production must not retain raw wx.login codes.
     const fingerprint = JSON.stringify([loginCode, clientNonce]);
     const old = this.requests.get(requestId);
     if (old) {
-      if (now < old.createdAt || now >= old.expiresAt) {
-        this.requests.delete(requestId);
-        this.pending.delete(requestId);
-        return { status: "CONFLICT_LOCKED" };
-      }
+      if (now < old.createdAt || now >= old.expiresAt)
+        return this.lockPendingBinding(requestId);
       return old.fingerprint === fingerprint
         ? old.result
-        : { status: "CONFLICT_LOCKED" };
+        : this.lockPendingBinding(requestId);
     }
-    const subject = this.wechat.verifyOnce(loginCode);
-    if (!subject || !validSubject(subject))
-      return { status: "CONFLICT_LOCKED" };
+    const subject = snapshotSubject(this.wechat.verifyOnce(loginCode));
+    if (!subject) return this.lockPendingBinding(requestId);
     const result: ExchangeResult = this.bindings.has(keyFor(subject))
       ? { status: "SESSION_BRIDGE_UNPROVEN" }
       : { status: "UNBOUND_IDENTITY" };
@@ -216,6 +293,18 @@ export class MockIdentityServer {
     return result;
   }
 
+  /**
+   * Terminally lock a failed exchange or pending mock binding.
+   * Tombstones last for this mock instance, not a production durable replay store.
+   */
+  private lockPendingBinding(requestId: string): ExchangeResult {
+    this.terminalRequests.add(requestId);
+    this.pending.delete(requestId);
+    const request = this.requests.get(requestId);
+    if (request) request.result = { status: "CONFLICT_LOCKED" };
+    return { status: "CONFLICT_LOCKED" };
+  }
+
   /** A client confirmation flag is necessary but NOT sufficient: the server fixture also records consent. */
   confirmLegacyBinding(
     requestId: string,
@@ -223,32 +312,29 @@ export class MockIdentityServer {
     userConfirmed: boolean,
   ): ExchangeResult {
     const pending = this.pending.get(requestId);
+    // A completed/unknown request cannot mutate the prior successful result.
+    if (!pending) return { status: "CONFLICT_LOCKED" };
     let now: number;
     try {
       now = this.now();
     } catch {
-      this.requests.delete(requestId);
-      this.pending.delete(requestId);
-      return { status: "CONFLICT_LOCKED" };
+      return this.lockPendingBinding(requestId);
     }
     if (
-      !pending ||
       !Number.isSafeInteger(now) ||
       now < pending.createdAt ||
       now >= pending.expiresAt
-    ) {
-      this.requests.delete(requestId);
-      this.pending.delete(requestId);
-      return { status: "CONFLICT_LOCKED" };
-    }
-    if (userConfirmed !== true) return { status: "CONFLICT_LOCKED" };
+    )
+      return this.lockPendingBinding(requestId);
+    // Declining a binding is terminal for this login attempt.
+    if (userConfirmed !== true) return this.lockPendingBinding(requestId);
     const verified = this.legacy.consume(
       proof,
       requestId,
       pending.subject,
       now,
     );
-    if (!verified) return { status: "CONFLICT_LOCKED" };
+    if (!verified) return this.lockPendingBinding(requestId);
     const key = keyFor(pending.subject);
     const existing = this.bindings.get(key);
     if (
@@ -256,8 +342,7 @@ export class MockIdentityServer {
       (existing.authUserId !== verified.authUserId ||
         existing.profileId !== verified.profileId)
     ) {
-      this.pending.delete(requestId);
-      return { status: "CONFLICT_LOCKED" };
+      return this.lockPendingBinding(requestId);
     }
     // Fail closed if another WeChat subject already owns either legacy identifier.
     // A second AppID or OpenID needs an independently reviewed multi-link flow;
@@ -268,8 +353,7 @@ export class MockIdentityServer {
         (bound.profileId === verified.profileId ||
           bound.authUserId === verified.authUserId)
       ) {
-        this.pending.delete(requestId);
-        return { status: "CONFLICT_LOCKED" };
+        return this.lockPendingBinding(requestId);
       }
     }
     this.bindings.set(key, Object.freeze({ ...verified }));
@@ -280,7 +364,9 @@ export class MockIdentityServer {
   }
   /** Read-only test inspection. Never exposes an Admin role, access token or refresh token. */
   inspectBinding(subject: MockWechatSubject): VerifiedLegacy | null {
-    const binding = this.bindings.get(keyFor(subject));
+    const snapshot = snapshotSubject(subject);
+    if (!snapshot) return null;
+    const binding = this.bindings.get(keyFor(snapshot));
     return binding ? { ...binding } : null;
   }
 }

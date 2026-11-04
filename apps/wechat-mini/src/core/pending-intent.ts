@@ -1,4 +1,8 @@
-import { encodeMiniPath, type NavigationIntent } from "./navigation.ts";
+import {
+  decodeMiniPath,
+  encodeMiniPath,
+  type NavigationIntent,
+} from "./navigation.ts";
 
 /** Only an in-memory navigation intent. Never grants access or accepts an invite. */
 type Pending = {
@@ -113,8 +117,37 @@ export class PendingIntentGate {
           !actorPattern.test(openedByAuthId)))
     )
       return "INVALID_INTENT";
+    // Runtime input may carry getters, inherited fields or hidden credentials.
+    // Encode only an own-data snapshot, then decode it into the exact six-kind
+    // navigation contract. Never spread the untrusted caller object into state.
+    let canonical: NavigationIntent;
     try {
-      encodeMiniPath(intent);
+      if (!intent || typeof intent !== "object" || Array.isArray(intent))
+        return "INVALID_INTENT";
+      const proto = Object.getPrototypeOf(intent);
+      if (proto !== Object.prototype && proto !== null) return "INVALID_INTENT";
+      const descriptors = Object.getOwnPropertyDescriptors(intent);
+      const keys = Reflect.ownKeys(descriptors);
+      const snapshot: Record<string, unknown> = Object.create(null);
+      for (const key of keys) {
+        if (typeof key !== "string") return "INVALID_INTENT";
+        const descriptor = descriptors[key];
+        if (!descriptor.enumerable || !("value" in descriptor))
+          return "INVALID_INTENT";
+        snapshot[key] = descriptor.value;
+      }
+      const decoded = decodeMiniPath(
+        encodeMiniPath(snapshot as NavigationIntent),
+      );
+      if (
+        !decoded ||
+        keys.length !== Object.keys(decoded).length ||
+        Object.keys(decoded).some(
+          (key) => !Object.prototype.hasOwnProperty.call(snapshot, key),
+        )
+      )
+        return "INVALID_INTENT";
+      canonical = decoded;
     } catch {
       return "INVALID_INTENT";
     }
@@ -122,7 +155,7 @@ export class PendingIntentGate {
     const now = this.safeNow();
     if (now === null) return "INVALID_INTENT";
     this.pending = {
-      intent: Object.freeze({ ...intent }),
+      intent: Object.freeze(canonical),
       requestId,
       capturedAt: now,
       openedByAuthId,

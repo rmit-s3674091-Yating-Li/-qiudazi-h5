@@ -5,19 +5,42 @@ export type ActorScopedReadResult<T> =
   | Readonly<{ status: "READY"; value: T }>
   | Readonly<{ status: "UNVERIFIED" | "STALE_ACTOR" | "READ_FAILED" }>;
 
-function validActor(value: unknown): value is ActorScope {
-  if (!value || typeof value !== "object") return false;
+/**
+ * Snapshot a runtime SessionPort result without reading inherited properties or
+ * executing getters. A validated value is never read a second time: session
+ * adapters are an asynchronous trust boundary even in an offline harness.
+ */
+function snapshotActor(value: unknown): ActorScope | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   try {
-    const actor = value as Partial<ActorScope>;
-    return [actor.authUserId, actor.profileId, actor.epoch].every(
-      (field) =>
-        typeof field === "string" &&
-        field.length > 0 &&
-        field.length <= 256 &&
-        field.trim() === field,
-    );
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) return null;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const fields = ["authUserId", "profileId", "epoch"] as const;
+    const keys = Reflect.ownKeys(descriptors);
+    if (
+      keys.length !== fields.length ||
+      keys.some((key) => !fields.includes(key as (typeof fields)[number]))
+    )
+      return null;
+    const actor = {} as { -readonly [K in keyof ActorScope]: ActorScope[K] };
+    for (const field of fields) {
+      const descriptor = descriptors[field];
+      if (!descriptor || !descriptor.enumerable || !("value" in descriptor))
+        return null;
+      const text = descriptor.value;
+      if (
+        typeof text !== "string" ||
+        text.length === 0 ||
+        text.length > 256 ||
+        text.trim() !== text
+      )
+        return null;
+      actor[field] = text;
+    }
+    return Object.freeze(actor);
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -41,12 +64,8 @@ export async function runActorScopedRead<T>(
   } catch {
     return { status: "UNVERIFIED" };
   }
-  if (!validActor(before)) return { status: "UNVERIFIED" };
-  const actor = Object.freeze({
-    authUserId: before.authUserId,
-    profileId: before.profileId,
-    epoch: before.epoch,
-  });
+  const actor = snapshotActor(before);
+  if (!actor) return { status: "UNVERIFIED" };
   const capturedGeneration = generation.version;
   const isCurrent = () =>
     generation.isCurrent(actor.authUserId, capturedGeneration);
@@ -68,11 +87,12 @@ export async function runActorScopedRead<T>(
   }
   // The second session check can itself be asynchronous: recheck generation.
   if (!isCurrent()) return { status: "STALE_ACTOR" };
+  const afterSnapshot = snapshotActor(after);
   if (
-    !validActor(after) ||
-    after.authUserId !== actor.authUserId ||
-    after.profileId !== actor.profileId ||
-    after.epoch !== actor.epoch
+    !afterSnapshot ||
+    afterSnapshot.authUserId !== actor.authUserId ||
+    afterSnapshot.profileId !== actor.profileId ||
+    afterSnapshot.epoch !== actor.epoch
   ) {
     return { status: "STALE_ACTOR" };
   }

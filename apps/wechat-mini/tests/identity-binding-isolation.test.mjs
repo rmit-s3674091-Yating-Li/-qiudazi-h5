@@ -77,14 +77,22 @@ test("client confirmation alone cannot replace server-recorded consent", () => {
   assert.equal(
     server.confirmLegacyBinding("request-aaaa", "proof-with-consent", true)
       .status,
-    "SESSION_BRIDGE_UNPROVEN",
-  );
-  assert.deepEqual(server.inspectBinding(a), legacyA);
-  assert.equal(
-    server.confirmLegacyBinding("request-aaaa", "proof-with-consent", true)
-      .status,
     "CONFLICT_LOCKED",
   );
+
+  // A declined confirmation is terminal for that request. A fresh verified
+  // request with server-recorded consent can bind, but still cannot mint Auth.
+  const fresh = setup();
+  proof(fresh.proofs, "proof-fresh-consent", "request-aaaa", a);
+  assert.equal(
+    fresh.server.confirmLegacyBinding(
+      "request-aaaa",
+      "proof-fresh-consent",
+      true,
+    ).status,
+    "SESSION_BRIDGE_UNPROVEN",
+  );
+  assert.deepEqual(fresh.server.inspectBinding(a), legacyA);
 });
 
 test("expired proof, expired pending challenge and stale request replay fail closed", () => {

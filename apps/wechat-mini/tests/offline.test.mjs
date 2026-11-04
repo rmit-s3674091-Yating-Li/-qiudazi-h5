@@ -93,10 +93,6 @@ test("code is one-use; request replay same nonce is idempotent; changed nonce fa
   assert.deepEqual(server.exchange(req), { status: "UNBOUND_IDENTITY" });
   assert.deepEqual(server.exchange(req), { status: "UNBOUND_IDENTITY" });
   assert.equal(
-    server.exchange({ ...req, clientNonce: "nonce-222" }).status,
-    "CONFLICT_LOCKED",
-  );
-  assert.equal(
     server.exchange({ ...req, requestId: "request-222" }).status,
     "CONFLICT_LOCKED",
   );
@@ -104,16 +100,30 @@ test("code is one-use; request replay same nonce is idempotent; changed nonce fa
     server.confirmLegacyBinding("request-111", "nickname-G", true).status,
     "CONFLICT_LOCKED",
   );
+  // A failed proof now closes this request. Explicit recovery needs a fresh
+  // mock wx code and request ID, never a retry on the same pending binding.
+  assert.equal(server.exchange(req).status, "CONFLICT_LOCKED");
+  wx.register("code-222222", {
+    appId: "app-A",
+    openId: "opaque-111",
+    unionId: null,
+  });
+  const fresh = {
+    loginCode: "code-222222",
+    requestId: "request-333",
+    clientNonce: "nonce-333",
+  };
+  assert.equal(server.exchange(fresh).status, "UNBOUND_IDENTITY");
   legacy.register("proof-from-verified-old-session", {
     legacy: { authUserId: "auth-old", profileId: "profile-stable" },
-    requestId: "request-111",
+    requestId: "request-333",
     subject: { appId: "app-A", openId: "opaque-111", unionId: null },
     expiresAt: Date.now() + 60_000,
     consentRecorded: true,
   });
   assert.equal(
     server.confirmLegacyBinding(
-      "request-111",
+      "request-333",
       "proof-from-verified-old-session",
       true,
     ).status,
@@ -127,9 +137,15 @@ test("code is one-use; request replay same nonce is idempotent; changed nonce fa
     }),
     { authUserId: "auth-old", profileId: "profile-stable" },
   );
+  // A mismatched nonce is terminal even after a successful mock binding.
+  assert.equal(
+    server.exchange({ ...fresh, clientNonce: "nonce-222" }).status,
+    "CONFLICT_LOCKED",
+  );
+  assert.equal(server.exchange(fresh).status, "CONFLICT_LOCKED");
   assert.equal(
     server.confirmLegacyBinding(
-      "request-111",
+      "request-333",
       "proof-from-verified-old-session",
       true,
     ).status,

@@ -73,24 +73,84 @@ function normalizeOrigin(value: string): string {
   return `https://${host}`;
 }
 
+/**
+ * Treat origin configuration as untrusted runtime data. A mutable array can
+ * override .map(), hide holes, or supply accessor elements. Snapshot only own
+ * data descriptors before granting a host permission to receive a bearer.
+ */
+function snapshotOrigins(value: unknown, required: boolean): string[] {
+  if (!Array.isArray(value))
+    throw new Error(
+      required ? "MISSING_TRUSTED_ORIGINS" : "INVALID_TRUSTED_ORIGIN",
+    );
+  if (Object.getPrototypeOf(value) !== Array.prototype)
+    throw new Error("INVALID_TRUSTED_ORIGIN");
+  const length = Object.getOwnPropertyDescriptor(value, "length");
+  if (!length || !("value" in length) || !Number.isSafeInteger(length.value))
+    throw new Error("INVALID_TRUSTED_ORIGIN");
+  const count: number = length.value;
+  if (required && count === 0) throw new Error("MISSING_TRUSTED_ORIGINS");
+  if (Reflect.ownKeys(value).length !== count + 1)
+    throw new Error("INVALID_TRUSTED_ORIGIN");
+  const origins: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(i));
+    if (!descriptor || !("value" in descriptor))
+      throw new Error("INVALID_TRUSTED_ORIGIN");
+    origins.push(normalizeOrigin(descriptor.value));
+  }
+  return origins;
+}
+
+function snapshotTrustedConfig(config: TrustedEndpointConfig): {
+  credentials: string[];
+  anonymous: string[];
+} {
+  if (!config || typeof config !== "object")
+    throw new Error("MISSING_TRUSTED_ORIGINS");
+  try {
+    const proto = Object.getPrototypeOf(config);
+    if (proto !== Object.prototype && proto !== null)
+      throw new Error("INVALID_TRUSTED_ORIGIN");
+    const descriptors = Object.getOwnPropertyDescriptors(config);
+    const keys = Reflect.ownKeys(config);
+    if (
+      keys.some(
+        (key) => key !== "credentialOrigins" && key !== "anonymousOrigins",
+      ) ||
+      !descriptors.credentialOrigins ||
+      !("value" in descriptors.credentialOrigins) ||
+      (descriptors.anonymousOrigins &&
+        !("value" in descriptors.anonymousOrigins))
+    )
+      throw new Error("INVALID_TRUSTED_ORIGIN");
+    return {
+      credentials: snapshotOrigins(descriptors.credentialOrigins.value, true),
+      anonymous:
+        descriptors.anonymousOrigins?.value === undefined
+          ? []
+          : snapshotOrigins(descriptors.anonymousOrigins.value, false),
+    };
+  } catch (error) {
+    // Revoked proxies and hostile reflection traps fail closed, without logging
+    // their contents or leaking a supplied origin/credential into an error.
+    if (
+      error instanceof Error &&
+      (error.message === "MISSING_TRUSTED_ORIGINS" ||
+        error.message === "INVALID_TRUSTED_ORIGIN")
+    )
+      throw error;
+    throw new Error("INVALID_TRUSTED_ORIGIN");
+  }
+}
+
 /** Hostnames are compared exactly; wildcard domains and http:// are forbidden. */
 export function createTrustedEndpointPolicy(
   config: TrustedEndpointConfig,
 ): TrustedEndpointPolicy {
-  if (
-    !config ||
-    !Array.isArray(config.credentialOrigins) ||
-    config.credentialOrigins.length === 0 ||
-    (config.anonymousOrigins !== undefined &&
-      !Array.isArray(config.anonymousOrigins))
-  ) {
-    throw new Error("MISSING_TRUSTED_ORIGINS");
-  }
-  const credentials = new Set(config.credentialOrigins.map(normalizeOrigin));
-  const anonymous = new Set([
-    ...credentials,
-    ...(config.anonymousOrigins ?? []).map(normalizeOrigin),
-  ]);
+  const snapshot = snapshotTrustedConfig(config);
+  const credentials = new Set(snapshot.credentials);
+  const anonymous = new Set([...credentials, ...snapshot.anonymous]);
   return {
     assert(url: string, carriesCredential: boolean): void {
       if (

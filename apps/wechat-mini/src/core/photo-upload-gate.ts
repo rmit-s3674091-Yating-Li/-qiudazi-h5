@@ -42,17 +42,52 @@ const mimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxBytes = 10 * 1024 * 1024;
 const maxAttempts = 256;
 
-function validActor(input: unknown): input is ActorScope {
-  if (!input || typeof input !== "object") return false;
+/**
+ * Untrusted runtime objects must supply exactly the declared own data fields.
+ * Never read a getter or an inherited consent/identity/media attribute.
+ */
+function ownDataSnapshot(
+  input: unknown,
+  fields: readonly string[],
+): Record<string, unknown> | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
   try {
-    const actor = input as Partial<ActorScope>;
-    return [actor.authUserId, actor.profileId, actor.epoch].every(
+    const prototype = Object.getPrototypeOf(input);
+    if (prototype !== Object.prototype && prototype !== null) return null;
+    const descriptors = Object.getOwnPropertyDescriptors(input);
+    const keys = Reflect.ownKeys(descriptors);
+    if (
+      keys.length !== fields.length ||
+      keys.some((key) => typeof key !== "string" || !fields.includes(key))
+    )
+      return null;
+    const snapshot: Record<string, unknown> = Object.create(null);
+    for (const field of fields) {
+      const descriptor = descriptors[field];
+      if (!descriptor?.enumerable || !("value" in descriptor)) return null;
+      snapshot[field] = descriptor.value;
+    }
+    return snapshot;
+  } catch {
+    return null;
+  }
+}
+
+function snapshotActor(input: unknown): ActorScope | null {
+  const actor = ownDataSnapshot(input, ["authUserId", "profileId", "epoch"]);
+  if (
+    !actor ||
+    ![actor.authUserId, actor.profileId, actor.epoch].every(
       (value) =>
         typeof value === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(value),
-    );
-  } catch {
-    return false;
-  }
+    )
+  )
+    return null;
+  return Object.freeze({
+    authUserId: actor.authUserId as string,
+    profileId: actor.profileId as string,
+    epoch: actor.epoch as string,
+  });
 }
 function sameActor(a: ActorScope, b: ActorScope): boolean {
   return (
@@ -70,49 +105,54 @@ function validPath(path: unknown): path is string {
     !path.split("/").some((segment) => segment === "." || segment === "..")
   );
 }
-function validSelection(value: unknown, path: string): value is PhotoSelection {
-  if (!value || typeof value !== "object") return false;
-  try {
-    const candidate = value as Partial<PhotoSelection>;
-    return (
-      candidate.localPath === path &&
-      mimeTypes.has(candidate.mimeType as string) &&
-      Number.isSafeInteger(candidate.bytes) &&
-      (candidate.bytes as number) > 0 &&
-      (candidate.bytes as number) <= maxBytes
-    );
-  } catch {
-    return false;
-  }
+function snapshotSelection(
+  value: unknown,
+  path: string,
+): PhotoSelection | null {
+  const candidate = ownDataSnapshot(value, ["localPath", "mimeType", "bytes"]);
+  if (
+    !candidate ||
+    candidate.localPath !== path ||
+    !mimeTypes.has(candidate.mimeType as string) ||
+    !Number.isSafeInteger(candidate.bytes) ||
+    (candidate.bytes as number) <= 0 ||
+    (candidate.bytes as number) > maxBytes
+  )
+    return null;
+  return Object.freeze({
+    localPath: candidate.localPath as string,
+    mimeType: candidate.mimeType as PhotoSelection["mimeType"],
+    bytes: candidate.bytes as number,
+  });
 }
 function parseInput(input: unknown): PhotoUploadInput | null {
-  if (!input || typeof input !== "object") return null;
-  try {
-    const v = input as Partial<PhotoUploadInput>;
-    if (
-      typeof v.operationId !== "string" ||
-      !operationPattern.test(v.operationId) ||
-      (v.purpose !== "event_source" && v.purpose !== "personal_copy") ||
-      typeof v.url !== "string" ||
-      !validPath(v.localPath) ||
-      !validActor(v.expectedActor)
-    )
-      return null;
-    return {
-      operationId: v.operationId,
-      purpose: v.purpose,
-      url: v.url,
-      localPath: v.localPath,
-      expectedActor: {
-        authUserId: v.expectedActor.authUserId,
-        profileId: v.expectedActor.profileId,
-        epoch: v.expectedActor.epoch,
-      },
-      userConfirmed: v.userConfirmed === true,
-    };
-  } catch {
+  const v = ownDataSnapshot(input, [
+    "operationId",
+    "purpose",
+    "url",
+    "localPath",
+    "expectedActor",
+    "userConfirmed",
+  ]);
+  if (
+    !v ||
+    typeof v.operationId !== "string" ||
+    !operationPattern.test(v.operationId) ||
+    (v.purpose !== "event_source" && v.purpose !== "personal_copy") ||
+    typeof v.url !== "string" ||
+    !validPath(v.localPath)
+  )
     return null;
-  }
+  const actor = snapshotActor(v.expectedActor);
+  if (!actor) return null;
+  return Object.freeze({
+    operationId: v.operationId,
+    purpose: v.purpose,
+    url: v.url,
+    localPath: v.localPath,
+    expectedActor: actor,
+    userConfirmed: v.userConfirmed === true,
+  });
 }
 
 /**
@@ -153,12 +193,7 @@ export class PhotoUploadGate {
   private async actor(): Promise<ActorScope | null> {
     try {
       const actor = await this.session.getVerifiedActor();
-      if (!validActor(actor)) return null;
-      return {
-        authUserId: actor.authUserId,
-        profileId: actor.profileId,
-        epoch: actor.epoch,
-      };
+      return snapshotActor(actor);
     } catch {
       return null;
     }
@@ -191,8 +226,8 @@ export class PhotoUploadGate {
       } catch {
         return { status: "INVALID_SELECTION" };
       }
-      if (!validSelection(inspected, input.localPath))
-        return { status: "INVALID_SELECTION" };
+      const selection = snapshotSelection(inspected, input.localPath);
+      if (!selection) return { status: "INVALID_SELECTION" };
       const afterInspect = await this.actor();
       if (!afterInspect || !sameActor(before, afterInspect))
         return { status: "STALE_ACTOR" };
@@ -223,7 +258,7 @@ export class PhotoUploadGate {
               localPath: input.localPath,
               fieldName: "file",
               jwt,
-              contentType: inspected.mimeType,
+              contentType: selection.mimeType,
             }),
           true,
         );

@@ -28,6 +28,14 @@ const error = (
   reason: "UPSTREAM_FAILURE" | "INVALID_RESPONSE" | "INVALID_INPUT",
 ): VenueSearchOutcome => ({ status: "SERVICE_ERROR", reason, candidates: [] });
 
+/** Read a single own data descriptor; never invoke getters or accept inherited DTO fields. */
+function ownData(value: object, key: string): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  if (!descriptor || !("value" in descriptor))
+    throw new Error("INVALID_RESPONSE");
+  return descriptor.value;
+}
+
 /**
  * A future real POI adapter must pass only a successful upstream payload here.
  * Transport failures are caught and classified separately; do not turn them
@@ -55,29 +63,39 @@ export async function classifyVenueSearch(
   } catch {
     return error("UPSTREAM_FAILURE");
   }
-  // A hostile adapter response can contain throwing getters or proxies.
-  // Normalize into plain DTOs inside this guard; never leak such exceptions to UI.
+  // Snapshot own data descriptors exactly once: a getter may return a valid
+  // field during validation and a different field during copying. Sparse arrays
+  // and inherited candidates are not legitimate successful POI responses.
   try {
-    if (!Array.isArray(payload) || payload.length > 50)
+    if (!Array.isArray(payload)) return error("INVALID_RESPONSE");
+    const length = ownData(payload, "length");
+    if (!Number.isSafeInteger(length) || (length as number) > 50)
       return error("INVALID_RESPONSE");
-    if (payload.length === 0) return { status: "NO_RESULTS", candidates: [] };
+    if (length === 0) return { status: "NO_RESULTS", candidates: [] };
 
     const candidates: VenueCandidate[] = [];
-    for (const item of payload) {
+    const ids = new Set<string>();
+    for (let index = 0; index < (length as number); index++) {
+      const item = ownData(payload, String(index));
+      if (item === null || typeof item !== "object" || Array.isArray(item))
+        return error("INVALID_RESPONSE");
+      const id = ownData(item, "id");
+      const name = ownData(item, "name");
+      const address = ownData(item, "address");
       if (
-        item === null ||
-        typeof item !== "object" ||
-        typeof item.id !== "string" ||
-        typeof item.name !== "string" ||
-        typeof item.address !== "string" ||
-        !item.id.trim() ||
-        !item.name.trim() ||
-        item.id.length > 160 ||
-        item.name.length > 160 ||
-        item.address.length > 400
+        typeof id !== "string" ||
+        typeof name !== "string" ||
+        typeof address !== "string" ||
+        !id.trim() ||
+        !name.trim() ||
+        id.length > 160 ||
+        name.length > 160 ||
+        address.length > 400 ||
+        ids.has(id)
       )
         return error("INVALID_RESPONSE");
-      candidates.push({ id: item.id, name: item.name, address: item.address });
+      ids.add(id);
+      candidates.push({ id, name, address });
     }
     return {
       status: "RESULTS",

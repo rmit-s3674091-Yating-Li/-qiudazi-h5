@@ -76,7 +76,88 @@ function checkBrowserOnlyImports(source, relativePath) {
       );
     }
   };
+  // AST identifiers are decoded by TypeScript; comments and defensive URL
+  // denylist string literals must not be mistaken for secret-bearing symbols.
+  // This is a naming boundary, NOT a secret scanner or runtime attestation.
+  const secretIdentifier = (name) => {
+    const normalized = name
+      .replace(/([A-Z])([A-Z][a-z])/g, "$1_$2")
+      .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+      .toLowerCase();
+    return /(?:^|_)(?:service_?role|app_?secret|session_?key)(?:_|$)/.test(
+      normalized,
+    );
+  };
+  // A text scan of `window.` / `document.` misses computed property access,
+  // globalThis.window and bare DOM globals. Inspect executable AST nodes.
+  // This is a compatibility guard, not a sandbox or full data-flow analysis.
+  const browserGlobals = new Set(["window", "document", "localStorage"]);
+  const literalText = (expression) => {
+    let current = expression;
+    while (current && ts.isParenthesizedExpression(current))
+      current = current.expression;
+    return current && ts.isStringLiteralLike(current) ? current.text : null;
+  };
+  const isBrowserGlobal = (node) => {
+    if (
+      ts.isPropertyAccessExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "globalThis" &&
+      browserGlobals.has(node.name.text)
+    )
+      return true;
+    if (
+      ts.isElementAccessExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "globalThis"
+    ) {
+      const key = literalText(node.argumentExpression);
+      // Unknown computed keys may resolve to browser-only globals at runtime.
+      if (key === null || browserGlobals.has(key)) return true;
+    }
+    if (
+      !ts.isIdentifier(node) ||
+      (node.text !== "window" && node.text !== "document")
+    )
+      return false;
+    const parent = node.parent;
+    // A DTO property called "window" is not the browser global.
+    if (
+      (ts.isPropertyAccessExpression(parent) && parent.name === node) ||
+      (ts.isPropertyAssignment(parent) && parent.name === node) ||
+      (ts.isPropertySignature(parent) && parent.name === node) ||
+      (ts.isMethodDeclaration(parent) && parent.name === node) ||
+      (ts.isBindingElement(parent) && parent.propertyName === node)
+    )
+      return false;
+    return true;
+  };
+  // Capturing globalThis as a value bypasses direct property checks via aliases,
+  // destructuring and Reflect.get. Only direct statically checked access is allowed.
+  // This is a compatibility guard, not a JavaScript sandbox.
+  const isUnboundedGlobalObject = (node) => {
+    if (!ts.isIdentifier(node) || node.text !== "globalThis") return false;
+    const parent = node.parent;
+    if (
+      (ts.isPropertyAccessExpression(parent) && parent.expression === node) ||
+      (ts.isElementAccessExpression(parent) && parent.expression === node) ||
+      (ts.isPropertyAssignment(parent) && parent.name === node) ||
+      (ts.isPropertySignature(parent) && parent.name === node) ||
+      (ts.isBindingElement(parent) && parent.propertyName === node)
+    )
+      return false;
+    return true;
+  };
   const visit = (node) => {
+    if (ts.isIdentifier(node) && secretIdentifier(node.text)) {
+      throw new Error(`Mini secret identifier forbidden: ${relativePath}`);
+    }
+    if (isUnboundedGlobalObject(node)) {
+      throw new Error(`Mini globalThis alias forbidden: ${relativePath}`);
+    }
+    if (isBrowserGlobal(node)) {
+      throw new Error(`Mini browser global forbidden: ${relativePath}`);
+    }
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
       if (node.moduleSpecifier) checkSpecifier(node.moduleSpecifier);
     } else if (

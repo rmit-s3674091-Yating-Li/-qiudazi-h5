@@ -43,10 +43,20 @@ export class OfflineShareFlow {
   capture(intent: NavigationIntent): PendingStatus {
     // A sequential request ID is safe only because this harness has no network.
     const requestId = `mock-request-${String(++this.sequence).padStart(8, "0")}`;
-    const status = this.gate.capture(intent, requestId);
+    let status: PendingStatus;
+    try {
+      status = this.gate.capture(intent, requestId);
+    } catch {
+      // A malformed new launch must never leave an earlier invite resumable.
+      this.invalidate();
+      return "INVALID_INTENT";
+    }
     if (status === "READY") {
       this.requestId = requestId;
       this.boundActor = null;
+    } else if (status === "INVALID_INTENT") {
+      // A rejected new launch supersedes stale pending navigation state.
+      this.invalidate();
     }
     return status;
   }

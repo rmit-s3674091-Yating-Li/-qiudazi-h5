@@ -29,31 +29,82 @@ function query(fields: Record<string, string>): string {
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
     .join("&");
 }
+/**
+ * Sharing is a wire boundary: accept only the exact six intent shapes.
+ * Reading a caller object repeatedly can execute getters or accept inherited
+ * identity/credential fields. Reflect once and encode a fresh data snapshot.
+ * This is a local syntax guard, never an invitation or authorization check.
+ */
+const intentFields: Record<NavigationIntent["kind"], readonly string[]> = {
+  event_view: ["kind", "eventId"],
+  private_preview: ["kind", "eventId"],
+  connection_invite: ["kind", "inviteRef"],
+  player_claim: ["kind", "inviteRef"],
+  event_invite: ["kind", "inviteKind", "inviteRef"],
+  score_match: ["kind", "eventId", "matchId"],
+};
+
+function snapshotIntent(value: unknown): NavigationIntent {
+  if (!value || typeof value !== "object")
+    throw new Error("INVALID_INTENT_SHAPE");
+  try {
+    if (Array.isArray(value)) throw new Error("INVALID_INTENT_SHAPE");
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null)
+      throw new Error("INVALID_INTENT_SHAPE");
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const kind = descriptors.kind;
+    if (
+      !kind ||
+      !kind.enumerable ||
+      !("value" in kind) ||
+      typeof kind.value !== "string" ||
+      !routes.has(kind.value)
+    )
+      throw new Error("INVALID_INTENT_SHAPE");
+    const expected = intentFields[kind.value as NavigationIntent["kind"]];
+    const keys = Reflect.ownKeys(descriptors);
+    if (
+      keys.length !== expected.length ||
+      keys.some((key) => typeof key !== "string" || !expected.includes(key))
+    )
+      throw new Error("INVALID_INTENT_SHAPE");
+    const snapshot: Record<string, unknown> = Object.create(null);
+    for (const key of expected) {
+      const descriptor = descriptors[key];
+      if (!descriptor || !descriptor.enumerable || !("value" in descriptor))
+        throw new Error("INVALID_INTENT_SHAPE");
+      snapshot[key] = descriptor.value;
+    }
+    return Object.freeze(snapshot) as NavigationIntent;
+  } catch {
+    // Do not expose potentially sensitive input or Proxy exception messages.
+    throw new Error("INVALID_INTENT_SHAPE");
+  }
+}
+
 export function encodeMiniPath(intent: NavigationIntent): string {
-  switch (intent.kind) {
+  const safe = snapshotIntent(intent);
+  switch (safe.kind) {
     case "event_view":
     case "private_preview":
-      if (!valid(intent.eventId, idPattern))
-        throw new Error("INVALID_EVENT_ID");
-      return `/pages/index/index?${query({ kind: intent.kind, eventId: intent.eventId })}`;
+      if (!valid(safe.eventId, idPattern)) throw new Error("INVALID_EVENT_ID");
+      return `/pages/index/index?${query({ kind: safe.kind, eventId: safe.eventId })}`;
     case "connection_invite":
     case "player_claim":
-      if (!valid(intent.inviteRef, refPattern))
+      if (!valid(safe.inviteRef, refPattern))
         throw new Error("INVALID_INVITE_REF");
-      return `/pages/index/index?${query({ kind: intent.kind, ref: intent.inviteRef })}`;
+      return `/pages/index/index?${query({ kind: safe.kind, ref: safe.inviteRef })}`;
     case "event_invite":
-      if (intent.inviteKind !== "standard" && intent.inviteKind !== "doubles")
+      if (safe.inviteKind !== "standard" && safe.inviteKind !== "doubles")
         throw new Error("INVALID_INVITE_KIND");
-      if (!valid(intent.inviteRef, refPattern))
+      if (!valid(safe.inviteRef, refPattern))
         throw new Error("INVALID_INVITE_REF");
-      return `/pages/index/index?${query({ kind: intent.kind, inviteKind: intent.inviteKind, ref: intent.inviteRef })}`;
+      return `/pages/index/index?${query({ kind: safe.kind, inviteKind: safe.inviteKind, ref: safe.inviteRef })}`;
     case "score_match":
-      if (
-        !valid(intent.eventId, idPattern) ||
-        !valid(intent.matchId, idPattern)
-      )
+      if (!valid(safe.eventId, idPattern) || !valid(safe.matchId, idPattern))
         throw new Error("INVALID_MATCH");
-      return `/pages/index/index?${query({ kind: intent.kind, eventId: intent.eventId, matchId: intent.matchId })}`;
+      return `/pages/index/index?${query({ kind: safe.kind, eventId: safe.eventId, matchId: safe.matchId })}`;
     default:
       throw new Error("INVALID_INTENT_KIND");
   }

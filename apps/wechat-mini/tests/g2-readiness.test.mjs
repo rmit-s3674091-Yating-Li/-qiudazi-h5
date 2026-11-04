@@ -26,7 +26,7 @@ test("mock identity success cannot substitute for a Supabase session", () => {
   assert.ok(report.missing.includes("foreignRlsDenied"));
 });
 
-test("all independent identity, authorization, media and runtime probes are required", () => {
+test("all G2 checklist flags are required without Auth attestation", () => {
   const evidence = Object.fromEntries(
     G2_EVIDENCE_KEYS.map((key) => [key, true]),
   );
@@ -34,7 +34,8 @@ test("all independent identity, authorization, media and runtime probes are requ
   assert.deepEqual(report, {
     status: "G2_READY_FOR_TEST",
     missing: [],
-    sessionBridge: "SESSION_VERIFIED",
+    sessionBridge: "SESSION_BRIDGE_UNPROVEN",
+    evidenceLevel: "OFFLINE_DECLARATION_ONLY",
   });
 
   for (const key of G2_EVIDENCE_KEYS) {

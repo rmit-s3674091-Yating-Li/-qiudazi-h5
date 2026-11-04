@@ -33,7 +33,13 @@ const begin = (bridge, now = 1000) => {
 
 test("route includes only correlation label, not venue, actor or city", () => {
   const b = new OfflineVenueNavigationBridge();
-  const r = b.issue({ ...context(), authUserId: "sensitive-user" }, 1000);
+  const rejected = b.issue(
+    { ...context(), authUserId: "sensitive-user" },
+    1000,
+  );
+  assert.deepEqual(rejected, { status: "blocked", reason: "INVALID_CONTEXT" });
+
+  const r = b.issue(context(), 1001);
   assert.match(
     r.url,
     /^\/pages\/venue-route-poc\/index\?handoff=nav-[1-9][0-9]*$/,

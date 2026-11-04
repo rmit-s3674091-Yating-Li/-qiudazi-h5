@@ -52,29 +52,50 @@ const forbiddenFields = new Set([
 ]);
 const MAX_JSON_LENGTH = 16_384;
 
-function validActor(value: unknown): value is ActorScope {
-  if (!value || typeof value !== "object") return false;
+const actorFields = ["authUserId", "profileId", "epoch"] as const;
+
+/** Snapshot exactly the three own data fields; never execute actor getters. */
+function snapshotActor(value: unknown): ActorScope | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   try {
-    const actor = value as Partial<ActorScope>;
-    return [actor.authUserId, actor.profileId, actor.epoch].every(
-      (field) =>
-        typeof field === "string" &&
-        field.length > 0 &&
-        field.length <= 256 &&
-        field.trim() === field,
-    );
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) return null;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const keys = Reflect.ownKeys(descriptors);
+    if (
+      keys.length !== actorFields.length ||
+      keys.some(
+        (key) =>
+          typeof key !== "string" ||
+          !actorFields.includes(key as (typeof actorFields)[number]),
+      )
+    )
+      return null;
+    const fields: Record<string, string> = Object.create(null);
+    for (const key of actorFields) {
+      const descriptor = descriptors[key];
+      const field = descriptor?.value;
+      if (
+        !descriptor?.enumerable ||
+        !Object.prototype.hasOwnProperty.call(descriptor, "value") ||
+        typeof field !== "string" ||
+        field.length === 0 ||
+        field.length > 256 ||
+        field.trim() !== field
+      )
+        return null;
+      fields[key] = field;
+    }
+    return Object.freeze({
+      authUserId: fields.authUserId,
+      profileId: fields.profileId,
+      epoch: fields.epoch,
+    });
   } catch {
-    return false;
+    return null;
   }
 }
 
-function copyActor(actor: ActorScope): ActorScope {
-  return {
-    authUserId: actor.authUserId,
-    profileId: actor.profileId,
-    epoch: actor.epoch,
-  };
-}
 function sameActor(a: ActorScope, b: ActorScope): boolean {
   return (
     a.authUserId === b.authUserId &&
@@ -106,6 +127,7 @@ function safeJson(value: unknown): string | null {
       throw new Error("INVALID_CACHE_VALUE");
     const descriptors = Object.getOwnPropertyDescriptors(input);
     const result: unknown = Array.isArray(input) ? [] : Object.create(null);
+    let arrayElements = 0;
     for (const key of Reflect.ownKeys(descriptors)) {
       if (
         typeof key !== "string" ||
@@ -122,6 +144,7 @@ function safeJson(value: unknown): string | null {
       if (Array.isArray(input)) {
         if (!/^(0|[1-9][0-9]*)$/.test(key))
           throw new Error("INVALID_CACHE_VALUE");
+        arrayElements++;
         (result as unknown[])[Number(key)] = visit(descriptor.value, depth + 1);
       } else {
         (result as Record<string, unknown>)[key] = visit(
@@ -130,7 +153,11 @@ function safeJson(value: unknown): string | null {
         );
       }
     }
-    if (Array.isArray(input) && (result as unknown[]).length !== input.length)
+    if (
+      Array.isArray(input) &&
+      (arrayElements !== input.length ||
+        (result as unknown[]).length !== input.length)
+    )
       throw new Error("INVALID_CACHE_VALUE");
     visited.delete(input);
     return result;
@@ -178,7 +205,7 @@ export class ActorScopedCache {
   private async actor(): Promise<ActorScope | null> {
     try {
       const value = await this.session.getVerifiedActor();
-      return validActor(value) ? copyActor(value) : null;
+      return snapshotActor(value);
     } catch {
       return null;
     }
@@ -243,10 +270,11 @@ export class ActorScopedCache {
     } catch {
       return { status: "INVALID_CACHE" };
     }
+    const cachedActor = snapshotActor(envelope?.actor);
     if (
       !envelope ||
       envelope.version !== 1 ||
-      !validActor(envelope.actor) ||
+      !cachedActor ||
       !Number.isSafeInteger(envelope.createdAt) ||
       !Number.isSafeInteger(envelope.expiresAt) ||
       envelope.createdAt < 0 ||
@@ -254,7 +282,7 @@ export class ActorScopedCache {
       envelope.expiresAt - envelope.createdAt > this.ttlMs
     )
       return { status: "INVALID_CACHE" };
-    if (!sameActor(before, envelope.actor)) return { status: "STALE_ACTOR" };
+    if (!sameActor(before, cachedActor)) return { status: "STALE_ACTOR" };
     let time: number;
     try {
       time = this.now();

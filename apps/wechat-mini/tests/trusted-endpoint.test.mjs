@@ -156,6 +156,6 @@ test("both Taro request and upload are guarded before calling platform primitive
   );
   assert.match(
     src,
-    /return \{ status: response\.statusCode, rawBody: response\.data \};?\s*\},\s*true,?\s*\)/,
+    /return parseTaroUploadResponse\(response\);?\s*\},\s*true,?\s*\)/,
   );
 });

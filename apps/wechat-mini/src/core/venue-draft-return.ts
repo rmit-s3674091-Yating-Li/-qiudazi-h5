@@ -50,12 +50,44 @@ const token = (value: unknown): value is string =>
 const validClock = (value: unknown): value is number =>
   typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 
+/**
+ * Snapshot only own enumerable data properties. Never invoke accessors or
+ * inherit fields from a prototype; router/bridge objects are untrusted.
+ * Extra preview metadata remains ignored for existing offline callers.
+ */
+function ownSnapshot(
+  value: unknown,
+  required: readonly string[],
+  exact: boolean,
+): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const proto = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null) return null;
+  const keys = Reflect.ownKeys(value);
+  if (keys.some((key) => typeof key !== "string")) return null;
+  if (exact && keys.length !== required.length) return null;
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  if (exact && keys.some((key) => !required.includes(key as string)))
+    return null;
+  const snapshot: Record<string, unknown> = Object.create(null);
+  for (const key of required) {
+    const descriptor = descriptors[key];
+    if (!descriptor || !descriptor.enumerable || !("value" in descriptor))
+      return null;
+    snapshot[key] = descriptor.value;
+  }
+  return snapshot;
+}
+
 function contextOf(value: unknown): OfflineFormContext | null {
   try {
-    if (!value || typeof value !== "object" || Array.isArray(value))
-      return null;
-    const c = value as Record<string, unknown>;
+    const c = ownSnapshot(
+      value,
+      ["formKey", "revision", "screenEpoch", "city"],
+      true,
+    );
     if (
+      !c ||
       !token(c.formKey) ||
       !token(c.screenEpoch) ||
       !Number.isSafeInteger(c.revision) ||
@@ -131,23 +163,31 @@ export class OfflineVenueReturnGate {
     if (nowMs - issued.issuedAtMs > TTL_MS)
       return { status: "blocked", reason: "EXPIRED" };
     try {
+      const p = ownSnapshot(
+        rawPreview,
+        ["status", "verification", "canPersist", "preview"],
+        false,
+      );
       if (
-        !rawPreview ||
-        typeof rawPreview !== "object" ||
-        Array.isArray(rawPreview)
-      )
-        return { status: "blocked", reason: "INVALID_PREVIEW" };
-      const p = rawPreview as Record<string, unknown>;
-      if (
+        !p ||
         p.status !== "ready_mock_only" ||
         p.verification !== "OFFLINE_MOCK_ONLY" ||
         p.canPersist !== false
       )
         return { status: "blocked", reason: "INVALID_PREVIEW" };
-      const value = p.preview;
-      if (!value || typeof value !== "object" || Array.isArray(value))
-        return { status: "blocked", reason: "INVALID_PREVIEW" };
-      const v = value as Record<string, unknown>;
+      const v = ownSnapshot(
+        p.preview,
+        [
+          "city",
+          "venueName",
+          "venueAddress",
+          "venueSource",
+          "specificCourt",
+          "status",
+        ],
+        false,
+      );
+      if (!v) return { status: "blocked", reason: "INVALID_PREVIEW" };
       if (v.city !== current.city)
         return { status: "blocked", reason: "CITY_MISMATCH" };
       if (v.specificCourt !== null && typeof v.specificCourt !== "string")

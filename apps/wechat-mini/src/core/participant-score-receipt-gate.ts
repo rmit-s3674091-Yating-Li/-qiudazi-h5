@@ -28,21 +28,71 @@ const idPattern = /^[A-Za-z0-9_-]{3,128}$/;
 const operationPattern = /^[A-Za-z0-9_-]{8,128}$/;
 const maxDispatched = 256;
 
-function validActor(value: unknown): value is ActorScope {
-  if (!value || typeof value !== "object") return false;
+/**
+ * Snapshot a fixed wire contract without invoking getters or reading inherited
+ * fields. Reject unexpected keys (including symbols/non-enumerable fields),
+ * malformed descriptors and reflection errors. This is an offline input gate,
+ * not a proof that an arbitrary JavaScript Proxy is a trusted identity.
+ */
+function ownDataSnapshot(
+  value: unknown,
+  expectedKeys: readonly string[],
+): Readonly<Record<string, unknown>> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   try {
-    const actor = value as Partial<ActorScope>;
-    return [actor.authUserId, actor.profileId, actor.epoch].every(
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) return null;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const keys = Reflect.ownKeys(descriptors);
+    if (
+      keys.length !== expectedKeys.length ||
+      keys.some((key) => typeof key !== "string" || !expectedKeys.includes(key))
+    )
+      return null;
+    const snapshot: Record<string, unknown> = Object.create(null);
+    for (const key of expectedKeys) {
+      const descriptor = descriptors[key];
+      if (!descriptor || !descriptor.enumerable || !("value" in descriptor))
+        return null;
+      snapshot[key] = descriptor.value;
+    }
+    return Object.freeze(snapshot);
+  } catch {
+    return null;
+  }
+}
+
+const actorKeys = ["authUserId", "profileId", "epoch"] as const;
+const submissionKeys = ["expectedActor", "request"] as const;
+const requestKeys = [
+  "eventId",
+  "matchId",
+  "operationId",
+  "side",
+  "expectedEventVersion",
+  "expectedMatchVersion",
+] as const;
+
+function snapshotActor(value: unknown): ActorScope | null {
+  const data = ownDataSnapshot(value, actorKeys);
+  if (!data) return null;
+  const { authUserId, profileId, epoch } = data;
+  if (
+    ![authUserId, profileId, epoch].every(
       (field) =>
         typeof field === "string" &&
         field.length > 0 &&
         field.length <= 256 &&
         field.trim() === field &&
         !/[\u0000-\u001f\u007f]/.test(field),
-    );
-  } catch {
-    return false;
-  }
+    )
+  )
+    return null;
+  return Object.freeze({
+    authUserId: authUserId as string,
+    profileId: profileId as string,
+    epoch: epoch as string,
+  });
 }
 function sameActor(a: ActorScope, b: ActorScope): boolean {
   return (
@@ -52,55 +102,46 @@ function sameActor(a: ActorScope, b: ActorScope): boolean {
   );
 }
 function parseSubmission(value: unknown): MockScoreSubmission | null {
-  if (!value || typeof value !== "object") return null;
-  try {
-    const candidate = value as Partial<MockScoreSubmission>;
-    const actor = candidate.expectedActor;
-    const request = candidate.request;
-    if (!validActor(actor) || !request || typeof request !== "object")
-      return null;
-    const {
+  const data = ownDataSnapshot(value, submissionKeys);
+  if (!data) return null;
+  const expectedActor = snapshotActor(data.expectedActor);
+  const request = ownDataSnapshot(data.request, requestKeys);
+  if (!expectedActor || !request) return null;
+  const {
+    eventId,
+    matchId,
+    operationId,
+    side,
+    expectedEventVersion,
+    expectedMatchVersion,
+  } = request;
+  if (
+    typeof eventId !== "string" ||
+    !idPattern.test(eventId) ||
+    typeof matchId !== "string" ||
+    !idPattern.test(matchId) ||
+    typeof operationId !== "string" ||
+    !operationPattern.test(operationId) ||
+    (side !== "A" && side !== "B") ||
+    !Number.isSafeInteger(expectedEventVersion) ||
+    (expectedEventVersion as number) < 0 ||
+    (expectedEventVersion as number) >= Number.MAX_SAFE_INTEGER ||
+    !Number.isSafeInteger(expectedMatchVersion) ||
+    (expectedMatchVersion as number) < 0 ||
+    (expectedMatchVersion as number) >= Number.MAX_SAFE_INTEGER
+  )
+    return null;
+  return Object.freeze({
+    expectedActor,
+    request: Object.freeze({
       eventId,
       matchId,
       operationId,
       side,
       expectedEventVersion,
       expectedMatchVersion,
-    } = request;
-    if (
-      typeof eventId !== "string" ||
-      !idPattern.test(eventId) ||
-      typeof matchId !== "string" ||
-      !idPattern.test(matchId) ||
-      typeof operationId !== "string" ||
-      !operationPattern.test(operationId) ||
-      (side !== "A" && side !== "B") ||
-      !Number.isSafeInteger(expectedEventVersion) ||
-      expectedEventVersion < 0 ||
-      expectedEventVersion >= Number.MAX_SAFE_INTEGER ||
-      !Number.isSafeInteger(expectedMatchVersion) ||
-      expectedMatchVersion < 0 ||
-      expectedMatchVersion >= Number.MAX_SAFE_INTEGER
-    )
-      return null;
-    return {
-      expectedActor: Object.freeze({
-        authUserId: actor.authUserId,
-        profileId: actor.profileId,
-        epoch: actor.epoch,
-      }),
-      request: Object.freeze({
-        eventId,
-        matchId,
-        operationId,
-        side,
-        expectedEventVersion,
-        expectedMatchVersion,
-      }),
-    };
-  } catch {
-    return null;
-  }
+    }) as ParticipantScoreRequest,
+  });
 }
 
 /**
@@ -151,19 +192,17 @@ export class OfflineParticipantScoreReceiptGate {
       if (!isCurrent()) return "STALE_ACTOR";
       const before = await this.session.getVerifiedActor();
       if (!isCurrent()) return "STALE_ACTOR";
-      if (!validActor(before)) return "UNVERIFIED";
-      if (!sameActor(before, expectedActor)) return "STALE_ACTOR";
+      const beforeActor = snapshotActor(before);
+      if (!beforeActor) return "UNVERIFIED";
+      if (!sameActor(beforeActor, expectedActor)) return "STALE_ACTOR";
 
       didDispatch = true;
       this.dispatched.add(operationId);
       const response = await sendMock(request);
       if (!isCurrent()) return "STALE_ACTOR";
       const after = await this.session.getVerifiedActor();
-      if (
-        !isCurrent() ||
-        !validActor(after) ||
-        !sameActor(after, expectedActor)
-      )
+      const afterActor = snapshotActor(after);
+      if (!isCurrent() || !afterActor || !sameActor(afterActor, expectedActor))
         return "STALE_ACTOR";
       try {
         if (!response || response.status !== 200) return "OUTCOME_UNKNOWN";

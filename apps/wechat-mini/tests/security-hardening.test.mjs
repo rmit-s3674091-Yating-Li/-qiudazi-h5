@@ -32,7 +32,7 @@ test("strict parser rejects appended query smuggling, fragments and unknown keys
   );
   assert.throws(
     () => encodeMiniPath({ kind: "admin", role: "super_admin" }),
-    /INVALID_INTENT_KIND/,
+    /INVALID_INTENT_SHAPE/,
   );
 });
 
