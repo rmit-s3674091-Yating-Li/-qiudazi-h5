@@ -185,6 +185,8 @@ export function VenueMapPicker({
         : null,
     ),
     [place, setPlace] = useState<PickedPlace | null>(null),
+    [manualName, setManualName] = useState(initialVenueName || ""),
+    [manualAddress, setManualAddress] = useState(initialAddress || ""),
     [resolving, setResolving] = useState(false),
     [cityFallback, setCityFallback] = useState(false),
     [error, setError] = useState("");
@@ -249,6 +251,8 @@ export function VenueMapPicker({
     setSearchOpen(false);
     setResults([]);
     setQuery(result.name);
+    setManualName(result.name);
+    setManualAddress(result.address);
     mapRef.current?.setView([next.lat, next.lng], zoom);
   }
   async function searchPlaces(termInput = query) {
@@ -263,7 +267,17 @@ export function VenueMapPicker({
     setSearchOpen(true);
     setSearching(true);
     try {
-      const bounds = !useBaiduSearch ? await englishCityBounds() : null;
+      // City-boundary lookup is optional: it must not prevent a direct POI search.
+      // Without verified bounds, results are unbounded and require user verification.
+      let bounds: VenueCityBounds | null = null;
+      let cityBoundsUnavailable = false;
+      if (!useBaiduSearch) {
+        try {
+          bounds = await englishCityBounds();
+        } catch {
+          cityBoundsUnavailable = true;
+        }
+      }
       if (seq !== searchSeq.current) return;
       let partialUpstream = false;
       const baidu = !useBaiduSearch
@@ -311,7 +325,7 @@ export function VenueMapPicker({
       if (cancelled) return;
       const found = rankPlaces(mergePlaces(groups), term).slice(0, 12);
       setResults(found);
-      const incomplete = hadFailure || partialUpstream;
+      const incomplete = hadFailure || partialUpstream || cityBoundsUnavailable;
       setSearchCompleted(!incomplete || found.length > 0);
       if (incomplete)
         setError(
@@ -548,7 +562,7 @@ export function VenueMapPicker({
             : en
               ? "Search by venue name or address; you can also drag the map directly."
               : "可按场馆名称或地址搜索，也可以直接拖动地图。"),
-    canConfirm = !!position && !cityFallback && !resolving && !searchOpen,
+    canConfirm = !!position && !cityFallback && !searchOpen,
     noResultsCopy = en
       ? "No matching places found. Try a shorter venue name."
       : "没有找到匹配地点。可尝试简短名称，或拖动地图手动选点。";
@@ -689,6 +703,17 @@ export function VenueMapPicker({
               </div>
             </div>
           )}
+          {searchOpen && !searching && (
+            <button type="button" className="secondary full" onClick={() => setSearchOpen(false)}>
+              {en ? "Use manual details / map pin" : "使用手填信息 / 地图选点"}
+            </button>
+          )}
+          <div className="venue-picker-manual-fields">
+            <label htmlFor="venue-picker-manual-name">{en ? "Venue name" : "场馆名称"}</label>
+            <input id="venue-picker-manual-name" value={manualName} onChange={(e) => setManualName(e.target.value)} placeholder={en ? "Enter venue name" : "手动输入场馆名称"} />
+            <label htmlFor="venue-picker-manual-address">{en ? "Address" : "地址"}</label>
+            <input id="venue-picker-manual-address" value={manualAddress} onChange={(e) => setManualAddress(e.target.value)} placeholder={en ? "Enter address" : "手动输入地址"} />
+          </div>
           {error && <p className="error-text">{error}</p>}
           <button
             type="button"
@@ -697,7 +722,12 @@ export function VenueMapPicker({
             onClick={() =>
               position &&
               canConfirm &&
-              onConfirm(position.lat, position.lng, place)
+              onConfirm(position.lat, position.lng, {
+                name: manualName.trim() || place?.name || initialVenueName || "",
+                address: manualAddress.trim() || place?.address || initialAddress || "",
+                provider: "manual_pin",
+                placeId: null,
+              })
             }
           >
             {en ? "Confirm venue" : "确认场馆"}
