@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useRouter } from "@tarojs/taro";
+import Taro, { useRouter } from "@tarojs/taro";
 import { View, Text, Button, Map } from "@tarojs/components";
 import { initialScore } from "../../shared-domain/ScoringEngine.ts";
 import type { Rules } from "../../shared-domain/types.ts";
@@ -144,6 +144,21 @@ export default function Index() {
             ；真实服务端权限、有效期及接收人均未验证。
           </View>
         )}
+      </View>
+      <View className="card">
+        <View className="title">M1 微信运行时诊断</View>
+        <Text>检查运行时、Storage 与页面返回；仅本机执行，不联网、不登录。</Text>
+        <Button
+          onClick={() => {
+            void Taro.navigateTo({ url: "/pages/runtime-probe/index" }).catch(
+              () => {
+                Taro.showToast({ title: "诊断页打开失败", icon: "none" });
+              },
+            );
+          }}
+        >
+          打开运行时诊断
+        </Button>
       </View>
       <View className="card">
         <Text>地图仅展示固定模拟位置；未启用定位、POI 搜索、网络请求。</Text>
