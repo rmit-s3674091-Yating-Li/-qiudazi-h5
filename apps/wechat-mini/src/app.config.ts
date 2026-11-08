@@ -5,6 +5,8 @@ export default defineAppConfig({
     "pages/event-create-poc/index",
     "pages/event-route-poc/index",
     "pages/venue-route-poc/index",
+    "pages/runtime-probe/index",
+    "pages/runtime-probe-target/index",
   ],
   window: {
     navigationBarTitleText: "球搭子 · 离线 PoC",
