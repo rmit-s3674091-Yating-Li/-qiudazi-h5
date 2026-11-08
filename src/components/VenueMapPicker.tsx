@@ -383,8 +383,12 @@ export function VenueMapPicker({
           } catch {}
         }
         if (seq !== lookupSeq.current) return;
-        if (found) setPlace(reverseLocationHint(found));
-        else setPlace((current) => current);
+        if (found)
+          setPlace((current) => ({
+            ...reverseLocationHint(found),
+            name: current?.name || initialVenueName || "",
+            address: current?.address || initialAddress || found.address,
+          }));
       })().finally(() => {
         if (seq === lookupSeq.current) setResolving(false);
       });
@@ -417,7 +421,13 @@ export function VenueMapPicker({
             next = { lat: c.lat, lng: c.lng };
           setPosition(next);
           setCityFallback(false);
-          setPlace(null);
+          // A moved pin invalidates POI identity, not user-entered venue details.
+          setPlace((current) => ({
+            name: current?.name || initialVenueName || "",
+            address: current?.address || initialAddress || "",
+            provider: "manual_pin",
+            placeId: null,
+          }));
           setSearchOpen(false);
           resolveReadablePlace(next);
         });
@@ -483,7 +493,12 @@ export function VenueMapPicker({
         if (seq !== locationSeq.current) return;
         const next = { lat: coords.latitude, lng: coords.longitude };
         setPosition(next);
-        setPlace(null);
+        setPlace((current) => ({
+          name: current?.name || initialVenueName || "",
+          address: current?.address || initialAddress || "",
+          provider: "device_geolocation",
+          placeId: null,
+        }));
         setCityFallback(false);
         setSearchOpen(false);
         setSearchFocused(false);
