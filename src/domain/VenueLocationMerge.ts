@@ -19,16 +19,22 @@ export function mergeVenueLocation(
   // Only a new position, explicit POI, or device location changes the selection.
   if (
     source === "pin" &&
+    place?.provider !== "manual_pin" &&
     current.venue_latitude === coordinates.latitude &&
     current.venue_longitude === coordinates.longitude
   ) return current;
-  const explicitPoi = source === "explicit_poi" && Boolean(place?.name?.trim());
+  const explicitPoi = source === "explicit_poi" && Boolean(place?.placeId && place?.name?.trim());
+  const manualSelection = source === "pin" && place?.provider === "manual_pin";
   return {
     ...current,
     venue_latitude: coordinates.latitude,
     venue_longitude: coordinates.longitude,
-    venue_name: explicitPoi ? place!.name.trim() : current.venue_place_id ? null : current.venue_name,
-    venue_address: place?.address?.trim() || null,
+    venue_name: explicitPoi || manualSelection
+      ? place?.name?.trim() || null
+      : current.venue_place_id ? null : current.venue_name,
+    venue_address: manualSelection
+      ? place?.address?.trim() || null
+      : place?.address?.trim() || null,
     venue_provider: source === "device" ? coordinates.provider : place?.provider || coordinates.provider,
     venue_place_id: explicitPoi ? place?.placeId ?? null : null,
   };
