@@ -409,6 +409,10 @@ export function VenueMapPicker({
         if (found)
           setPlace((current) => ({
             ...reverseLocationHint(found),
+            // Reverse geocoding provides an address hint, not a confirmed POI.
+            // Never attach a nearby place identity to a manually moved pin.
+            provider: "manual_pin",
+            placeId: null,
             name: current?.name || initialVenueName || "",
             address: current?.address || initialAddress || found.address,
           }));
