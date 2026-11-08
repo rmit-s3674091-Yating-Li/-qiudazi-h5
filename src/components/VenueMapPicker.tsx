@@ -255,7 +255,7 @@ export function VenueMapPicker({
     const term = termInput.trim();
     if (term.length < 2) return;
     // Provider follows query script, not the language of UI labels.
-    const useBaiduSearch = !en || /[㐀-鿿]/u.test(term);
+    const useBaiduSearch = false; // H5 search must not require a Baidu AK.
     const seq = ++searchSeq.current;
     setError("");
     setResults([]);
@@ -291,7 +291,7 @@ export function VenueMapPicker({
             !useBaiduSearch
               ? browserMapProvider
                   .searchPlaces(variant, {
-                    language: "en",
+                    language: /[㐀-鿿]/u.test(term) ? "zh-CN" : "en",
                     ...(bounds ? { viewbox: bounds, bounded: true } : {}),
                   })
                   .then((items) =>
@@ -374,7 +374,7 @@ export function VenueMapPicker({
             );
           } catch {}
         }
-        if (en && !found) {
+        if (!found) {
           try {
             found = await browserMapProvider.reverseGeocode(
               { latitude: next.lat, longitude: next.lng },
@@ -384,7 +384,7 @@ export function VenueMapPicker({
         }
         if (seq !== lookupSeq.current) return;
         if (found) setPlace(reverseLocationHint(found));
-        else setPlace(null);
+        else setPlace((current) => current);
       })().finally(() => {
         if (seq === lookupSeq.current) setResolving(false);
       });
@@ -536,7 +536,7 @@ export function VenueMapPicker({
     canConfirm = !!position && !cityFallback && !resolving && !searchOpen,
     noResultsCopy = en
       ? "No matching places found. Try a shorter venue name."
-      : `百度地图没有在${initialCity || "当前城市"}找到匹配地点，可以换一个更简短的场馆名称。`;
+      : "没有找到匹配地点。可尝试简短名称，或拖动地图手动选点。";
   return (
     <div
       className="venue-map-overlay"
