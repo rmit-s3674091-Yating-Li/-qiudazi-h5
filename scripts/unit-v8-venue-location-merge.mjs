@@ -46,6 +46,13 @@ try {
   assert.equal(movedPin.venue_address, "Nearby cafe", "moving pin must accept the new address hint");
   assert.equal(movedPin.venue_longitude, 116.41);
   assert.equal(movedPin.venue_place_id, null);
+  const confirmedManual = mergeVenueLocation(selected, coords,
+    { name: "My court club", address: "Gate 2, Beijing", provider: "manual_pin", placeId: null }, "pin");
+  assert.equal(confirmedManual.venue_name, "My court club", "manual map confirmation must save edited venue name");
+  assert.equal(confirmedManual.venue_address, "Gate 2, Beijing", "manual map confirmation must save edited address");
+  assert.equal(confirmedManual.venue_place_id, null, "manual map confirmation must not inherit old POI ID");
+  assert.equal(confirmedManual.venue, "Court 3", "manual map confirmation must preserve specific court");
+  assert.equal(confirmedManual.venue_provider, "manual_pin");
   const replaced = mergeVenueLocation(selected, coords,
     { ...newPoi, name: "Replacement venue", placeId: "replacement-poi" }, "explicit_poi");
   assert.equal(replaced.venue_name, "Replacement venue", "explicit POI selection must still replace the venue");
