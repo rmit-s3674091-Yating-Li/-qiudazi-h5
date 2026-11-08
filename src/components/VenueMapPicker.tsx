@@ -325,9 +325,11 @@ export function VenueMapPicker({
       if (cancelled) return;
       const found = rankPlaces(mergePlaces(groups), term).slice(0, 12);
       setResults(found);
-      const incomplete = hadFailure || partialUpstream || cityBoundsUnavailable;
+      // City-boundary lookup is an optional accuracy aid, not a POI provider.
+      // Its failure must not turn a successful empty search into an outage.
+      const incomplete = hadFailure || partialUpstream;
       setSearchCompleted(!incomplete || found.length > 0);
-      if (incomplete)
+      if (incomplete) {
         setError(
           en
             ? found.length
@@ -337,6 +339,13 @@ export function VenueMapPicker({
               ? "部分地点搜索服务异常，请核对候选地点的名称与地址。"
               : "地点搜索服务异常，无法确认是否有匹配地点；可拖动地图或返回手填比赛场馆。",
         );
+      } else if (cityBoundsUnavailable) {
+        setError(
+          en
+            ? "City boundaries could not be verified. Check that any suggested venue is in the selected city."
+            : "暂时无法核实城市边界，请确认候选地点确实位于所选城市。",
+        );
+      }
     } catch {
       if (seq === searchSeq.current) {
         setResults([]);
