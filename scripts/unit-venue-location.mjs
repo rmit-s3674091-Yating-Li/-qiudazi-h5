@@ -214,7 +214,7 @@ try {
       /具体场地（可选）/,
       /地图会优先根据“城市 \+ 比赛场馆”定位到附近位置/,
       /setVenueLocationOpen/,
-      /place\?\.name\?\.trim\(\)\?"explicit_poi":"pin"/,
+      /place\?\.placeId&&place\?\.provider!=="manual_pin"\?"explicit_poi":"pin"/,
       /initialCity=\{form\.city\}/,
       /initialVenueName=\{form\.venue_name\}/,
       /initialAddress=\{form\.venue_address\}/,
