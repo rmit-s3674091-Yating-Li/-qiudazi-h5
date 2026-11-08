@@ -344,7 +344,11 @@ try {
       /venue-picker-current/,
       /Use current location|使用当前位置/,
       /disabled=\{!canConfirm\}/,
-      /onConfirm\(position\.lat,position\.lng,place\)/,
+      /onConfirm\(position\.lat,position\.lng,/,
+      /manualName\.trim\(\)/,
+      /manualAddress\.trim\(\)/,
+      /provider:\s*"manual_pin"/,
+      /initialVenueName\s*\|\|\s*initialAddress/,
     ],
     "V8 venue picker",
   );
