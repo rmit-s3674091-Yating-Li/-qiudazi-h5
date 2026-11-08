@@ -44,6 +44,24 @@ export default function RuntimeProbe() {
     }
   };
 
+  const checkAccountEnvironment = () => {
+    try {
+      const account = Taro.getAccountInfoSync();
+      const appId = account.miniProgram?.appId;
+      const envVersion = account.miniProgram?.envVersion;
+      record("AppID available", Boolean(appId && appId !== "touristappid"));
+      record(
+        "WeChat environment reported",
+        envVersion === "develop" ||
+          envVersion === "trial" ||
+          envVersion === "release",
+      );
+    } catch {
+      record("AppID available", false);
+      record("WeChat environment reported", false);
+    }
+  };
+
   const checkStorage = async () => {
     let wrote = false;
     try {
@@ -91,6 +109,7 @@ export default function RuntimeProbe() {
     <View>
       <Text>仅本地微信运行时诊断；不登录、不联网、不上传。</Text>
       <Button onClick={checkRuntime}>检查运行时</Button>
+      <Button onClick={checkAccountEnvironment}>检查 AppID 与运行环境</Button>
       <Button onClick={checkStorage}>检查 Storage</Button>
       <Button onClick={checkNavigation}>验证跳转和返回</Button>
       {results.map((result, index) => (
