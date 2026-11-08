@@ -4,7 +4,7 @@ import vm from "node:vm";
 import ts from "typescript";
 
 // Execute the actual nested picker callback with fake providers. Chinese UI
-// must not silently fall back to a global address source on Baidu failure.
+// may use OSM after Baidu failure, while retaining user-entered venue details.
 const source = await readFile("src/components/VenueMapPicker.tsx", "utf8");
 const parsed = ts.createSourceFile("VenueMapPicker.tsx", source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
 let resolver;
@@ -30,7 +30,7 @@ async function check({ english, baiduResult, expectedGlobalCalls, expectedPlace 
     lookupTimer: { current: null }, lookupSeq: { current: 0 },
     setResolving: () => {},
     window: { setTimeout: (fn) => { timers.push(fn); return 1; }, clearTimeout: () => {} },
-    en: english, initialCity: "北京", language: english ? "en" : "zh",
+    en: english, initialCity: "北京", initialVenueName: "手填场馆", initialAddress: "手填地址", language: english ? "en" : "zh",
     createConfiguredBaiduMapProvider: () => ({ reverseGeocode: async () => {
       baiduCalls++;
       if (baiduResult instanceof Error) throw baiduResult;
@@ -41,7 +41,7 @@ async function check({ english, baiduResult, expectedGlobalCalls, expectedPlace 
       return { name: "English venue", address: "English address", provider: "openstreetmap_nominatim" };
     } },
     reverseLocationHint: (found) => ({ name: "", address: found.address, provider: found.provider, placeId: null }),
-    setPlace: (place) => { selected = place; },
+    setPlace: (place) => { selected = typeof place === "function" ? place(null) : place; },
   };
   vm.runInNewContext(compiled.outputText, context);
   context.resolveReadablePlace({ lat: 39.99, lng: 116.39 });
@@ -49,14 +49,14 @@ async function check({ english, baiduResult, expectedGlobalCalls, expectedPlace 
   timers.shift()();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(baiduCalls, english ? 0 : 1, "Chinese lookup uses Baidu; English lookup does not");
-  assert.equal(globalCalls, expectedGlobalCalls, "Chinese lookup must not cross-fallback to global OSM");
+  assert.equal(globalCalls, expectedGlobalCalls, "OSM fallback call count");
   assert.deepEqual(JSON.parse(JSON.stringify(selected)), expectedPlace);
 }
 
-await check({ english: false, baiduResult: new Error("Baidu unavailable"), expectedGlobalCalls: 0, expectedPlace: null });
-await check({ english: false, baiduResult: null, expectedGlobalCalls: 0, expectedPlace: null });
+await check({ english: false, baiduResult: new Error("Baidu unavailable"), expectedGlobalCalls: 1, expectedPlace: { name: "手填场馆", address: "手填地址", provider: "openstreetmap_nominatim", placeId: null } });
+await check({ english: false, baiduResult: null, expectedGlobalCalls: 1, expectedPlace: { name: "手填场馆", address: "手填地址", provider: "openstreetmap_nominatim", placeId: null } });
 await check({ english: false, baiduResult: { name: "国家网球中心", address: "北京市朝阳区", provider: "baidu" },
-  expectedGlobalCalls: 0, expectedPlace: { name: "", address: "北京市朝阳区", provider: "baidu", placeId: null } });
+  expectedGlobalCalls: 0, expectedPlace: { name: "手填场馆", address: "手填地址", provider: "baidu", placeId: null } });
 await check({ english: true, baiduResult: null, expectedGlobalCalls: 1,
-  expectedPlace: { name: "", address: "English address", provider: "openstreetmap_nominatim", placeId: null } });
-console.log("PASS: V8 Chinese reverse source isolation and English fallback contract");
+  expectedPlace: { name: "手填场馆", address: "手填地址", provider: "openstreetmap_nominatim", placeId: null } });
+console.log("PASS: V8 reverse fallback retains user-entered venue facts");
