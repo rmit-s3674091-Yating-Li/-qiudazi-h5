@@ -725,8 +725,22 @@ export function VenueMapPicker({
               onConfirm(position.lat, position.lng, {
                 name: manualName.trim() || place?.name || initialVenueName || "",
                 address: manualAddress.trim() || place?.address || initialAddress || "",
-                provider: "manual_pin",
-                placeId: null,
+                // Preserve an explicitly selected POI only while its identity
+                // fields remain unchanged. Edited details become a manual pin.
+                provider:
+                  place?.placeId &&
+                  place.provider !== "manual_pin" &&
+                  manualName.trim() === place.name &&
+                  manualAddress.trim() === place.address
+                    ? place.provider
+                    : "manual_pin",
+                placeId:
+                  place?.placeId &&
+                  place.provider !== "manual_pin" &&
+                  manualName.trim() === place.name &&
+                  manualAddress.trim() === place.address
+                    ? place.placeId
+                    : null,
               })
             }
           >
