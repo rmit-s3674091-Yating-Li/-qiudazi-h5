@@ -147,14 +147,19 @@ export default function Index() {
       </View>
       <View className="card">
         <View className="title">M1 微信运行时诊断</View>
-        <Text>检查运行时、Storage 与页面返回；仅本机执行，不联网、不登录。</Text>
+        <Text>
+          检查运行时、Storage 与页面返回；仅本机执行，不联网、不登录。
+        </Text>
         <Button
           onClick={() => {
-            void Taro.navigateTo({ url: "/pages/runtime-probe/index" }).catch(
-              () => {
-                Taro.showToast({ title: "诊断页打开失败", icon: "none" });
-              },
-            );
+            void Taro.navigateTo({
+              url: "/pages/runtime-probe/index",
+            }).catch(() => {
+              void Taro.showToast({
+                title: "诊断页打开失败",
+                icon: "none",
+              });
+            });
           }}
         >
           打开运行时诊断
