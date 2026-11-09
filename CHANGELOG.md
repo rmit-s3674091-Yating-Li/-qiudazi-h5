@@ -1,3 +1,7 @@
+## 2026-11-10 — Retire legacy restore/package path (unreleased)
+
+- Removed the stale source bundle (`bundle/`, `source.bundle.b64`), its restore/pack scripts, the `restore` / `pack` npm scripts and the branch-scoped `Restore readable source` workflow as one slice. The bundle dated from 2026-08-29 and no longer matched any current file. No runtime, build, migration or test behavior changes. See `docs/PUBLIC_READINESS.md`.
+
 ## 2026-10-20 — V8 Platform Admin user directory Auth upstream classification (unreleased)
 
 - `V8-20261020-P2-USER-DIRECTORY-AUTH-STATUS`: explicit invalid credentials return `401 AUTH_REQUIRED`; Auth rate limits, upstream failures, and unknown statuses return `503 AUTH_CHECK_UNAVAILABLE`. Malformed verified actor IDs are rejected, and no privileged user-directory RPC runs after failed identity verification.

@@ -7,8 +7,6 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "restore": "node scripts/restore-source.mjs",
-    "pack": "node scripts/pack-source.mjs",
     "pretest:unit": "node scripts/unit-v8-venue-rank-short-core.mjs && node scripts/unit-v8-venue-short-core-recall.mjs",
     "pretest:integration": "bash scripts/integration-v8-participant-point-concurrency.sh && bash scripts/integration-v8-participant-both-entries-confirmed.sh",
     "dev": "vite --host 0.0.0.0",
