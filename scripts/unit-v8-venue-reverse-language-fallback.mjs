@@ -53,10 +53,10 @@ async function check({ english, baiduResult, expectedGlobalCalls, expectedPlace 
   assert.deepEqual(JSON.parse(JSON.stringify(selected)), expectedPlace);
 }
 
-await check({ english: false, baiduResult: new Error("Baidu unavailable"), expectedGlobalCalls: 1, expectedPlace: { name: "手填场馆", address: "手填地址", provider: "openstreetmap_nominatim", placeId: null } });
-await check({ english: false, baiduResult: null, expectedGlobalCalls: 1, expectedPlace: { name: "手填场馆", address: "手填地址", provider: "openstreetmap_nominatim", placeId: null } });
+await check({ english: false, baiduResult: new Error("Baidu unavailable"), expectedGlobalCalls: 1, expectedPlace: { name: "手填场馆", address: "手填地址", provider: "manual_pin", placeId: null } });
+await check({ english: false, baiduResult: null, expectedGlobalCalls: 1, expectedPlace: { name: "手填场馆", address: "手填地址", provider: "manual_pin", placeId: null } });
 await check({ english: false, baiduResult: { name: "国家网球中心", address: "北京市朝阳区", provider: "baidu" },
-  expectedGlobalCalls: 0, expectedPlace: { name: "手填场馆", address: "手填地址", provider: "baidu", placeId: null } });
+  expectedGlobalCalls: 0, expectedPlace: { name: "手填场馆", address: "手填地址", provider: "manual_pin", placeId: null } });
 await check({ english: true, baiduResult: null, expectedGlobalCalls: 1,
-  expectedPlace: { name: "手填场馆", address: "手填地址", provider: "openstreetmap_nominatim", placeId: null } });
-console.log("PASS: V8 reverse fallback retains user-entered venue facts");
+  expectedPlace: { name: "手填场馆", address: "手填地址", provider: "manual_pin", placeId: null } });
+console.log("PASS: V8 reverse fallback retains user-entered venue facts and manual-pin identity");
