@@ -35,7 +35,10 @@ export class WechatLoginAttemptGate {
     this.generation++;
   }
 
-  async acquire(requestId: string, nonce: string): Promise<LoginAttemptOutcome> {
+  async acquire(
+    requestId: string,
+    nonce: string,
+  ): Promise<LoginAttemptOutcome> {
     const generation = ++this.generation;
     if (!safeId.test(requestId) || !safeId.test(nonce)) {
       return { status: "LOGIN_BLOCKED", reason: "INVALID_INPUT" };
