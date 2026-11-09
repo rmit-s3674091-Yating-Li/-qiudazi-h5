@@ -7,7 +7,10 @@ export type LoginAttempt = Readonly<{
   code: string;
 }>;
 export type LoginAttemptOutcome =
-  | Readonly<{ status: "CODE_READY_FOR_TRUSTED_SERVER"; attempt: LoginAttempt }>
+  | Readonly<{
+      status: "CODE_READY_FOR_TRUSTED_SERVER";
+      attempt: LoginAttempt;
+    }>
   | Readonly<{
       status: "LOGIN_BLOCKED";
       reason: "INVALID_INPUT" | "WX_LOGIN_FAILED" | "STALE_ATTEMPT";
@@ -48,7 +51,11 @@ export class WechatLoginAttemptGate {
     if (generation !== this.generation) {
       return { status: "LOGIN_BLOCKED", reason: "STALE_ATTEMPT" };
     }
-    if (!result || typeof result.code !== "string" || !safeCode.test(result.code)) {
+    if (
+      !result ||
+      typeof result.code !== "string" ||
+      !safeCode.test(result.code)
+    ) {
       return { status: "LOGIN_BLOCKED", reason: "WX_LOGIN_FAILED" };
     }
     return {
