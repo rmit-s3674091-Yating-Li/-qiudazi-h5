@@ -94,7 +94,7 @@ try {
   const formSource = await readFile("src/pages/EventFormPage.tsx", "utf8");
   assert.match(formSource, /if\(k==="city"\)Object\.assign\(next,resetVenueOnCityChange\(f,v as EventConfig\["city"\]\)\)/,
     "the event city input must invalidate stale venue data");
-  assert.match(formSource, /sameVenueCity\(f\.city,requestedCity\)\?mergeVenueLocation\(f,location,place,"device"\):f/,
+  assert.match(formSource, /if\(place\?\.address\?\.trim\(\)\)\{setForm\(f=>sameVenueCity\(f\.city,requestedCity\)\?mergeVenueLocation\(f,location,place,"device"\):f\);\}/,
     "an in-flight GPS lookup from the previous city must not restore its old venue");
   console.log("PASS: V8 event form venue selection preserves coherent POI, pin and GPS facts");
 } finally {
