@@ -194,7 +194,6 @@ export function VenueMapPicker({
     [results, setResults] = useState<VenuePlace[]>([]),
     [searching, setSearching] = useState(false),
     [searchOpen, setSearchOpen] = useState(false),
-    [searchFocused, setSearchFocused] = useState(false),
     [searchCompleted, setSearchCompleted] = useState(false);
   const cityBoundsCache = useRef<{
     city: string;
@@ -367,19 +366,6 @@ export function VenueMapPicker({
     const initialTerm = (initialVenueName || initialAddress || "").trim();
     if (initialTerm.length >= 2) void searchPlaces(initialTerm);
   }, []);
-  useEffect(() => {
-    if (en || !searchFocused) return;
-    const term = query.trim();
-    if (term.length < 2) {
-      setSearchOpen(false);
-      setResults([]);
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      void searchPlaces(term);
-    }, 320);
-    return () => window.clearTimeout(timer);
-  }, [query, searchFocused, en]);
   function resolveReadablePlace(next: { lat: number; lng: number }) {
     if (lookupTimer.current !== null) window.clearTimeout(lookupTimer.current);
     const seq = ++lookupSeq.current;
@@ -642,10 +628,8 @@ export function VenueMapPicker({
                 setSearchOpen(value.trim().length >= 2);
               }}
               onFocus={() => {
-                setSearchFocused(true);
                 if (results.length) setSearchOpen(true);
               }}
-              onBlur={() => setSearchFocused(false)}
               placeholder={en ? "Search venue or address" : "搜索场馆 / 地址"}
             />
             <button
