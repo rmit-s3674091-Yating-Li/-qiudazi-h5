@@ -336,7 +336,7 @@ try {
       /result\.name/,
       /result\.address/,
       /onClick=\{\(\)=>applyPlace\(result\)\}/,
-      /reverseLocationHint\(found\)/,
+      /setReverseAddressSuggestion\(found\?\.address\|\|""\)/,
       /setPlace\(null\)/,
       /cityFallback/,
       /!cityFallback/,

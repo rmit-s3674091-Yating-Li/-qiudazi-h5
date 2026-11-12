@@ -26,6 +26,7 @@ async function check({ english, baiduResult, expectedGlobalCalls, expectedPlace 
   let baiduCalls = 0;
   let globalCalls = 0;
   let selected = "not-called";
+  let suggestion = "";
   const context = {
     lookupTimer: { current: null }, lookupSeq: { current: 0 },
     setResolving: () => {},
@@ -41,6 +42,7 @@ async function check({ english, baiduResult, expectedGlobalCalls, expectedPlace 
       return { name: "English venue", address: "English address", provider: "openstreetmap_nominatim" };
     } },
     reverseLocationHint: (found) => ({ name: "", address: found.address, provider: found.provider, placeId: null }),
+    setReverseAddressSuggestion: (address) => { suggestion = address; },
     setPlace: (place) => { selected = typeof place === "function" ? place(null) : place; },
   };
   vm.runInNewContext(compiled.outputText, context);
@@ -50,7 +52,8 @@ async function check({ english, baiduResult, expectedGlobalCalls, expectedPlace 
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(baiduCalls, english ? 0 : 1, "Chinese lookup uses Baidu; English lookup does not");
   assert.equal(globalCalls, expectedGlobalCalls, "OSM fallback call count");
-  assert.deepEqual(JSON.parse(JSON.stringify(selected)), expectedPlace);
+  assert.equal(selected, "not-called", "reverse lookup must not replace selected venue");
+  assert.equal(suggestion, expectedGlobalCalls ? "English address" : baiduResult.address);
 }
 
 await check({ english: false, baiduResult: new Error("Baidu unavailable"), expectedGlobalCalls: 1, expectedPlace: { name: "手填场馆", address: "手填地址", provider: "manual_pin", placeId: null } });

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { browserMapProvider, type VenuePlace } from "../utils/mapProvider";
 import { createConfiguredBaiduMapProvider } from "../utils/baiduMapProvider";
 import { collectVenueSearch } from "../domain/VenueSearchResolution";
-import { reverseLocationHint } from "../domain/VenueSelection";
 import {
   isWithinVenueCityBounds,
   resolveVenueCityBounds,
@@ -187,6 +186,8 @@ export function VenueMapPicker({
     [place, setPlace] = useState<PickedPlace | null>(null),
     [manualName, setManualName] = useState(initialVenueName || ""),
     [manualAddress, setManualAddress] = useState(initialAddress || ""),
+    [addressNeedsConfirmation, setAddressNeedsConfirmation] = useState(false),
+    [reverseAddressSuggestion, setReverseAddressSuggestion] = useState(""),
     [resolving, setResolving] = useState(false),
     [cityFallback, setCityFallback] = useState(false),
     [error, setError] = useState("");
@@ -251,6 +252,8 @@ export function VenueMapPicker({
     setQuery(result.name);
     setManualName(result.name);
     setManualAddress(result.address);
+    setAddressNeedsConfirmation(false);
+    setReverseAddressSuggestion("");
     mapRef.current?.setView([next.lat, next.lng], zoom);
   }
   async function searchPlaces(termInput = query) {
@@ -391,16 +394,7 @@ export function VenueMapPicker({
           } catch {}
         }
         if (seq !== lookupSeq.current) return;
-        if (found)
-          setPlace((current) => ({
-            ...reverseLocationHint(found),
-            // Reverse geocoding provides an address hint, not a confirmed POI.
-            // Never attach a nearby place identity to a manually moved pin.
-            provider: "manual_pin",
-            placeId: null,
-            name: current?.name || initialVenueName || "",
-            address: current?.address || initialAddress || found.address,
-          }));
+        setReverseAddressSuggestion(found?.address || "");
       })().finally(() => {
         if (seq === lookupSeq.current) setResolving(false);
       });
@@ -432,11 +426,13 @@ export function VenueMapPicker({
           const c = map.getCenter(),
             next = { lat: c.lat, lng: c.lng };
           setPosition(next);
+          setAddressNeedsConfirmation(true);
+          setReverseAddressSuggestion("");
           setCityFallback(false);
           // A moved pin invalidates POI identity, not user-entered venue details.
           setPlace((current) => ({
             name: current?.name || initialVenueName || "",
-            address: current?.address || initialAddress || "",
+            address: "",
             provider: "manual_pin",
             placeId: null,
           }));
@@ -505,9 +501,11 @@ export function VenueMapPicker({
         if (seq !== locationSeq.current) return;
         const next = { lat: coords.latitude, lng: coords.longitude };
         setPosition(next);
+        setAddressNeedsConfirmation(true);
+        setReverseAddressSuggestion("");
         setPlace((current) => ({
           name: current?.name || initialVenueName || "",
-          address: current?.address || initialAddress || "",
+          address: "",
           provider: "device_geolocation",
           placeId: null,
         }));
@@ -559,7 +557,8 @@ export function VenueMapPicker({
             : en
               ? "Search by venue name or address; you can also drag the map directly."
               : "可按场馆名称或地址搜索，也可以直接拖动地图。"),
-    canConfirm = !!position && !cityFallback && !searchOpen,
+    canConfirm =
+      !!position && !cityFallback && !searchOpen && !addressNeedsConfirmation,
     noResultsCopy = en
       ? "No matching places found. Try a shorter venue name."
       : "没有找到匹配地点。可尝试简短名称，或拖动地图手动选点。";
@@ -707,8 +706,33 @@ export function VenueMapPicker({
             <label htmlFor="venue-picker-manual-name">{en ? "Venue name" : "场馆名称"}</label>
             <input id="venue-picker-manual-name" value={manualName} onChange={(e) => setManualName(e.target.value)} placeholder={en ? "Enter venue name" : "手动输入场馆名称"} />
             <label htmlFor="venue-picker-manual-address">{en ? "Address" : "地址"}</label>
-            <input id="venue-picker-manual-address" value={manualAddress} onChange={(e) => setManualAddress(e.target.value)} placeholder={en ? "Enter address" : "手动输入地址"} />
+            <input id="venue-picker-manual-address" value={manualAddress} onChange={(e) => {
+              setManualAddress(e.target.value);
+              setAddressNeedsConfirmation(false);
+            }} placeholder={en ? "Enter address" : "手动输入地址"} />
           </div>
+          {addressNeedsConfirmation && (
+            <div className="notice">
+              <p>{en ? "Location changed. Review the saved address before confirming." : "位置已改变，请核对地址后再确认；原地址已保留。"}</p>
+              <button type="button" className="secondary" onClick={() => setAddressNeedsConfirmation(false)}>
+                {en ? "Confirm entered address" : "确认当前填写的地址"}
+              </button>
+              <button type="button" className="secondary" onClick={() => {
+                setManualAddress("");
+                setAddressNeedsConfirmation(false);
+              }}>
+                {en ? "Use coordinates only" : "仅使用坐标"}
+              </button>
+            </div>
+          )}
+          {reverseAddressSuggestion && (
+            <button type="button" className="secondary full" onClick={() => {
+              setManualAddress(reverseAddressSuggestion);
+              setAddressNeedsConfirmation(false);
+            }}>
+              {en ? "Use suggested address: " : "使用建议地址："}{reverseAddressSuggestion}
+            </button>
+          )}
           {error && <p className="error-text">{error}</p>}
           <button
             type="button"
@@ -718,8 +742,8 @@ export function VenueMapPicker({
               position &&
               canConfirm &&
               onConfirm(position.lat, position.lng, {
-                name: manualName.trim() || place?.name || initialVenueName || "",
-                address: manualAddress.trim() || place?.address || initialAddress || "",
+                name: manualName.trim(),
+                address: manualAddress.trim(),
                 // Preserve an explicitly selected POI only while its identity
                 // fields remain unchanged. Edited details become a manual pin.
                 provider:

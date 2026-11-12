@@ -51,3 +51,7 @@ assert.ok(
 console.log(
   "PASS: initial prefill search and explicit submit retained; typeahead disabled",
 );
+
+assert.ok(normalized.includes("!addressNeedsConfirmation"), "changed pin must require address review");
+assert.ok(normalized.includes("address:manualAddress.trim()"), "cleared address must not fall back to saved address");
+assert.ok(normalized.includes('setReverseAddressSuggestion(found?.address||"")'), "reverse lookup must remain a suggestion");
