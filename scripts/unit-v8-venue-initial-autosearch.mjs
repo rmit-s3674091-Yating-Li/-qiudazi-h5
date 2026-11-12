@@ -37,7 +37,7 @@ assert.ok(
 );
 const normalized = sourceContractText(source);
 assert.ok(
-  normalized.includes("voidsearchPlaces();"),
+  normalized.includes("onSubmit={e=>{e.preventDefault();setSearchOpen(true);voidsearchPlaces()}}"),
   "search form submission should explicitly trigger search",
 );
 assert.ok(
