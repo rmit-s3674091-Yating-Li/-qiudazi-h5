@@ -231,7 +231,6 @@ export function VenueMapPicker({
   }
   function applyPlace(result: VenuePlace, zoom = 15) {
     searchInputRef.current?.blur();
-    setSearchFocused(false);
     locationSeq.current++;
     invalidateReverseLookup();
     searchSeq.current++;
@@ -514,7 +513,6 @@ export function VenueMapPicker({
         }));
         setCityFallback(false);
         setSearchOpen(false);
-        setSearchFocused(false);
         mapRef.current?.setView([next.lat, next.lng], 15);
         resolveReadablePlace(next);
       })

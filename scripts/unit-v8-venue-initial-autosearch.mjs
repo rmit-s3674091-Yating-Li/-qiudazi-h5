@@ -30,23 +30,24 @@ assert.ok(
   "pre-filled venue or address should trigger initial search on picker mount",
 );
 assert.ok(
-  effects.some(
-    (effect) =>
-      effect.includes("searchFocused") && effect.includes("searchPlaces(term)"),
-  ),
-  "manual debounced search must remain",
-);
-assert.ok(
   sourceContractText(source).includes(
     'const[query,setQuery]=useState(initialVenueName||initialAddress||""',
   ),
   "prefilled term should be visible in search input",
 );
-console.log(
-  "PASS: prefilled venue triggers initial POI search without focus; manual search retained",
-);
-
+const normalized = sourceContractText(source);
 assert.ok(
-  effects.some((effect) => effect.includes("if(en||!searchFocused)return;")),
-  "English public Nominatim typeahead stays disabled",
+  normalized.includes("voidsearchPlaces();"),
+  "search form submission should explicitly trigger search",
+);
+assert.ok(
+  !normalized.includes("setSearchFocused("),
+  "removed focus state must not be referenced",
+);
+assert.ok(
+  !effects.some((effect) => effect.includes("searchFocused")),
+  "input typeahead effect must stay removed",
+);
+console.log(
+  "PASS: initial prefill search and explicit submit retained; typeahead disabled",
 );
