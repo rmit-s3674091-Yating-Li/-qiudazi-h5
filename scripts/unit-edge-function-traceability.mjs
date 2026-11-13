@@ -9,3 +9,6 @@ expect(guest.includes('Cache-Control":"no-store'),"guest-session credential resp
 expect(!guest.includes("return json({serviceKey"),"guest-session must never return the service-role key");
 expect(retired.includes("retired:true"),"qiudazi-auth-check must remain an explicit retired compatibility stub");
 console.log("Edge function traceability security contract passed");
+// Keep the V8 admin Edge regression in the existing unit suite without editing
+// package.json (multiple pending handoffs also register tests there).
+await import("./unit-v8-platform-admin-events-edge.mjs");

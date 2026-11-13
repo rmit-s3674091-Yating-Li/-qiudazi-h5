@@ -1,0 +1,36 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import vm from "node:vm";
+import ts from "typescript";
+const source = await readFile("supabase/functions/platform-admin-score-exceptions/index.ts", "utf8");
+assert.match(source, /client\.auth\.getUser\(token\)/);
+assert.match(source, /p_actor_auth_user_id:\s*user\.id/);
+assert.match(source, /client\.rpc\("platform_admin_list_score_exceptions"/);
+assert.doesNotMatch(source, /\.(insert|update|delete|upsert)\(/);
+const runnable = source.replace(/^import \{ createClient \} from "npm:@supabase\/supabase-js@2\.112\.4";\n/, "");
+const compiled = ts.transpileModule(runnable, { fileName: "platform-admin-score-exceptions.ts", compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None }, reportDiagnostics: true });
+assert.equal(compiled.diagnostics?.length ?? 0, 0);
+const actor="a1111111-1111-4111-8111-111111111111",eventId="b1111111-1111-4111-8111-111111111111",matchId="c1111111-1111-4111-8111-111111111111";
+const row={match_id:matchId,event_id:eventId,stage:"round_robin",round_no:1,status:"finished",scoring_mode:"live",version:2,anomaly_code:"FINISHED_WITHOUT_WINNER",created_at:"2026-10-13T01:00:00+00:00"};
+let handler,authError=null,rpcResult={data:{items:[row],next_cursor:null},error:null},rpcCalls=0,lastArgs,envAvailable=true;
+const client={auth:{getUser:async(token)=>token==="valid-token"?{data:{user:{id:actor}},error:authError}:{data:{user:null},error:{message:"expired",status:401}}},rpc:async(name,args)=>{assert.equal(name,"platform_admin_list_score_exceptions");rpcCalls++;lastArgs=args;return rpcResult;}};
+vm.runInNewContext(compiled.outputText,{createClient:()=>client,Deno:{serve:(fn)=>{handler=fn;},env:{get:(name)=>envAvailable?(name==="SUPABASE_URL"?"https://example.invalid":"secret"):null}},Response,Request,Date,Object,Number,JSON,String},{filename:"score-exceptions.js"});
+async function call(body,token="valid-token",method="POST"){const headers=token?{Authorization:`Bearer ${token}`}:{},req=new Request("https://example.invalid/platform-admin-score-exceptions",{method,headers,...(method==="POST"?{body:typeof body==="string"?body:JSON.stringify(body)}:{})});const res=await handler(req);return{status:res.status,body:res.status===204?null:await res.json(),headers:res.headers};}
+assert.equal((await call({event_id:eventId},null)).status,401);assert.equal((await call({event_id:eventId},"bad-token")).status,401);assert.equal((await call({event_id:eventId},"valid-token","GET")).status,405);assert.equal((await call({event_id:eventId},"valid-token","OPTIONS")).status,204);
+for(const bad of [{},{event_id:"bad"},{event_id:eventId,actor_id:actor},{event_id:eventId,page_size:51},{event_id:eventId,before:{id:matchId}}])assert.equal((await call(bad)).status,400);
+const success=await call({event_id:eventId,page_size:5});assert.equal(success.status,200);assert.equal(success.body.items.length,1);assert.equal(success.headers.get("cache-control"),"no-store");assert.equal(lastArgs.p_actor_auth_user_id,actor);assert.equal(lastArgs.p_event_id,eventId);assert.equal(lastArgs.p_page_size,5);
+rpcResult={data:{items:[{...row,email:"secret@example.invalid"}],next_cursor:null},error:null};assert.equal((await call({event_id:eventId})).status,503);
+rpcResult={data:null,error:{message:"PLATFORM_ADMIN_FORBIDDEN"}};assert.equal((await call({event_id:eventId})).status,403);
+const before=rpcCalls;
+for(const status of [400,401,403,422]){
+  authError={message:"invalid credentials",status};
+  const denied=await call({event_id:eventId});
+  assert.equal(denied.status,401);assert.equal(denied.body.code,"AUTH_REQUIRED");assert.equal(rpcCalls,before);
+}
+for(const status of [429,500,502,503,undefined]){
+  authError={message:"Auth service unavailable",status};
+  const unavailable=await call({event_id:eventId});
+  assert.equal(unavailable.status,503);assert.equal(unavailable.body.code,"AUTH_CHECK_UNAVAILABLE");assert.equal(rpcCalls,before);
+}
+authError=null;envAvailable=false;assert.equal((await call({event_id:eventId})).status,503);
+console.log("V8 Platform Admin score exception Edge contract passed");
