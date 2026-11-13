@@ -55,3 +55,10 @@ console.log(
 assert.ok(normalized.includes("!addressNeedsConfirmation"), "changed pin must require address review");
 assert.ok(normalized.includes("address:manualAddress.trim()"), "cleared address must not fall back to saved address");
 assert.ok(normalized.includes('setReverseAddressSuggestion(found?.address||"")'), "reverse lookup must remain a suggestion");
+
+assert.ok(normalized.includes("start=latestPosition.current??fallback"), "delayed Leaflet must use latest selection");
+assert.equal((normalized.match(/latestPosition\.current=next;setPosition\(next\)/g)||[]).length, 3, "all three position writers must update the ref synchronously");
+assert.ok(normalized.includes("onConfirmManual(manualName.trim(),manualAddress.trim())"), "manual confirmation must not require coordinates");
+const formSource = sourceContractText(await readFile("src/pages/EventFormPage.tsx", "utf8"));
+assert.ok(formSource.includes("onConfirmManual={(name,address)=>{setForm(f=>({...f,venue_name:name||null,venue_address:address||null,venue_latitude:null,venue_longitude:null,venue_place_id:null,venue_provider:null}))"), "manual confirmation must preserve other fields and clear old location identity");
+console.log("PASS: latest position and manual confirmation source contracts");

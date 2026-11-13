@@ -159,6 +159,7 @@ export function VenueMapPicker({
   language,
   onClose,
   onConfirm,
+  onConfirmManual,
 }: {
   initialLatitude?: number | null;
   initialLongitude?: number | null;
@@ -167,6 +168,7 @@ export function VenueMapPicker({
   initialAddress?: string | null;
   language: string;
   onClose: () => void;
+  onConfirmManual: (name: string, address: string) => void;
   onConfirm: (lat: number, lng: number, place?: PickedPlace | null) => void;
 }) {
   const en = language === "en",
@@ -196,6 +198,7 @@ export function VenueMapPicker({
     [searching, setSearching] = useState(false),
     [searchOpen, setSearchOpen] = useState(false),
     [searchCompleted, setSearchCompleted] = useState(false);
+  const latestPosition = useRef(position);
   const cityBoundsCache = useRef<{
     city: string;
     promise: Promise<VenueCityBounds>;
@@ -239,6 +242,7 @@ export function VenueMapPicker({
     setSearchCompleted(false);
     setError("");
     const next = { lat: result.latitude, lng: result.longitude };
+    latestPosition.current = next;
     setPosition(next);
     setPlace({
       name: result.name,
@@ -406,10 +410,10 @@ export function VenueMapPicker({
       .then((L) => {
         if (cancelled || !host.current) return;
         const fallback = { lat: 35.8617, lng: 104.1954 },
-          start = position ?? fallback;
+          start = latestPosition.current ?? fallback;
         const map = L.map(host.current, { zoomControl: false }).setView(
           [start.lat, start.lng],
-          position ? 15 : 5,
+          latestPosition.current ? 15 : 5,
         );
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           maxZoom: 19,
@@ -425,6 +429,7 @@ export function VenueMapPicker({
           dragged.current = false;
           const c = map.getCenter(),
             next = { lat: c.lat, lng: c.lng };
+          latestPosition.current = next;
           setPosition(next);
           setAddressNeedsConfirmation(true);
           setReverseAddressSuggestion("");
@@ -441,9 +446,9 @@ export function VenueMapPicker({
         });
         mapRef.current = map;
         setTimeout(() => map.invalidateSize(), 0);
-        if (position) {
-          if (!(initialVenueName || initialAddress))
-            resolveReadablePlace(position);
+        if (latestPosition.current) {
+          if (lookupSeq.current === 0 && !(initialVenueName || initialAddress))
+            resolveReadablePlace(latestPosition.current);
         } else {
           const bootstrapEpoch = lookupSeq.current,
             city = (initialCity || "").trim();
@@ -458,6 +463,7 @@ export function VenueMapPicker({
                 );
                 if (cancelled || lookupSeq.current !== bootstrapEpoch) return;
                 const [south, north, west, east] = bounds;
+                latestPosition.current = null;
                 setPosition(null);
                 setPlace(null);
                 setCityFallback(true);
@@ -500,6 +506,7 @@ export function VenueMapPicker({
       .then((coords) => {
         if (seq !== locationSeq.current) return;
         const next = { lat: coords.latitude, lng: coords.longitude };
+        latestPosition.current = next;
         setPosition(next);
         setAddressNeedsConfirmation(true);
         setReverseAddressSuggestion("");
@@ -734,6 +741,18 @@ export function VenueMapPicker({
             </button>
           )}
           {error && <p className="error-text">{error}</p>}
+          {!position && (
+            <button
+              type="button"
+              className="secondary full"
+              disabled={!manualName.trim() && !manualAddress.trim()}
+              onClick={() =>
+                onConfirmManual(manualName.trim(), manualAddress.trim())
+              }
+            >
+              {en ? "Confirm without map location" : "确认手填场馆（不含定位）"}
+            </button>
+          )}
           <button
             type="button"
             className="full venue-picker-confirm"
