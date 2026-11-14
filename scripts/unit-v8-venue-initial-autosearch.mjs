@@ -23,7 +23,8 @@ visit(parsed);
 assert.ok(
   effects.some(
     (effect) =>
-      effect.includes("initialSearchStarted.current") &&
+      effect.includes("queueMicrotask(") &&
+      effect.includes("active=false") &&
       effect.includes("initialVenueName||initialAddress") &&
       effect.includes("searchPlaces(initialTerm)"),
   ),
@@ -62,3 +63,44 @@ assert.ok(normalized.includes("onConfirmManual(manualName.trim(),manualAddress.t
 const formSource = sourceContractText(await readFile("src/pages/EventFormPage.tsx", "utf8"));
 assert.ok(formSource.includes("onConfirmManual={(name,address)=>{setForm(f=>({...f,venue_name:name||null,venue_address:address||null,venue_latitude:null,venue_longitude:null,venue_place_id:null,venue_provider:null}))"), "manual confirmation must preserve other fields and clear old location identity");
 console.log("PASS: latest position and manual confirmation source contracts");
+
+// Execute the actual mount effect with controlled microtasks and cleanup.
+const mountEffects = [];
+function scan(node) {
+  if (
+    ts.isCallExpression(node) &&
+    node.expression.getText(parsed) === "useEffect" &&
+    node.getText(parsed).includes("searchPlaces(initialTerm)")
+  ) {
+    mountEffects.push(node.arguments[0].getText(parsed));
+  }
+  ts.forEachChild(node, scan);
+}
+scan(parsed);
+assert.equal(mountEffects.length, 1);
+function exercise(name, address, replay, unmount) {
+  const tasks = [];
+  const calls = [];
+  const setup = new Function(
+    "initialVenueName",
+    "initialAddress",
+    "searchPlaces",
+    "queueMicrotask",
+    `return (${mountEffects[0]})();`,
+  );
+  const mount = () =>
+    setup(name, address, (term) => calls.push(term), (task) => tasks.push(task));
+  let cleanup = mount();
+  if (replay) {
+    cleanup();
+    cleanup = mount();
+  }
+  if (unmount) cleanup();
+  tasks.forEach((task) => task());
+  return calls;
+}
+assert.deepEqual(exercise("奥森", "", true, false), ["奥森"]);
+assert.deepEqual(exercise("", "绿心公园", false, false), ["绿心公园"]);
+assert.deepEqual(exercise("奥森", "", false, true), []);
+assert.deepEqual(exercise("", "", true, false), []);
+console.log("PASS: initial search effect replay and unmount behavior");

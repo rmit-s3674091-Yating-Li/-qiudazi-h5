@@ -365,12 +365,16 @@ export function VenueMapPicker({
       if (seq === searchSeq.current) setSearching(false);
     }
   }
-  const initialSearchStarted = useRef(false);
   useEffect(() => {
-    if (initialSearchStarted.current) return;
-    initialSearchStarted.current = true;
+    let active = true;
     const initialTerm = (initialVenueName || initialAddress || "").trim();
-    if (initialTerm.length >= 2) void searchPlaces(initialTerm);
+    // StrictMode replays mount effects; only the live setup starts a search.
+    queueMicrotask(() => {
+      if (active && initialTerm.length >= 2) void searchPlaces(initialTerm);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
   function resolveReadablePlace(next: { lat: number; lng: number }) {
     if (lookupTimer.current !== null) window.clearTimeout(lookupTimer.current);
@@ -456,12 +460,10 @@ export function VenueMapPicker({
             setResolving(true);
             void (async () => {
               try {
-                const bounds = await resolveVenueCityBounds(city, (term) =>
-                  browserMapProvider.searchPlaces(term, {
-                    language: en ? "en" : "zh-CN",
-                  }),
-                );
-                if (cancelled || lookupSeq.current !== bootstrapEpoch) return;
+                // Share the in-flight city lookup with the initial POI search.
+                const bounds = await englishCityBounds();
+                if (!bounds || cancelled || lookupSeq.current !== bootstrapEpoch)
+                  return;
                 const [south, north, west, east] = bounds;
                 latestPosition.current = null;
                 setPosition(null);

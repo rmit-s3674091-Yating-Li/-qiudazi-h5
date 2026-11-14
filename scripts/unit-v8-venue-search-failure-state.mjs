@@ -105,7 +105,7 @@ try {
   // visible label with a reverse-geocoded nearby business on reopening.
   assert.match(
     sourceContractText(ui),
-    /if\(position\)\{if\(!\(initialVenueName\|\|initialAddress\)\)resolveReadablePlace\(position\)\}else/,
+    /if\(latestPosition\.current\)\{if\(lookupSeq\.current===0&&!\(initialVenueName\|\|initialAddress\)\)resolveReadablePlace\(latestPosition\.current\)\}else/,
   );
   assert.match(
     sourceContractText(ui),
