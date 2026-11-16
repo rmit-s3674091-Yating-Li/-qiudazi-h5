@@ -119,9 +119,11 @@ try {
     sourceContractText(ui),
     /place\?\.address\|\|\(originalSelection\?initialAddress:""\)/,
   );
+  // Saved POIs may initialize place; the actual initializer is exercised in
+  // unit-v8-venue-initial-autosearch.mjs (valid identity and null fallbacks).
   assert.match(
     sourceContractText(ui),
-    /\[place,setPlace\]=useState<PickedPlace\|null>\(null\)/,
+    /\[place,setPlace\]=useState<PickedPlace\|null>\(initialLatitude!=null&&initialLongitude!=null&&initialPlaceId&&initialProvider&&initialProvider!=="manual_pin"&&initialVenueName\?\.trim\(\)\?/,
   );
   assert.match(sourceContractText(ui), /collectVenueSearch<VenuePlace>\(/);
   assert.match(
