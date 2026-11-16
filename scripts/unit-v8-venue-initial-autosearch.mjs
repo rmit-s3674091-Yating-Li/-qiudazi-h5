@@ -104,3 +104,47 @@ assert.deepEqual(exercise("", "绿心公园", false, false), ["绿心公园"]);
 assert.deepEqual(exercise("奥森", "", false, true), []);
 assert.deepEqual(exercise("", "", true, false), []);
 console.log("PASS: initial search effect replay and unmount behavior");
+
+
+// H5_CONFIRMATION_BEHAVIOR_20261115
+// H5_REOPEN_POI_20261115
+// Evaluate the actual state initializer and JSX callbacks.
+const initializers = [];
+const handlers = [];
+function scanConfirmation(node) {
+  if (ts.isVariableDeclaration(node) && node.name.getText(parsed) === "[place, setPlace]") {
+    initializers.push(node.initializer.arguments[0].getText(parsed));
+  }
+  if (ts.isJsxAttribute(node) && node.name.getText(parsed) === "onClick") {
+    const expression = node.initializer?.expression;
+    if (expression?.getText(parsed).includes("onConfirm(position.lat")) {
+      handlers.push(expression.getText(parsed));
+    }
+  }
+  ts.forEachChild(node, scanConfirmation);
+}
+scanConfirmation(parsed);
+assert.equal(initializers.length, 1);
+assert.equal(handlers.length, 1);
+const restore = new Function("initialLatitude", "initialLongitude", "initialPlaceId", "initialProvider", "initialVenueName", "initialAddress", "return (" + initializers[0] + ");");
+const restored = restore(39.99, 116.39, "saved-poi", "openstreetmap_nominatim", " 奥森 ", " 北京市朝阳区 ");
+assert.deepEqual(restored, { name: "奥森", address: "北京市朝阳区", provider: "openstreetmap_nominatim", placeId: "saved-poi" });
+assert.equal(restore(null, 116.39, "saved-poi", "openstreetmap_nominatim", "奥森", "地址"), null);
+assert.equal(restore(39.99, 116.39, "saved-poi", "manual_pin", "奥森", "地址"), null);
+assert.equal(restore(39.99, 116.39, null, "openstreetmap_nominatim", "奥森", "地址"), null);
+const confirm = new Function("position", "canConfirm", "place", "manualName", "manualAddress", "onConfirm", "return (" + handlers[0] + ")();");
+const calls = [];
+const pin = { lat: 39.99, lng: 116.39 };
+const capture = (...args) => calls.push(args);
+confirm(pin, true, restored, " 奥森 ", " 北京市朝阳区 ", capture);
+assert.deepEqual(calls.pop(), [39.99, 116.39, restored]);
+confirm(pin, true, restored, "奥森", "新地址", capture);
+assert.deepEqual(calls.pop()[2], { name: "奥森", address: "新地址", provider: "manual_pin", placeId: null });
+confirm(pin, true, null, "奥森", "", capture);
+assert.deepEqual(calls.pop()[2], { name: "奥森", address: "", provider: "manual_pin", placeId: null });
+confirm(pin, false, restored, "奥森", "地址", capture);
+confirm(null, true, restored, "奥森", "地址", capture);
+assert.equal(calls.length, 0);
+assert.ok(formSource.includes("initialPlaceId={form.venue_place_id}"));
+assert.ok(formSource.includes("initialProvider={form.venue_provider}"));
+console.log("PASS: saved POI initialization and confirmation identity");

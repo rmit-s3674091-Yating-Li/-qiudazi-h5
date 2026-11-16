@@ -156,6 +156,8 @@ export function VenueMapPicker({
   initialCity,
   initialVenueName,
   initialAddress,
+  initialPlaceId,
+  initialProvider,
   language,
   onClose,
   onConfirm,
@@ -166,6 +168,8 @@ export function VenueMapPicker({
   initialCity?: string | null;
   initialVenueName?: string | null;
   initialAddress?: string | null;
+  initialPlaceId?: string | null;
+  initialProvider?: string | null;
   language: string;
   onClose: () => void;
   onConfirmManual: (name: string, address: string) => void;
@@ -185,7 +189,21 @@ export function VenueMapPicker({
         ? { lat: initialLatitude, lng: initialLongitude }
         : null,
     ),
-    [place, setPlace] = useState<PickedPlace | null>(null),
+    [place, setPlace] = useState<PickedPlace | null>(
+      initialLatitude != null &&
+        initialLongitude != null &&
+        initialPlaceId &&
+        initialProvider &&
+        initialProvider !== "manual_pin" &&
+        initialVenueName?.trim()
+        ? {
+            name: initialVenueName.trim(),
+            address: (initialAddress || "").trim(),
+            provider: initialProvider,
+            placeId: initialPlaceId,
+          }
+        : null,
+    ),
     [manualName, setManualName] = useState(initialVenueName || ""),
     [manualAddress, setManualAddress] = useState(initialAddress || ""),
     [addressNeedsConfirmation, setAddressNeedsConfirmation] = useState(false),
