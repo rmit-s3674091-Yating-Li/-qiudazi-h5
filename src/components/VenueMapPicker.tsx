@@ -3,7 +3,6 @@ import { browserMapProvider, type VenuePlace } from "../utils/mapProvider";
 import { createConfiguredBaiduMapProvider } from "../utils/baiduMapProvider";
 import { collectVenueSearch } from "../domain/VenueSearchResolution";
 import {
-  isWithinVenueCityBounds,
   resolveVenueCityBounds,
   type VenueCityBounds,
 } from "../domain/VenueCitySearch";
@@ -292,15 +291,9 @@ export function VenueMapPicker({
     try {
       // City-boundary lookup is optional: it must not prevent a direct POI search.
       // Without verified bounds, results are unbounded and require user verification.
-      let bounds: VenueCityBounds | null = null;
-      let cityBoundsUnavailable = false;
-      if (!useBaiduSearch) {
-        try {
-          bounds = await englishCityBounds();
-        } catch {
-          cityBoundsUnavailable = true;
-        }
-      }
+      // Direct POI search must not wait for a city-boundary lookup.
+      // City membership is unverified until the user checks the suggestion.
+      const cityBoundsUnavailable = !useBaiduSearch && !!initialCity?.trim();
       if (seq !== searchSeq.current) return;
       let partialUpstream = false;
       const baidu = !useBaiduSearch
@@ -329,15 +322,7 @@ export function VenueMapPicker({
               ? browserMapProvider
                   .searchPlaces(variant, {
                     language: /[㐀-鿿]/u.test(term) ? "zh-CN" : "en",
-                    ...(bounds ? { viewbox: bounds, bounded: true } : {}),
                   })
-                  .then((items) =>
-                    bounds
-                      ? items.filter((item) =>
-                          isWithinVenueCityBounds(item, bounds),
-                        )
-                      : items,
-                  )
               : baidu!.searchPlaces(variant),
           () => seq === searchSeq.current,
           (groups) =>
@@ -401,24 +386,13 @@ export function VenueMapPicker({
     lookupTimer.current = window.setTimeout(() => {
       void (async () => {
         let found: VenuePlace | null = null;
-        if (!en) {
-          try {
-            found = await createConfiguredBaiduMapProvider(
-              (initialCity || "").trim() || "全国",
-            ).reverseGeocode(
-              { latitude: next.lat, longitude: next.lng },
-              language,
-            );
-          } catch {}
-        }
-        if (!found) {
-          try {
-            found = await browserMapProvider.reverseGeocode(
-              { latitude: next.lat, longitude: next.lng },
-              language,
-            );
-          } catch {}
-        }
+        try {
+          // OSM reverse lookup is keyless; never block on an invalid Baidu AK.
+          found = await browserMapProvider.reverseGeocode(
+            { latitude: next.lat, longitude: next.lng },
+            language,
+          );
+        } catch {}
         if (seq !== lookupSeq.current) return;
         setReverseAddressSuggestion(found?.address || "");
       })().finally(() => {
