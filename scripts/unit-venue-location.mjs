@@ -324,7 +324,9 @@ try {
       /collectVenueSearch<VenuePlace>\(/,
       /createConfiguredBaiduMapProvider/,
       /resolveVenueCityBounds/,
-      /isWithinVenueCityBounds/,
+      /constseq=\+\+searchSeq\.current/,
+      /if\(seq!==searchSeq\.current\)return/,
+      /if\(cancelled\)return/,
       /searchSeq\.current/,
       /setSearchCompleted/,
       /setResults\(found\)/,
@@ -359,8 +361,18 @@ try {
   );
   assert.match(
     sourceContractText(pickerSource),
-    /bounds\?items\.filter\(item=>isWithinVenueCityBounds\(item,bounds\)\):items/,
-    "English candidates must be city-bounded when a city is selected",
+    /constcityBoundsUnavailable=!useBaiduSearch&&!!initialCity\?\.trim\(\)/,
+    "direct POI results must be identified as city-unverified when a city is selected",
+  );
+  assert.match(
+    sourceContractText(pickerSource),
+    /awaitcollectVenueSearch<VenuePlace>\(variants,/,
+    "direct POI search must start without awaiting a city-boundary lookup",
+  );
+  assert.match(
+    sourceContractText(pickerSource),
+    /rankPlaces\(mergePlaces\(groups\),term\)\.slice\(0,12\)/,
+    "direct POI candidates must remain available without city-boundary filtering",
   );
   assert.match(
     sourceContractText(pickerSource),
