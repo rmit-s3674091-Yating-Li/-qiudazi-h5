@@ -6,3 +6,5 @@ expect(query.includes('window.setInterval(()=>{if(!document.hidden)void refresh(
 expect(!query.includes('window.setInterval(()=>{if(!document.hidden)void refresh(false).catch(()=>{});},interval)'),"Polling timer must not be skipped by stale-cache gating");
 expect(aud.includes("state: 'detached', timeout: 15000"),"AUD-015 must allow one full 10s polling cycle plus network/render margin");
 console.log("Explicit polling refresh contract passed");
+
+await import("./unit-v8-participant-query-replace-race.mjs");

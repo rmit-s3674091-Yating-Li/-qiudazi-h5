@@ -243,10 +243,34 @@ p {
   flex-direction: column;
   color: #92968b;
   font-size: 10px;
-  min-width: 65px;
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
 }
 .bottom-nav .active {
   color: #697650;
+}
+.bottom-nav a span {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.bottom-nav a.active span {
+  font-size: 11px;
+  font-weight: 800;
+}
+.bottom-nav a svg {
+  flex: none;
+  transition: transform 160ms ease;
+}
+.bottom-nav a.active svg {
+  transform: scale(1.12);
+  stroke-width: 2.5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav a svg { transition: none; }
 }
 .brand {
   display: inline-flex;

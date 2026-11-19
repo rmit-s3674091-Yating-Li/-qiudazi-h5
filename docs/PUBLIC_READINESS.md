@@ -45,7 +45,7 @@ The final application authorization boundary remains Auth/RLS/RPC ACL/Storage/Ed
 
 Current-head workflow inventory has been re-read from the repository tree. Ordinary PR development workflows (`H5 Build Check`, `Domain Unit Tests`, `Integration Contract Tests`) use read-only repository permissions and do not use `pull_request_target`. Candidate/exploratory/AUD-015 browser workflows request `id-token: write` plus read permissions, but they are triggered only from `release-candidate`, manual dispatch, and (for Candidate Browser) Vercel `repository_dispatch`; they are not pull-request-triggered and explicitly checkout `release-candidate`. This keeps untrusted fork PR code out of the OIDC path under the current workflow definitions.
 
-The legacy `Restore readable source` workflow has `contents: write`, but it is branch-scoped to `chore/restore-readable-source` and explicitly checks out/pushes that branch. It is part of the linked legacy restore/package path and is therefore an intentional publication-scope item to review, not a reason to delete bundle assets piecemeal.
+The legacy `Restore readable source` workflow (branch-scoped `contents: write`) was retired on 2026-11-10 together with the rest of the restore/package path; see "Legacy restore/package assets" below.
 
 No unsafe `pull_request_target` checkout path was found in the current workflow inventory. After Public conversion, re-check the effective fork/PR permission model, Actions behavior, ruleset/branch-protection availability, Vercel GitHub App authorization, and whether legacy branch write workflows remain intentionally enabled. A capability that was unavailable while the repository was private/free must not be assumed to remain unavailable after Public conversion.
 
@@ -66,7 +66,7 @@ These hardening items must be classified by actual security effect. The deferred
 
 ## Legacy restore/package assets
 
-`bundle/chunk*.txt`, `source.bundle.b64`, `scripts/restore-source.mjs`, the packaging script, and the restore workflow are a linked legacy restore/package path. They must **not** be deleted piecemeal merely because they look old. First prove that the restore/package path and its release/audit trace value have been intentionally retired; only then remove the linked assets as one controlled cleanup slice.
+Retired on 2026-11-10 as one controlled cleanup slice, with Owner approval. Evidence: the trigger branch `chore/restore-readable-source` no longer exists on the remote; the packed bundle was last written on 2026-08-29 and none of its 22 files matched the current tree (21 differed, 1 no longer existed), so it carried no restore or audit value beyond Git history. Removed together: `bundle/chunk00..08.txt`, `source.bundle.b64`, `scripts/restore-source.mjs`, `scripts/pack-source.mjs`, `.github/workflows/restore-readable-source.yml`, and the root `restore` / `pack` npm scripts. Git history keeps every removed file.
 
 The same conservative rule applies to specialist audit workflows/scripts and executed migrations: historical appearance is not deletion evidence when a live workflow, packaging path, migration replay, or audit trace still references the asset.
 

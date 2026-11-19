@@ -1,0 +1,7 @@
+{
+  "miniprogramRoot": "dist/",
+  "projectname": "qiudazi-mini-poc-mock-only",
+  "description": "Offline mock; no real login or production access",
+  "appid": "touristappid",
+  "setting": { "urlCheck": true, "es6": true, "enhance": true }
+}

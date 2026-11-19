@@ -4,29 +4,34 @@ import { explainError } from "../repositories/supabase";
 type CacheEntry={data:unknown;updatedAt:number};
 const cache=new Map<string,CacheEntry>();
 const inFlight=new Map<string,Promise<unknown>>();
+// A cleared account cache must not be repopulated by an earlier async request.
+let cacheGeneration=0;
 const DEFAULT_STALE_MS=30_000;
 
 export function invalidateQuery(key:string){cache.delete(key);}
 export function invalidateQueryPrefix(prefix:string){for(const key of cache.keys())if(key.startsWith(prefix))cache.delete(key);}
-export function clearQueryCache(){cache.clear();inFlight.clear();}
+export function clearQueryCache(){cacheGeneration++;cache.clear();inFlight.clear();}
 
 export function useQuery<T>(key:string,load:()=>Promise<T>,interval=0){
   const ref=useRef(load);ref.current=load;
   const cached=cache.get(key);
   const[data,setData]=useState<T|null>(()=>(cached?.data as T|undefined)??null),[error,setError]=useState(""),[loading,setLoading]=useState(!cached);
   const requestId=useRef(0);
-  const replace=useCallback((next:T)=>{requestId.current++;cache.set(key,{data:next,updatedAt:Date.now()});setData(next);setError("");setLoading(false);return next;},[key]);
+  const replace=useCallback((next:T)=>{requestId.current++;inFlight.delete(key);cache.set(key,{data:next,updatedAt:Date.now()});setData(next);setError("");setLoading(false);return next;},[key]);
   const refresh=useCallback(async(force=true)=>{
-    const id=++requestId.current;const existing=cache.get(key);const staleMs=interval||DEFAULT_STALE_MS;
+    const id=++requestId.current;const generation=cacheGeneration;const existing=cache.get(key);const staleMs=interval||DEFAULT_STALE_MS;
     if(!force&&existing&&Date.now()-existing.updatedAt<staleMs){setData(existing.data as T);setLoading(false);return existing.data as T;}
     if(!existing)setLoading(true);
+    let pending:Promise<T>|undefined;
     try{
-      let pending=inFlight.get(key) as Promise<T>|undefined;
+      pending=inFlight.get(key) as Promise<T>|undefined;
       if(!pending){pending=ref.current();inFlight.set(key,pending);}
-      const result=await pending;cache.set(key,{data:result,updatedAt:Date.now()});
-      if(id===requestId.current){setData(result);setError("");}return result;
-    }catch(e){if(id===requestId.current){setError(data===null?explainError(e):"");}throw e;}
-    finally{inFlight.delete(key);if(id===requestId.current)setLoading(false);}
+      const result=await pending;
+      if(generation!==cacheGeneration)return result; // Ignore a prior account’s response after cache reset.
+      if(id===requestId.current){cache.set(key,{data:result,updatedAt:Date.now()});setData(result);setError("");}
+      return id===requestId.current?result:(cache.get(key)?.data as T|undefined)??result;
+    }catch(e){if(generation===cacheGeneration&&id===requestId.current){setError(data===null?explainError(e):"");}throw e;}
+    finally{if(inFlight.get(key)===pending)inFlight.delete(key);if(generation===cacheGeneration&&id===requestId.current)setLoading(false);}
   },[key,interval]);
   useEffect(()=>{
     const existing=cache.get(key);if(existing){setData(existing.data as T);setLoading(false);}void refresh(false).catch(()=>{});

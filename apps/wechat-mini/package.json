@@ -1,0 +1,39 @@
+{
+  "name": "qiudazi-wechat-mini-poc",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "sync:domain": "node scripts/sync-domain.mjs",
+    "test:offline": "npm run sync:domain && node --experimental-strip-types --test tests/*.test.mjs",
+    "lint:boundary": "npm run sync:domain && node scripts/check-boundaries.mjs",
+    "typecheck": "npm run sync:domain && tsc --noEmit",
+    "format:check": "prettier --check config src tests scripts babel.config.cjs package.json tsconfig.json project.config.json",
+    "build:weapp": "npm run sync:domain && taro build --type weapp",
+    "check:contract": "node --test tests/build-contract.test.mjs",
+    "verify:g1": "node scripts/g1-gate.mjs",
+    "preflight:g1": "node scripts/g1-gate.mjs --preflight-only"
+  },
+  "dependencies": {
+    "@tarojs/components": "4.2.1",
+    "@tarojs/react": "4.2.1",
+    "@tarojs/runtime": "4.2.1",
+    "@tarojs/taro": "4.2.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@babel/preset-react": "7.24.7",
+    "@tarojs/cli": "4.2.1",
+    "@tarojs/plugin-framework-react": "4.2.1",
+    "@tarojs/plugin-platform-weapp": "4.2.1",
+    "@tarojs/webpack5-runner": "4.2.1",
+    "@types/react": "18.3.31",
+    "babel-preset-taro": "4.2.1",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "type": "module"
+}
